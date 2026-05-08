@@ -50,9 +50,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ChrisTimperley/coursemd"
-Repository = "https://github.com/ChrisTimperley/coursemd"
-Documentation = "https://github.com/ChrisTimperley/coursemd#readme"
+Homepage = "https://github.com/ChrisTimperley/course.md"
+Repository = "https://github.com/ChrisTimperley/course.md"
+Documentation = "https://github.com/ChrisTimperley/course.md#readme"
 
 [build-system]
 requires = ["hatchling"]
