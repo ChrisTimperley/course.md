@@ -1,0 +1,30 @@
+name: Publish Devcontainer Feature
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "devcontainer-features/src/**"
+      - ".github/workflows/publish-devcontainer-feature.yml"
+
+permissions:
+  packages: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  publish:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish features
+        uses: devcontainers/action@v1
+        with:
+          publish-features: "true"
+          base-path-to-features: "./devcontainer-features/src"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -88,6 +88,18 @@ Run tests from the package directory:
 pytest
 ```
 
+## Dev Container Feature
+
+This repository also hosts the reusable `course.md` devcontainer feature under `devcontainer-features/`.
+It is intended for downstream course repositories that want the shared authoring toolchain without maintaining a custom Dockerfile.
+
+To test the feature locally from this repository:
+
+```bash
+cd devcontainer-features
+devcontainer features test -f course-md --base-image mcr.microsoft.com/devcontainers/base:debian .
+```
+
 ## Repository Contract
 
 A repository using `course.md` is configured with a root-level `.coursemd.yml`.

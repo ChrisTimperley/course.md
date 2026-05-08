@@ -1,0 +1,14 @@
+{
+  "ocr_and_latex_without_slides": {
+    "image": "mcr.microsoft.com/devcontainers/base:debian",
+    "remoteUser": "vscode",
+    "features": {
+      "course-md": {
+        "slides": false,
+        "ocr": true,
+        "latex": true,
+        "linters": false
+      }
+    }
+  }
+}

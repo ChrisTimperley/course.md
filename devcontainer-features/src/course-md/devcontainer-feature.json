@@ -1,0 +1,39 @@
+{
+  "id": "course-md",
+  "version": "0.1.0",
+  "name": "course.md Authoring Toolchain",
+  "description": "Installs the shared authoring toolchain used by course.md-based course repositories.",
+  "documentationURL": "https://github.com/ChrisTimperley/coursemd/tree/main/devcontainer-features/src/course-md",
+  "licenseURL": "https://opensource.org/licenses/MIT",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "v0.1.0",
+      "description": "Git tag or ref of course.md to install into the container."
+    },
+    "slides": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install browser and sandbox dependencies needed for slide preview and export."
+    },
+    "ocr": {
+      "type": "boolean",
+      "default": false,
+      "description": "Install OCR tooling used by some course authoring workflows."
+    },
+    "latex": {
+      "type": "boolean",
+      "default": false,
+      "description": "Install a minimal LaTeX toolchain for PDF-oriented workflows."
+    },
+    "linters": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install shared Node.js-based linters and formatting tools such as markdownlint-cli and Prettier."
+    }
+  },
+  "installsAfter": [
+    "ghcr.io/rocker-org/devcontainer-features/quarto-cli",
+    "ghcr.io/devcontainers/features/github-cli"
+  ]
+}
