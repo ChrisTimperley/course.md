@@ -1,6 +1,6 @@
 {
   "id": "course-md",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "name": "course.md Authoring Toolchain",
   "description": "Installs the shared authoring toolchain used by course.md-based course repositories.",
   "documentationURL": "https://github.com/ChrisTimperley/course.md/tree/main/devcontainer-features/src/course-md",
