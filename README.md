@@ -48,7 +48,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-"course.md" = { git = "https://github.com/ChrisTimperley/coursemd.git", tag = "v0.1.0" }
+"course.md" = { git = "https://github.com/ChrisTimperley/course.md.git", tag = "v0.1.0" }
 ```
 
 Canvas-enabled course repositories should add the Canvas extra:
@@ -71,8 +71,8 @@ For local development across two sibling repositories:
 Equivalent `pip` installs:
 
 ```bash
-pip install "course.md[mkdocs] @ git+https://github.com/ChrisTimperley/coursemd.git@v0.1.0"
-pip install "course.md[mkdocs,canvas] @ git+https://github.com/ChrisTimperley/coursemd.git@v0.1.0"
+pip install "course.md[mkdocs] @ git+https://github.com/ChrisTimperley/course.md.git@v0.1.0"
+pip install "course.md[mkdocs,canvas] @ git+https://github.com/ChrisTimperley/course.md.git@v0.1.0"
 ```
 
 Contributor install:

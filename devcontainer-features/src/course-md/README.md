@@ -11,7 +11,7 @@ It is intended to compose with upstream Features for Quarto and GitHub CLI.
 {
   "image": "mcr.microsoft.com/devcontainers/base:debian",
   "features": {
-    "ghcr.io/christimperley/coursemd/course-md:1": {
+    "ghcr.io/christimperley/course.md/course-md:1": {
       "version": "v0.1.0",
       "slides": true,
       "ocr": true,

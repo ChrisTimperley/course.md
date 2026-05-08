@@ -91,7 +91,7 @@ ensure_slide_packages() {
 
 ensure_python_tools() {
     python3 -m pip install --break-system-packages \
-        "course.md[all] @ git+https://github.com/ChrisTimperley/coursemd.git@${COURSEMD_REF}" \
+        "course.md[all] @ git+https://github.com/ChrisTimperley/course.md.git@${COURSEMD_REF}" \
         "mkdocs-material>=${MKDOCS_MATERIAL_VERSION}" \
         "pre-commit==${PRE_COMMIT_VERSION}" \
         "markitdown[all]==${MARKITDOWN_VERSION}"
