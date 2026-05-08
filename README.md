@@ -238,15 +238,6 @@ Recognized environment variables include:
 Repository-local environment files are loaded from `paths.env_file` when
 configured. Secrets should not be committed.
 
-## Roadmap
-
-The package has already moved past the original "MkDocs helpers plus scripts"
-shape. The remaining roadmap is about tightening the shared repository model,
-making adapter boundaries explicit, and preparing the package to live cleanly as
-a reusable submodule or standalone dependency.
-
-See [ROADMAP.md](ROADMAP.md) for the current status and next priorities.
-
 ## License
 
 MIT
