@@ -9,13 +9,6 @@ from typing import Annotated
 import click
 import typer
 
-from coursemd.canvas.frontmatter import (
-    update_assignment_frontmatter_with_ids,
-    update_quiz_frontmatter_with_canvas_id,
-)
-from coursemd.canvas.quizzes import total_quiz_points
-from coursemd.canvas.resources import AssignmentCanvasClient, QuizCanvasClient
-from coursemd.canvas.sync import CanvasSyncEvent, sync_assignments_to_canvas, sync_quizzes_to_canvas
 from coursemd.cli.shared import (
     default_assignment_files,
     default_quiz_files,
@@ -30,6 +23,17 @@ from coursemd.core.loaders.assignments import load_assignment_specs
 from coursemd.core.loaders.quizzes import load_quiz_specs
 from coursemd.core.models.assignment import AssignmentSpec
 from coursemd.core.models.quiz import QuizSpec
+from coursemd.integrations.canvas.frontmatter import (
+    update_assignment_frontmatter_with_ids,
+    update_quiz_frontmatter_with_canvas_id,
+)
+from coursemd.integrations.canvas.quizzes import total_quiz_points
+from coursemd.integrations.canvas.resources import AssignmentCanvasClient, QuizCanvasClient
+from coursemd.integrations.canvas.sync import (
+    CanvasSyncEvent,
+    sync_assignments_to_canvas,
+    sync_quizzes_to_canvas,
+)
 
 
 def _print_assignment_plan(specs: list[AssignmentSpec]) -> None:

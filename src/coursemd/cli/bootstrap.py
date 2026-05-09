@@ -75,12 +75,12 @@ def _register_optional_group_commands(
 
 _load_register_function("coursemd.cli.validate", "register_validate_command")(app)
 _load_register_function("coursemd.cli.init", "register_init_command")(app)
-_load_register_function("coursemd.slides.cli", "register_slides_commands")(slides_app)
-_load_register_function("coursemd.github.cli", "register_github_commands")(github_app)
+_load_register_function("coursemd.integrations.slides.cli", "register_slides_commands")(slides_app)
+_load_register_function("coursemd.integrations.github.cli", "register_github_commands")(github_app)
 
 _register_optional_group_commands(
     site_app,
-    loaders=[("coursemd.mkdocs.cli", "register_site_commands")],
+    loaders=[("coursemd.integrations.mkdocs.cli", "register_site_commands")],
     fallback_commands=[
         "coursemd site build",
         "coursemd site build-preview",
@@ -93,8 +93,8 @@ _register_optional_group_commands(
 _register_optional_group_commands(
     canvas_app,
     loaders=[
-        ("coursemd.canvas.cli", "register_sync_canvas_assignments_command"),
-        ("coursemd.canvas.cli", "register_sync_canvas_quizzes_command"),
+        ("coursemd.integrations.canvas.cli", "register_sync_canvas_assignments_command"),
+        ("coursemd.integrations.canvas.cli", "register_sync_canvas_quizzes_command"),
     ],
     fallback_commands=[
         "coursemd canvas assignments",

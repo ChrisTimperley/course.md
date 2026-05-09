@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, cast
 
-from coursemd.canvas.client import CanvasApiClient
+from coursemd.integrations.canvas.client import CanvasApiClient
 
 
 def _published_item_is_released(data: dict[str, Any]) -> bool:

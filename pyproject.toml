@@ -73,7 +73,7 @@ packages = ["src/coursemd"]
 coursemd = "coursemd.cli:main"
 
 [project.entry-points."mkdocs.plugins"]
-coursemd = "coursemd.mkdocs.plugin:CoursemdPlugin"
+coursemd = "coursemd.integrations.mkdocs.plugin:CoursemdPlugin"
 
 [tool.ruff]
 line-length = 100

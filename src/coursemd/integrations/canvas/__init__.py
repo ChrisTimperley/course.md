@@ -1,21 +1,21 @@
 """Canvas adapter for course repositories."""
 
-from coursemd.canvas.assignments import form_for_assignment
-from coursemd.canvas.client import DEFAULT_CANVAS_BASE_URL, CanvasApiClient
-from coursemd.canvas.frontmatter import (
+from coursemd.integrations.canvas.assignments import form_for_assignment
+from coursemd.integrations.canvas.client import DEFAULT_CANVAS_BASE_URL, CanvasApiClient
+from coursemd.integrations.canvas.frontmatter import (
     update_assignment_frontmatter_with_ids,
     update_quiz_frontmatter_with_canvas_id,
 )
-from coursemd.canvas.quizzes import (
+from coursemd.integrations.canvas.quizzes import (
     build_canvas_answers,
     build_quiz_description,
     form_for_quiz,
     question_payload_for_canvas,
     total_quiz_points,
 )
-from coursemd.canvas.resources import AssignmentCanvasClient, QuizCanvasClient
-from coursemd.canvas.rubrics import form_for_rubric
-from coursemd.canvas.sync import (
+from coursemd.integrations.canvas.resources import AssignmentCanvasClient, QuizCanvasClient
+from coursemd.integrations.canvas.rubrics import form_for_rubric
+from coursemd.integrations.canvas.sync import (
     CanvasSyncEvent,
     CanvasSyncReporter,
     resolve_group_category_id,

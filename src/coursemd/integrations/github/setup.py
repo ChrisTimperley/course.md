@@ -12,8 +12,8 @@ from coursemd.core.constants import (
     DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG,
     DEFAULT_GITHUB_RULESET_NAME,
 )
-from coursemd.github.client import GhCliGitHubClient, GitHubClient, GitHubClientError
-from coursemd.github.rulesets import build_main_branch_ruleset_payload
+from coursemd.integrations.github.client import GhCliGitHubClient, GitHubClient, GitHubClientError
+from coursemd.integrations.github.rulesets import build_main_branch_ruleset_payload
 
 
 class GitHubSetupError(RuntimeError):
@@ -52,7 +52,7 @@ def _run_command(
     *,
     input_text: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    from coursemd.github.client import run_command
+    from coursemd.integrations.github.client import run_command
 
     return run_command(args, input_text=input_text)
 
