@@ -15,7 +15,7 @@ import coursemd.integrations.github.setup
 import coursemd.integrations.mkdocs.cli
 import coursemd.integrations.slides.cli
 from coursemd import cli
-from coursemd.core.config import load_coursemd_config
+from coursemd.core.config import CourseConfig
 from coursemd.core.loaders.dates import normalize_release_date
 from coursemd.integrations.canvas.config import CanvasConfig
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
@@ -492,7 +492,7 @@ def test_config_defaults_site_backend_to_mkdocs(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    config = load_coursemd_config(start_dir=tmp_path / "website")
+    config = CourseConfig.load(start_dir=tmp_path / "website")
 
     assert MkdocsIntegrationConfig.require(config).backend == "mkdocs"
 
@@ -500,7 +500,7 @@ def test_config_defaults_site_backend_to_mkdocs(tmp_path: Path) -> None:
 def test_config_reads_explicit_site_backend(tmp_path: Path) -> None:
     _build_repo_fixture(tmp_path)
 
-    config = load_coursemd_config(start_dir=tmp_path / "website")
+    config = CourseConfig.load(start_dir=tmp_path / "website")
 
     assert MkdocsIntegrationConfig.require(config).backend == "mkdocs"
 
@@ -513,7 +513,7 @@ def test_config_reads_course_timezone(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    config = load_coursemd_config(start_dir=tmp_path / "website")
+    config = CourseConfig.load(start_dir=tmp_path / "website")
 
     assert config.timezone == "America/Los_Angeles"
 
@@ -571,7 +571,7 @@ paths:
     )
     monkeypatch.chdir(tmp_path)
 
-    config = load_coursemd_config(start_dir=tmp_path)
+    config = CourseConfig.load(start_dir=tmp_path)
     result = runner.invoke(cli.app, ["validate"])
 
     assert CanvasConfig.get(config) is None
@@ -641,7 +641,7 @@ def test_config_reads_site_url_paths(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    config = load_coursemd_config(start_dir=tmp_path / "website")
+    config = CourseConfig.load(start_dir=tmp_path / "website")
 
     assert MkdocsIntegrationConfig.require(config).assignments_url_path == "coursework"
 

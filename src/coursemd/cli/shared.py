@@ -12,7 +12,7 @@ from typing import Any
 import click
 import typer
 
-from coursemd.core.config import CoursemdConfig, load_coursemd_config
+from coursemd.core.config import CourseConfig
 from coursemd.core.loaders.repository import load_repository_env
 from coursemd.core.utils import set_course_timezone
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
@@ -21,7 +21,7 @@ from coursemd.integrations.slides.config import QuartoConfig
 
 @dataclass
 class AppState:
-    config: CoursemdConfig
+    config: CourseConfig
 
     @property
     def repo_root(self) -> Path:
@@ -29,7 +29,7 @@ class AppState:
 
 
 def load_app_state(start_dir: Path | None = None) -> AppState:
-    config = load_coursemd_config(start_dir=start_dir)
+    config = CourseConfig.load(start_dir=start_dir)
     load_repository_env(config.repo_root, filename=config.paths.env_file, override=False)
     set_course_timezone(config.timezone)
     return AppState(config=config)

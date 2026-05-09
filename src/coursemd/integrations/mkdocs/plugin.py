@@ -16,7 +16,7 @@ from mkdocs.plugins import BasePlugin
 from mkdocs.structure.files import File, Files
 from mkdocs.structure.nav import Navigation
 
-from coursemd.core.config import CoursemdConfig, load_coursemd_config
+from coursemd.core.config import CourseConfig
 from coursemd.core.loaders.dates import parse_date
 from coursemd.core.loaders.repository import load_course_repository
 from coursemd.core.macros import define_env
@@ -49,7 +49,7 @@ class CoursemdPlugin(BasePlugin):
         ("generate_nav", config_options.Type(bool, default=True)),
     )
 
-    course_config: CoursemdConfig
+    course_config: CourseConfig
     mkdocs_integration: MkdocsIntegrationConfig
     course_repository: CourseRepository
     course_data: dict[str, Any]
@@ -65,7 +65,7 @@ class CoursemdPlugin(BasePlugin):
 
     def on_config(self, config: MkDocsConfig) -> MkDocsConfig:
         config_path = self._resolve_coursemd_config_path(config)
-        self.course_config = load_coursemd_config(start_dir=config_path.parent)
+        self.course_config = CourseConfig.load(start_dir=config_path.parent)
         self.mkdocs_integration = MkdocsIntegrationConfig.require(self.course_config)
         set_course_timezone(self.course_config.timezone)
         self.course_repository = self._load_course_repository()

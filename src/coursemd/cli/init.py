@@ -8,14 +8,8 @@ from typing import Annotated
 import click
 import typer
 
-from coursemd.core.config import (
-    CONFIG_FILENAME,
-    DEFAULT_INIT_ASSIGNMENTS_DIR,
-    DEFAULT_INIT_DATA_DIR,
-    DEFAULT_INIT_QUIZZES_DIR,
-    DEFAULT_INIT_TIMEZONE,
-    build_default_config_text,
-)
+from coursemd.core.config import CourseConfig
+from coursemd.core.config_helpers import CONFIG_FILENAME
 from coursemd.integrations.canvas.config import (
     DEFAULT_CANVAS_BASE_URL,
     DEFAULT_INIT_CANVAS_COURSE_ID,
@@ -112,15 +106,15 @@ def register_init_command(app: typer.Typer) -> None:
         data_dir: Annotated[
             str,
             typer.Option("--data-dir", help="Relative path to the course data directory."),
-        ] = DEFAULT_INIT_DATA_DIR,
+        ] = CourseConfig.DEFAULT_DATA_DIR,
         assignments_dir: Annotated[
             str,
             typer.Option("--assignments-dir", help="Relative path to the assignments directory."),
-        ] = DEFAULT_INIT_ASSIGNMENTS_DIR,
+        ] = CourseConfig.DEFAULT_ASSIGNMENTS_DIR,
         quizzes_dir: Annotated[
             str,
             typer.Option("--quizzes-dir", help="Relative path to the quizzes directory."),
-        ] = DEFAULT_INIT_QUIZZES_DIR,
+        ] = CourseConfig.DEFAULT_QUIZZES_DIR,
         env_file: Annotated[
             str,
             typer.Option("--env-file", help="Repository-local env file to auto-load for secrets."),
@@ -131,7 +125,7 @@ def register_init_command(app: typer.Typer) -> None:
                 "--timezone",
                 help="IANA timezone for course dates, e.g. America/New_York.",
             ),
-        ] = DEFAULT_INIT_TIMEZONE,
+        ] = CourseConfig.DEFAULT_TIMEZONE,
         force: Annotated[
             bool,
             typer.Option(
@@ -149,7 +143,7 @@ def register_init_command(app: typer.Typer) -> None:
                 f"{config_path} already exists. Use --force to overwrite it."
             )
 
-        config_text = build_default_config_text(
+        config_text = CourseConfig.build_default_text(
             integrations=_default_integrations_config(
                 site_base_url=site_base_url,
                 site_project_dir=site_project_dir,

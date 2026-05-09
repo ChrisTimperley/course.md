@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Self, TypeVar
 import click
 
 if TYPE_CHECKING:
-    from coursemd.core.config import CoursemdConfig
+    from coursemd.core.config import CourseConfig
 
 TIntegrationConfig = TypeVar("TIntegrationConfig", bound="IntegrationConfig")
 
@@ -73,11 +73,11 @@ class IntegrationConfig(ABC):
         return tuple(_INTEGRATION_CONFIGS.values())
 
     @classmethod
-    def get(cls: type[TIntegrationConfig], config: CoursemdConfig) -> TIntegrationConfig | None:
+    def get(cls: type[TIntegrationConfig], config: CourseConfig) -> TIntegrationConfig | None:
         return config.get_integration(cls.metavar, cls)
 
     @classmethod
-    def require(cls: type[TIntegrationConfig], config: CoursemdConfig) -> TIntegrationConfig:
+    def require(cls: type[TIntegrationConfig], config: CourseConfig) -> TIntegrationConfig:
         integration_config = cls.get(config)
         if integration_config is None:
             raise click.ClickException(cls.missing_config_message())

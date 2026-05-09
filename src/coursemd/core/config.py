@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+__all__ = [
+    "CourseConfig",
+    "CoursePathsConfig",
+]
+
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, ClassVar, Self, TypeVar
 
 import click
 import yaml
@@ -20,16 +25,13 @@ from .integration_config import (
     IntegrationConfig,
     IntegrationConfigContext,
 )
-from .utils import DEFAULT_TIMEZONE
+from .utils import DEFAULT_TIMEZONE as COURSE_DEFAULT_TIMEZONE
 
-DEFAULT_INIT_DATA_DIR = "data"
-DEFAULT_INIT_ASSIGNMENTS_DIR = "assignments"
-DEFAULT_INIT_QUIZZES_DIR = "quizzes"
-DEFAULT_INIT_TIMEZONE = DEFAULT_TIMEZONE
+T = TypeVar("T", bound=IntegrationConfig)
 
 
 @dataclass(frozen=True)
-class CoursemdPathsConfig:
+class CoursePathsConfig:
     data_dir: Path
     assignments_dir: Path
     quizzes_dir: Path
@@ -37,12 +39,17 @@ class CoursemdPathsConfig:
 
 
 @dataclass(frozen=True)
-class CoursemdConfig:
+class CourseConfig:
+    DEFAULT_DATA_DIR: ClassVar[str] = "data"
+    DEFAULT_ASSIGNMENTS_DIR: ClassVar[str] = "assignments"
+    DEFAULT_QUIZZES_DIR: ClassVar[str] = "quizzes"
+    DEFAULT_TIMEZONE: ClassVar[str] = COURSE_DEFAULT_TIMEZONE
+
     config_path: Path
     repo_root: Path
     timezone: str
     integrations: dict[str, IntegrationConfig]
-    paths: CoursemdPathsConfig
+    paths: CoursePathsConfig
 
     def get_integration(self, name: str, config_type: type[T]) -> T | None:
         value = self.integrations.get(name)
@@ -54,149 +61,134 @@ class CoursemdConfig:
             )
         return value
 
-T = TypeVar("T", bound=IntegrationConfig)
+    @staticmethod
+    def _load_integrations(
+        integrations_map: dict[str, Any],
+        *,
+        repo_root: Path,
+    ) -> dict[str, IntegrationConfig]:
+        context = IntegrationConfigContext(repo_root=repo_root)
+        raw_integrations: dict[str, Any] = {}
 
-
-def _load_integrations(
-    integrations_map: dict[str, Any],
-    *,
-    repo_root: Path,
-) -> dict[str, IntegrationConfig]:
-    context = IntegrationConfigContext(repo_root=repo_root)
-    raw_integrations: dict[str, Any] = {}
-
-    for raw_name, raw_value in integrations_map.items():
-        if not raw_name.strip():
-            raise click.ClickException(
-                f"integrations keys must be non-empty strings in {CONFIG_FILENAME}."
-            )
-        config_type = IntegrationConfig.get_type(raw_name)
-        if config_type is None:
-            supported = ", ".join(
-                sorted(config_type.metavar for config_type in IntegrationConfig.iter_types())
-            )
-            raise click.ClickException(
-                f"Unknown integration {raw_name!r} in {CONFIG_FILENAME}. "
-                f"Supported integrations: {supported}."
-            )
-        if config_type.metavar in raw_integrations:
-            raise click.ClickException(
-                f"Integration {config_type.metavar!r} is configured more than once in "
-                f"{CONFIG_FILENAME}."
-            )
-        raw_integrations[config_type.metavar] = raw_value
-
-    integrations: dict[str, IntegrationConfig] = {}
-    for config_type in IntegrationConfig.iter_types():
-        raw_value = raw_integrations.get(config_type.metavar)
-        if raw_value is None:
-            if config_type.required:
+        for raw_name, raw_value in integrations_map.items():
+            if not raw_name.strip():
                 raise click.ClickException(
-                    f"integrations.{config_type.metavar} is required in {CONFIG_FILENAME}."
+                    f"integrations keys must be non-empty strings in {CONFIG_FILENAME}."
                 )
-            continue
-        integrations[config_type.metavar] = config_type.parse(raw_value, context=context)
+            config_type = IntegrationConfig.get_type(raw_name)
+            if config_type is None:
+                supported = ", ".join(
+                    sorted(config_type.metavar for config_type in IntegrationConfig.iter_types())
+                )
+                raise click.ClickException(
+                    f"Unknown integration {raw_name!r} in {CONFIG_FILENAME}. "
+                    f"Supported integrations: {supported}."
+                )
+            if config_type.metavar in raw_integrations:
+                raise click.ClickException(
+                    f"Integration {config_type.metavar!r} is configured more than once in "
+                    f"{CONFIG_FILENAME}."
+                )
+            raw_integrations[config_type.metavar] = raw_value
 
-    return integrations
+        integrations: dict[str, IntegrationConfig] = {}
+        for config_type in IntegrationConfig.iter_types():
+            raw_value = raw_integrations.get(config_type.metavar)
+            if raw_value is None:
+                if config_type.required:
+                    raise click.ClickException(
+                        f"integrations.{config_type.metavar} is required in {CONFIG_FILENAME}."
+                    )
+                continue
+            integrations[config_type.metavar] = config_type.parse(raw_value, context=context)
 
+        return integrations
 
-def discover_config_path(start_dir: Path | None = None) -> Path:
-    current_dir = (start_dir or Path.cwd()).resolve()
-    for directory in (current_dir, *current_dir.parents):
-        config_path = directory / CONFIG_FILENAME
-        if config_path.is_file():
-            return config_path
-    raise click.ClickException(
-        f"Could not find {CONFIG_FILENAME} in {current_dir} or any parent directory."
-    )
-
-
-def load_coursemd_config(start_dir: Path | None = None) -> CoursemdConfig:
-    load_builtin_integration_configs()
-    config_path = discover_config_path(start_dir=start_dir)
-    repo_root = config_path.parent
-
-    try:
-        with config_path.open("r", encoding="utf-8") as handle:
-            loaded_config = yaml.safe_load(handle)
-    except yaml.YAMLError as exc:
-        raise click.ClickException(f"{config_path}: invalid YAML: {exc}") from exc
-
-    raw_config: Any = {} if loaded_config is None else loaded_config
-
-    config_map = require_mapping(raw_config, label="Top-level config")
-    integrations_map = require_mapping(config_map.get("integrations"), label="integrations")
-    paths_map = require_mapping(config_map.get("paths"), label="paths")
-
-    env_file = paths_map.get("env_file", ".env")
-    if env_file is not None and (not isinstance(env_file, str) or not env_file.strip()):
+    @staticmethod
+    def discover_path(start_dir: Path | None = None) -> Path:
+        current_dir = (start_dir or Path.cwd()).resolve()
+        for directory in (current_dir, *current_dir.parents):
+            config_path = directory / CONFIG_FILENAME
+            if config_path.is_file():
+                return config_path
         raise click.ClickException(
-            f"paths.env_file must be a non-empty string in {CONFIG_FILENAME}."
+            f"Could not find {CONFIG_FILENAME} in {current_dir} or any parent directory."
         )
 
-    return CoursemdConfig(
-        config_path=config_path,
-        repo_root=repo_root,
-        timezone=require_timezone(
-            config_map.get("timezone", DEFAULT_INIT_TIMEZONE),
-            label="timezone",
-        ),
-        integrations=_load_integrations(integrations_map, repo_root=repo_root),
-        paths=CoursemdPathsConfig(
-            data_dir=resolve_relative_path(
-                repo_root,
-                paths_map.get("data_dir"),
-                label="paths.data_dir",
+    @classmethod
+    def load(cls, start_dir: Path | None = None) -> Self:
+        load_builtin_integration_configs()
+        config_path = cls.discover_path(start_dir=start_dir)
+        repo_root = config_path.parent
+
+        try:
+            with config_path.open("r", encoding="utf-8") as handle:
+                loaded_config = yaml.safe_load(handle)
+        except yaml.YAMLError as exc:
+            raise click.ClickException(f"{config_path}: invalid YAML: {exc}") from exc
+
+        raw_config: Any = {} if loaded_config is None else loaded_config
+
+        config_map = require_mapping(raw_config, label="Top-level config")
+        integrations_map = require_mapping(config_map.get("integrations"), label="integrations")
+        paths_map = require_mapping(config_map.get("paths"), label="paths")
+
+        env_file = paths_map.get("env_file", ".env")
+        if env_file is not None and (not isinstance(env_file, str) or not env_file.strip()):
+            raise click.ClickException(
+                f"paths.env_file must be a non-empty string in {CONFIG_FILENAME}."
+            )
+
+        return cls(
+            config_path=config_path,
+            repo_root=repo_root,
+            timezone=require_timezone(
+                config_map.get("timezone", cls.DEFAULT_TIMEZONE),
+                label="timezone",
             ),
-            assignments_dir=resolve_relative_path(
-                repo_root,
-                paths_map.get("assignments_dir"),
-                label="paths.assignments_dir",
+            integrations=cls._load_integrations(integrations_map, repo_root=repo_root),
+            paths=CoursePathsConfig(
+                data_dir=resolve_relative_path(
+                    repo_root,
+                    paths_map.get("data_dir"),
+                    label="paths.data_dir",
+                ),
+                assignments_dir=resolve_relative_path(
+                    repo_root,
+                    paths_map.get("assignments_dir"),
+                    label="paths.assignments_dir",
+                ),
+                quizzes_dir=resolve_relative_path(
+                    repo_root,
+                    paths_map.get("quizzes_dir"),
+                    label="paths.quizzes_dir",
+                ),
+                env_file=env_file.strip() if isinstance(env_file, str) else ".env",
             ),
-            quizzes_dir=resolve_relative_path(
-                repo_root,
-                paths_map.get("quizzes_dir"),
-                label="paths.quizzes_dir",
-            ),
-            env_file=env_file.strip() if isinstance(env_file, str) else ".env",
-        ),
-    )
+        )
 
+    @classmethod
+    def build_default_text(
+        cls,
+        *,
+        integrations: dict[str, Any],
+        data_dir: str | None = None,
+        assignments_dir: str | None = None,
+        quizzes_dir: str | None = None,
+        env_file: str = ".env",
+        timezone: str | None = None,
+    ) -> str:
+        resolved_timezone = require_timezone(timezone or cls.DEFAULT_TIMEZONE, label="timezone")
 
-def build_default_config_text(
-    *,
-    integrations: dict[str, Any],
-    data_dir: str = DEFAULT_INIT_DATA_DIR,
-    assignments_dir: str = DEFAULT_INIT_ASSIGNMENTS_DIR,
-    quizzes_dir: str = DEFAULT_INIT_QUIZZES_DIR,
-    env_file: str = ".env",
-    timezone: str = DEFAULT_INIT_TIMEZONE,
-) -> str:
-    timezone = require_timezone(timezone, label="timezone")
-
-    config: dict[str, Any] = {
-        "timezone": timezone,
-        "integrations": integrations,
-        "paths": {
-            "data_dir": data_dir,
-            "assignments_dir": assignments_dir,
-            "quizzes_dir": quizzes_dir,
-        },
-    }
-    if env_file != ".env":
-        config["paths"]["env_file"] = env_file
-    return yaml.safe_dump(config, sort_keys=False)
-
-
-__all__ = [
-    "CONFIG_FILENAME",
-    "CoursemdConfig",
-    "CoursemdPathsConfig",
-    "DEFAULT_INIT_ASSIGNMENTS_DIR",
-    "DEFAULT_INIT_DATA_DIR",
-    "DEFAULT_INIT_QUIZZES_DIR",
-    "DEFAULT_INIT_TIMEZONE",
-    "build_default_config_text",
-    "discover_config_path",
-    "load_coursemd_config",
-]
+        config: dict[str, Any] = {
+            "timezone": resolved_timezone,
+            "integrations": integrations,
+            "paths": {
+                "data_dir": data_dir or cls.DEFAULT_DATA_DIR,
+                "assignments_dir": assignments_dir or cls.DEFAULT_ASSIGNMENTS_DIR,
+                "quizzes_dir": quizzes_dir or cls.DEFAULT_QUIZZES_DIR,
+            },
+        }
+        if env_file != ".env":
+            config["paths"]["env_file"] = env_file
+        return yaml.safe_dump(config, sort_keys=False)
