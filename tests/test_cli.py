@@ -630,33 +630,6 @@ def test_repository_load_allows_non_canvas_content(tmp_path: Path, monkeypatch) 
     assert "Validation passed." in result.stdout
 
 
-def test_config_rejects_legacy_top_level_integration_keys(tmp_path: Path, monkeypatch) -> None:
-        _write_file(
-                tmp_path / ".coursemd.yml",
-                """
-                site:
-                    backend: mkdocs
-                    base_url: https://example.edu/course
-                    project_dir: website
-                canvas:
-                    base_url: https://canvas.example.edu
-                    course_id: 12345
-                paths:
-                    data_dir: data
-                    assignments_dir: assignments
-                    quizzes_dir: quizzes
-                """,
-        )
-        monkeypatch.chdir(tmp_path)
-
-        result = runner.invoke(cli.app, ["validate"])
-
-        assert result.exit_code == 1
-        assert "Moved config keys detected in .coursemd.yml" in result.output
-        assert "site -> integrations.mkdocs" in result.output
-        assert "canvas -> integrations.canvas" in result.output
-
-
 def test_config_reads_site_url_paths(tmp_path: Path) -> None:
     _build_repo_fixture(tmp_path)
     config_path = tmp_path / ".coursemd.yml"
@@ -938,63 +911,6 @@ def test_slides_preview_uses_configured_directory(tmp_path: Path, monkeypatch) -
             str((tmp_path / "build" / "slides" / "preview").resolve()),
         ],
         "cwd": str(tmp_path / "lecture-slides"),
-        "check": False,
-    }
-
-
-def test_slides_preview_accepts_legacy_project_dir_key(tmp_path: Path, monkeypatch) -> None:
-    _build_repo_fixture(tmp_path)
-    _write_file(
-        tmp_path / ".coursemd.yml",
-        """
-                integrations:
-                    mkdocs:
-                        backend: mkdocs
-                        base_url: https://example.edu/course
-                        project_dir: website
-                    quarto:
-                        project_dir: legacy-slides
-                    canvas:
-                        base_url: https://canvas.example.edu
-                        course_id: 12345
-                paths:
-                    data_dir: data
-                    assignments_dir: assignments
-                    quizzes_dir: quizzes
-        """,
-    )
-    _write_file(
-        tmp_path / "legacy-slides" / "_quarto.yml",
-        """
-        project:
-          type: website
-        """,
-    )
-    recorded: dict[str, object] = {}
-
-    def fake_run(args: list[str], *, cwd: Path, check: bool) -> subprocess.CompletedProcess[str]:
-        recorded["run"] = {
-            "args": args,
-            "cwd": str(cwd),
-            "check": check,
-        }
-        return subprocess.CompletedProcess(args=args, returncode=0)
-
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(coursemd.integrations.slides.cli.subprocess, "run", fake_run)
-
-    result = runner.invoke(cli.app, ["slides", "build"])
-
-    assert result.exit_code == 0
-    assert recorded["run"] == {
-        "args": [
-            "quarto",
-            "render",
-            ".",
-            "--output-dir",
-            str((tmp_path / "build" / "slides" / "html").resolve()),
-        ],
-        "cwd": str(tmp_path / "legacy-slides"),
         "check": False,
     }
 

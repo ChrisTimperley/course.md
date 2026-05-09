@@ -2,7 +2,28 @@
 
 from __future__ import annotations
 
+import importlib
+
 import typer
+
+_BUILTIN_INTEGRATION_CONFIG_MODULES = (
+    "coursemd.integrations.mkdocs.config",
+    "coursemd.integrations.canvas.config",
+    "coursemd.integrations.github.config",
+    "coursemd.integrations.slides.config",
+)
+_builtin_integrations_loaded = False
+
+
+def load_builtin_integration_configs() -> None:
+    global _builtin_integrations_loaded
+
+    if _builtin_integrations_loaded:
+        return
+
+    for module_name in _BUILTIN_INTEGRATION_CONFIG_MODULES:
+        importlib.import_module(module_name)
+    _builtin_integrations_loaded = True
 
 
 def register_integration_clis(app: typer.Typer) -> None:
@@ -17,4 +38,4 @@ def register_integration_clis(app: typer.Typer) -> None:
     register_github_cli(app)
 
 
-__all__ = ["register_integration_clis"]
+__all__ = ["load_builtin_integration_configs", "register_integration_clis"]

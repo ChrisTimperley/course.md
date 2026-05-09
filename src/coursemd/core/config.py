@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeVar
@@ -10,19 +9,7 @@ from typing import Any, TypeVar
 import click
 import yaml
 
-from ..integrations.canvas.config import DEFAULT_CANVAS_BASE_URL, DEFAULT_INIT_CANVAS_COURSE_ID
-from ..integrations.github.config import (
-    DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION,
-    DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG,
-    DEFAULT_GITHUB_RULESET_NAME,
-)
-from ..integrations.mkdocs.config import (
-    DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH,
-    DEFAULT_INIT_SITE_BACKEND,
-    DEFAULT_INIT_SITE_BASE_URL,
-    DEFAULT_INIT_SITE_PROJECT_DIR,
-)
-from ..integrations.slides.config import DEFAULT_INIT_SLIDES_DIR
+from ..integrations import load_builtin_integration_configs
 from .config_helpers import (
     CONFIG_FILENAME,
     require_mapping,
@@ -39,21 +26,6 @@ DEFAULT_INIT_DATA_DIR = "data"
 DEFAULT_INIT_ASSIGNMENTS_DIR = "assignments"
 DEFAULT_INIT_QUIZZES_DIR = "quizzes"
 DEFAULT_INIT_TIMEZONE = DEFAULT_TIMEZONE
-
-_BUILTIN_INTEGRATION_CONFIG_MODULES = (
-    "coursemd.integrations.mkdocs.config",
-    "coursemd.integrations.canvas.config",
-    "coursemd.integrations.github.config",
-    "coursemd.integrations.slides.config",
-)
-_LEGACY_INTEGRATION_KEYS = {
-    "site": "integrations.mkdocs",
-    "canvas": "integrations.canvas",
-    "github": "integrations.github",
-    "slides": "integrations.quarto",
-    "quarto": "integrations.quarto",
-}
-_builtin_integrations_loaded = False
 
 
 @dataclass(frozen=True)
@@ -83,31 +55,6 @@ class CoursemdConfig:
         return value
 
 T = TypeVar("T", bound=IntegrationConfig)
-
-
-def _load_builtin_integration_configs() -> None:
-    global _builtin_integrations_loaded
-
-    if _builtin_integrations_loaded:
-        return
-
-    for module_name in _BUILTIN_INTEGRATION_CONFIG_MODULES:
-        importlib.import_module(module_name)
-    _builtin_integrations_loaded = True
-
-
-def _reject_legacy_integration_keys(config_map: dict[str, Any]) -> None:
-    legacy_keys = [key for key in _LEGACY_INTEGRATION_KEYS if key in config_map]
-    if not legacy_keys:
-        return
-
-    guidance = ", ".join(
-        f"{key} -> {_LEGACY_INTEGRATION_KEYS[key]}" for key in sorted(legacy_keys)
-    )
-    raise click.ClickException(
-        f"Moved config keys detected in {CONFIG_FILENAME}: {guidance}. "
-        "Use the integrations mapping instead."
-    )
 
 
 def _load_integrations(
@@ -165,7 +112,7 @@ def discover_config_path(start_dir: Path | None = None) -> Path:
 
 
 def load_coursemd_config(start_dir: Path | None = None) -> CoursemdConfig:
-    _load_builtin_integration_configs()
+    load_builtin_integration_configs()
     config_path = discover_config_path(start_dir=start_dir)
     repo_root = config_path.parent
 
@@ -178,7 +125,6 @@ def load_coursemd_config(start_dir: Path | None = None) -> CoursemdConfig:
     raw_config: Any = {} if loaded_config is None else loaded_config
 
     config_map = require_mapping(raw_config, label="Top-level config")
-    _reject_legacy_integration_keys(config_map)
     integrations_map = require_mapping(config_map.get("integrations"), label="integrations")
     paths_map = require_mapping(config_map.get("paths"), label="paths")
 
@@ -219,48 +165,14 @@ def load_coursemd_config(start_dir: Path | None = None) -> CoursemdConfig:
 
 def build_default_config_text(
     *,
-    site_base_url: str = DEFAULT_INIT_SITE_BASE_URL,
-    site_backend: str = DEFAULT_INIT_SITE_BACKEND,
-    site_project_dir: str = DEFAULT_INIT_SITE_PROJECT_DIR,
-    site_assignments_url_path: str = DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH,
-    slides_dir: str = DEFAULT_INIT_SLIDES_DIR,
-    github_org: str | None = None,
-    github_instructors_team_slug: str = DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG,
-    github_ruleset_name: str = DEFAULT_GITHUB_RULESET_NAME,
-    github_default_repository_permission: str = DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION,
-    canvas_base_url: str = DEFAULT_CANVAS_BASE_URL,
-    canvas_course_id: str = DEFAULT_INIT_CANVAS_COURSE_ID,
+    integrations: dict[str, Any],
     data_dir: str = DEFAULT_INIT_DATA_DIR,
     assignments_dir: str = DEFAULT_INIT_ASSIGNMENTS_DIR,
     quizzes_dir: str = DEFAULT_INIT_QUIZZES_DIR,
     env_file: str = ".env",
     timezone: str = DEFAULT_INIT_TIMEZONE,
-    include_canvas: bool = False,
 ) -> str:
     timezone = require_timezone(timezone, label="timezone")
-    integrations: dict[str, Any] = {
-        "mkdocs": {
-            "backend": site_backend,
-            "base_url": site_base_url,
-            "project_dir": site_project_dir,
-            "assignments_url_path": site_assignments_url_path,
-        },
-        "quarto": {
-            "dir": slides_dir,
-        },
-    }
-    if include_canvas:
-        integrations["canvas"] = {
-            "base_url": canvas_base_url,
-            "course_id": canvas_course_id,
-        }
-    if github_org is not None:
-        integrations["github"] = {
-            "organization": github_org,
-            "instructors_team_slug": github_instructors_team_slug,
-            "ruleset_name": github_ruleset_name,
-            "default_repository_permission": github_default_repository_permission,
-        }
 
     config: dict[str, Any] = {
         "timezone": timezone,

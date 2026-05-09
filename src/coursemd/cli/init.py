@@ -13,9 +13,6 @@ from coursemd.core.config import (
     DEFAULT_INIT_ASSIGNMENTS_DIR,
     DEFAULT_INIT_DATA_DIR,
     DEFAULT_INIT_QUIZZES_DIR,
-    DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH,
-    DEFAULT_INIT_SITE_BASE_URL,
-    DEFAULT_INIT_SITE_PROJECT_DIR,
     DEFAULT_INIT_TIMEZONE,
     build_default_config_text,
 )
@@ -23,7 +20,42 @@ from coursemd.integrations.canvas.config import (
     DEFAULT_CANVAS_BASE_URL,
     DEFAULT_INIT_CANVAS_COURSE_ID,
 )
+from coursemd.integrations.mkdocs.config import (
+    DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH,
+    DEFAULT_INIT_SITE_BACKEND,
+    DEFAULT_INIT_SITE_BASE_URL,
+    DEFAULT_INIT_SITE_PROJECT_DIR,
+)
 from coursemd.integrations.slides.config import DEFAULT_INIT_SLIDES_DIR
+
+
+def _default_integrations_config(
+    *,
+    site_base_url: str,
+    site_project_dir: str,
+    site_assignments_url_path: str,
+    slides_dir: str,
+    include_canvas: bool,
+    canvas_base_url: str,
+    canvas_course_id: str,
+) -> dict[str, object]:
+    integrations: dict[str, object] = {
+        "mkdocs": {
+            "backend": DEFAULT_INIT_SITE_BACKEND,
+            "base_url": site_base_url,
+            "project_dir": site_project_dir,
+            "assignments_url_path": site_assignments_url_path,
+        },
+        "quarto": {
+            "dir": slides_dir,
+        },
+    }
+    if include_canvas:
+        integrations["canvas"] = {
+            "base_url": canvas_base_url,
+            "course_id": canvas_course_id,
+        }
+    return integrations
 
 
 def register_init_command(app: typer.Typer) -> None:
@@ -118,18 +150,20 @@ def register_init_command(app: typer.Typer) -> None:
             )
 
         config_text = build_default_config_text(
-            site_base_url=site_base_url,
-            site_project_dir=site_project_dir,
-            site_assignments_url_path=site_assignments_url_path,
-            slides_dir=slides_dir,
-            canvas_base_url=canvas_base_url,
-            canvas_course_id=canvas_course_id,
+            integrations=_default_integrations_config(
+                site_base_url=site_base_url,
+                site_project_dir=site_project_dir,
+                site_assignments_url_path=site_assignments_url_path,
+                slides_dir=slides_dir,
+                include_canvas=include_canvas,
+                canvas_base_url=canvas_base_url,
+                canvas_course_id=canvas_course_id,
+            ),
             data_dir=data_dir,
             assignments_dir=assignments_dir,
             quizzes_dir=quizzes_dir,
             env_file=env_file,
             timezone=timezone,
-            include_canvas=include_canvas,
         )
         config_path.write_text(config_text, encoding="utf-8")
         typer.echo(f"Wrote starter config to {config_path}")

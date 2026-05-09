@@ -35,7 +35,7 @@ class QuartoConfig(IntegrationConfig):
         return cls(
             directory=resolve_relative_path(
                 context.repo_root,
-                config_map.get("dir", config_map.get("project_dir", DEFAULT_INIT_SLIDES_DIR)),
+                config_map.get("dir", DEFAULT_INIT_SLIDES_DIR),
                 label=f"integrations.{cls.metavar}.dir",
             ),
         )
