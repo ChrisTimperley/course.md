@@ -32,8 +32,6 @@ from .config_helpers import (
 from .integration_config import (
     IntegrationConfig,
     IntegrationConfigContext,
-    get_integration_config_type,
-    iter_integration_config_types,
 )
 from .utils import DEFAULT_TIMEZONE
 
@@ -125,10 +123,10 @@ def _load_integrations(
             raise click.ClickException(
                 f"integrations keys must be non-empty strings in {CONFIG_FILENAME}."
             )
-        config_type = get_integration_config_type(raw_name)
+        config_type = IntegrationConfig.get_type(raw_name)
         if config_type is None:
             supported = ", ".join(
-                sorted(config_type.metavar for config_type in iter_integration_config_types())
+                sorted(config_type.metavar for config_type in IntegrationConfig.iter_types())
             )
             raise click.ClickException(
                 f"Unknown integration {raw_name!r} in {CONFIG_FILENAME}. "
@@ -142,7 +140,7 @@ def _load_integrations(
         raw_integrations[config_type.metavar] = raw_value
 
     integrations: dict[str, IntegrationConfig] = {}
-    for config_type in iter_integration_config_types():
+    for config_type in IntegrationConfig.iter_types():
         raw_value = raw_integrations.get(config_type.metavar)
         if raw_value is None:
             if config_type.required:
