@@ -22,9 +22,8 @@ from coursemd.core.loaders.repository import load_course_repository
 from coursemd.core.macros import define_env
 from coursemd.core.models.repository import CourseRepository
 from coursemd.core.utils import current_date, set_course_timezone
-from coursemd.integrations.canvas.config import INTEGRATION_NAME as CANVAS_INTEGRATION_NAME
 from coursemd.integrations.canvas.config import CanvasConfig
-from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig, require_mkdocs_config
+from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
 
 MacroFunction = Callable[..., Any]
 
@@ -67,7 +66,7 @@ class CoursemdPlugin(BasePlugin):
     def on_config(self, config: MkDocsConfig) -> MkDocsConfig:
         config_path = self._resolve_coursemd_config_path(config)
         self.course_config = load_coursemd_config(start_dir=config_path.parent)
-        self.mkdocs_integration = require_mkdocs_config(self.course_config)
+        self.mkdocs_integration = MkdocsIntegrationConfig.require(self.course_config)
         set_course_timezone(self.course_config.timezone)
         self.course_repository = self._load_course_repository()
         self.course_data = self._build_course_data()
@@ -81,7 +80,7 @@ class CoursemdPlugin(BasePlugin):
             .get("course", {})
             .get("canvas_course_id"),
         }
-        canvas_config = self.course_config.get_integration(CANVAS_INTEGRATION_NAME, CanvasConfig)
+        canvas_config = CanvasConfig.get(self.course_config)
         if canvas_config is not None:
             extra["canvas_base_url"] = canvas_config.base_url
         extra["course_timezone"] = self.course_config.timezone
@@ -161,11 +160,7 @@ class CoursemdPlugin(BasePlugin):
             assignment_url_path=self.mkdocs_integration.assignments_url_path,
             canvas_base_url=(
                 canvas_config.base_url
-                if (canvas_config := self.course_config.get_integration(
-                    CANVAS_INTEGRATION_NAME,
-                    CanvasConfig,
-                ))
-                is not None
+                if (canvas_config := CanvasConfig.get(self.course_config)) is not None
                 else ""
             ),
         )

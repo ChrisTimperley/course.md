@@ -22,8 +22,7 @@ from coursemd.core.loaders.quizzes import load_quiz_specs
 from coursemd.core.models.assignment import AssignmentSpec
 from coursemd.core.models.quiz import QuizSpec
 from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL, CanvasConfig
-from coursemd.integrations.canvas.config import INTEGRATION_NAME as CANVAS_INTEGRATION_NAME
-from coursemd.integrations.mkdocs.config import require_mkdocs_config
+from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
 
 CLI_NAME = "canvas"
 CLI_HELP = "Canvas LMS workflows."
@@ -165,8 +164,8 @@ def register_sync_canvas_assignments_command(canvas_app: typer.Typer) -> None:
 
         state = get_state(ctx)
         repo_root = state.repo_root
-        mkdocs_config = require_mkdocs_config(state.config)
-        canvas_config = state.config.get_integration(CANVAS_INTEGRATION_NAME, CanvasConfig)
+        mkdocs_config = MkdocsIntegrationConfig.require(state.config)
+        canvas_config = CanvasConfig.get(state.config)
         resolved_site_base_url = site_base_url or mkdocs_config.base_url
         resolved_base_url = base_url or (
             canvas_config.base_url if canvas_config is not None else DEFAULT_CANVAS_BASE_URL
@@ -280,7 +279,7 @@ def register_sync_canvas_quizzes_command(canvas_app: typer.Typer) -> None:
 
         state = get_state(ctx)
         repo_root = state.repo_root
-        canvas_config = state.config.get_integration(CANVAS_INTEGRATION_NAME, CanvasConfig)
+        canvas_config = CanvasConfig.get(state.config)
         resolved_base_url = base_url or (
             canvas_config.base_url if canvas_config is not None else DEFAULT_CANVAS_BASE_URL
         )

@@ -15,8 +15,8 @@ import typer
 from coursemd.core.config import CoursemdConfig, load_coursemd_config
 from coursemd.core.loaders.repository import load_repository_env
 from coursemd.core.utils import set_course_timezone
-from coursemd.integrations.mkdocs.config import require_mkdocs_config
-from coursemd.integrations.slides.config import require_quarto_config
+from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
+from coursemd.integrations.slides.config import QuartoConfig
 
 
 @dataclass
@@ -79,11 +79,11 @@ def default_quiz_files(state: AppState) -> list[Path]:
 
 
 def slides_dir(state: AppState) -> Path:
-    return require_quarto_config(state.config).directory
+    return QuartoConfig.require(state.config).directory
 
 
 def mkdocs_project_dir(state: AppState) -> Path:
-    return require_mkdocs_config(state.config).project_dir
+    return MkdocsIntegrationConfig.require(state.config).project_dir
 
 
 def parse_group_category_id_override() -> int | None:

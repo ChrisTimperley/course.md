@@ -18,9 +18,8 @@ from coursemd.cli.shared import (
     require_paths_exist,
 )
 from coursemd.core.loaders.repository import load_course_repository
-from coursemd.integrations.canvas.config import INTEGRATION_NAME as CANVAS_INTEGRATION_NAME
 from coursemd.integrations.canvas.config import CanvasConfig
-from coursemd.integrations.mkdocs.config import require_mkdocs_config
+from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
 
 
 def register_validate_command(app: typer.Typer) -> None:
@@ -61,7 +60,7 @@ def register_validate_command(app: typer.Typer) -> None:
     ) -> int:
         state = get_state(ctx)
         repo_root = state.repo_root
-        mkdocs_config = require_mkdocs_config(state.config)
+        mkdocs_config = MkdocsIntegrationConfig.require(state.config)
         resolved_site_base_url = site_base_url or mkdocs_config.base_url
         resolved_assignment_files = normalize_input_paths(
             assignment_files or default_assignment_files(state),
@@ -81,7 +80,7 @@ def register_validate_command(app: typer.Typer) -> None:
         require_paths_exist(resolved_data_files, label="Data")
 
         try:
-            canvas_config = state.config.get_integration(CANVAS_INTEGRATION_NAME, CanvasConfig)
+            canvas_config = CanvasConfig.get(state.config)
             repository = load_course_repository(
                 repo_root=repo_root,
                 data_files=resolved_data_files,
