@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import click
 import typer
@@ -23,17 +23,24 @@ from coursemd.core.loaders.assignments import load_assignment_specs
 from coursemd.core.loaders.quizzes import load_quiz_specs
 from coursemd.core.models.assignment import AssignmentSpec
 from coursemd.core.models.quiz import QuizSpec
-from coursemd.integrations.canvas.frontmatter import (
-    update_assignment_frontmatter_with_ids,
-    update_quiz_frontmatter_with_canvas_id,
-)
-from coursemd.integrations.canvas.quizzes import total_quiz_points
-from coursemd.integrations.canvas.resources import AssignmentCanvasClient, QuizCanvasClient
-from coursemd.integrations.canvas.sync import (
-    CanvasSyncEvent,
-    sync_assignments_to_canvas,
-    sync_quizzes_to_canvas,
-)
+
+CLI_NAME = "canvas"
+CLI_HELP = "Canvas LMS workflows."
+
+
+def _register_unavailable_command(app: typer.Typer, command_name: str, message: str) -> None:
+    @app.command(command_name)
+    def unavailable_command() -> int:
+        raise click.ClickException(message)
+
+
+def _register_unavailable_canvas_commands(canvas_app: typer.Typer) -> None:
+    message = (
+        "coursemd canvas assignments, coursemd canvas quizzes require the optional "
+        '`canvas` dependencies. Install them with `pip install "coursemd[canvas]"`.'
+    )
+    _register_unavailable_command(canvas_app, "assignments", message)
+    _register_unavailable_command(canvas_app, "quizzes", message)
 
 
 def _print_assignment_plan(specs: list[AssignmentSpec]) -> None:
@@ -49,7 +56,7 @@ def _print_assignment_plan(specs: list[AssignmentSpec]) -> None:
         )
 
 
-def _print_canvas_sync_event(event: CanvasSyncEvent) -> None:
+def _print_canvas_sync_event(event: Any) -> None:
     if event.dry_run:
         target = event.target.replace("_", " ")
         suffix = f" '{event.name}'" if event.name else ""
@@ -80,6 +87,8 @@ def _print_canvas_sync_event(event: CanvasSyncEvent) -> None:
 
 
 def _print_quiz_plan(specs: list[QuizSpec]) -> None:
+    from coursemd.integrations.canvas.quizzes import total_quiz_points
+
     typer.echo(f"Loaded {len(specs)} quiz spec(s) for the Canvas integration:")
     for spec in specs:
         unlock = f" | unlock {spec.unlock_at}" if spec.unlock_at else ""
@@ -149,6 +158,10 @@ def register_sync_canvas_assignments_command(canvas_app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> int:
+        from coursemd.integrations.canvas.frontmatter import update_assignment_frontmatter_with_ids
+        from coursemd.integrations.canvas.resources import AssignmentCanvasClient
+        from coursemd.integrations.canvas.sync import sync_assignments_to_canvas
+
         state = get_state(ctx)
         repo_root = state.repo_root
         canvas_config = state.config.canvas
@@ -259,6 +272,10 @@ def register_sync_canvas_quizzes_command(canvas_app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> int:
+        from coursemd.integrations.canvas.frontmatter import update_quiz_frontmatter_with_canvas_id
+        from coursemd.integrations.canvas.resources import QuizCanvasClient
+        from coursemd.integrations.canvas.sync import sync_quizzes_to_canvas
+
         state = get_state(ctx)
         repo_root = state.repo_root
         canvas_config = state.config.canvas
@@ -308,6 +325,20 @@ def register_sync_canvas_quizzes_command(canvas_app: typer.Typer) -> None:
         return 0
 
 
+def register_canvas_cli(app: typer.Typer) -> None:
+    canvas_app = typer.Typer(no_args_is_help=True, help=CLI_HELP)
+    app.add_typer(canvas_app, name=CLI_NAME)
+
+    try:
+        register_sync_canvas_assignments_command(canvas_app)
+        register_sync_canvas_quizzes_command(canvas_app)
+    except ModuleNotFoundError as exc:
+        module_name = exc.name or ""
+        if module_name != "requests" and not module_name.startswith("requests."):
+            raise
+        _register_unavailable_canvas_commands(canvas_app)
+
+
 def main_sync_canvas_assignments(
     argv: list[str] | None = None,
     *,
@@ -343,6 +374,7 @@ def main_sync_canvas_quizzes(
 __all__ = [
     "main_sync_canvas_assignments",
     "main_sync_canvas_quizzes",
+    "register_canvas_cli",
     "register_sync_canvas_assignments_command",
     "register_sync_canvas_quizzes_command",
 ]

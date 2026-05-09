@@ -11,6 +11,8 @@ import typer
 
 from coursemd.cli.shared import get_state, slides_dir
 
+CLI_NAME = "slides"
+CLI_HELP = "Build and preview course slides."
 DEFAULT_SLIDES_OUTPUT_DIR = Path("build/slides/html")
 
 
@@ -113,4 +115,15 @@ def register_slides_commands(slides_app: typer.Typer) -> None:
         )
 
 
-__all__ = ["DEFAULT_SLIDES_OUTPUT_DIR", "register_slides_commands", "subprocess"]
+def register_slides_cli(app: typer.Typer) -> None:
+    slides_app = typer.Typer(no_args_is_help=True, help=CLI_HELP)
+    app.add_typer(slides_app, name=CLI_NAME)
+    register_slides_commands(slides_app)
+
+
+__all__ = [
+    "DEFAULT_SLIDES_OUTPUT_DIR",
+    "register_slides_cli",
+    "register_slides_commands",
+    "subprocess",
+]

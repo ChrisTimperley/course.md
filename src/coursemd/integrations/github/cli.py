@@ -17,6 +17,9 @@ from coursemd.integrations.github.setup import (
     run_github_setup,
 )
 
+CLI_NAME = "github"
+CLI_HELP = "GitHub organization workflows."
+
 
 def _resolve_github_value(
     explicit_value: str | None,
@@ -154,4 +157,10 @@ def register_github_commands(github_app: typer.Typer) -> None:
         return 0
 
 
-__all__ = ["register_github_commands"]
+def register_github_cli(app: typer.Typer) -> None:
+    github_app = typer.Typer(no_args_is_help=True, help=CLI_HELP)
+    app.add_typer(github_app, name=CLI_NAME)
+    register_github_commands(github_app)
+
+
+__all__ = ["register_github_cli", "register_github_commands"]

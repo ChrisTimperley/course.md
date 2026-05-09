@@ -6,20 +6,64 @@ import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import click
 import typer
-from mkdocs.commands.build import build as mkdocs_build
-from mkdocs.commands.serve import serve as mkdocs_serve
-from mkdocs.config import load_config
-from mkdocs.plugins import PluginCollection
 
 from coursemd.cli.shared import get_state, site_project_dir
+
+CLI_NAME = "site"
+CLI_HELP = "Build and preview the course website."
+
+_MKDOCS_IMPORT_ERROR: ModuleNotFoundError | None = None
+load_config: Any
+mkdocs_build: Any
+mkdocs_serve: Any
+PluginCollection: Any
+
+try:
+    from mkdocs.commands.build import build as mkdocs_build
+    from mkdocs.commands.serve import serve as mkdocs_serve
+    from mkdocs.config import load_config
+    from mkdocs.plugins import PluginCollection
+except ModuleNotFoundError as exc:
+    module_name = exc.name or ""
+    if module_name != "mkdocs" and not module_name.startswith("mkdocs."):
+        raise
+    _MKDOCS_IMPORT_ERROR = exc
+
+    def _missing_mkdocs_dependency(*args: object, **kwargs: object) -> object:
+        assert _MKDOCS_IMPORT_ERROR is not None
+        raise _MKDOCS_IMPORT_ERROR  # pragma: no cover
+
+    class _FallbackPluginCollection(dict[str, object]):
+        pass
+
+    PluginCollection = _FallbackPluginCollection
+    load_config = _missing_mkdocs_dependency
+    mkdocs_build = _missing_mkdocs_dependency
+    mkdocs_serve = _missing_mkdocs_dependency
 
 DEFAULT_PREVIEW_CURRENT_DATE = "2999-12-12"
 PREVIEW_EXCLUDED_PLUGINS: tuple[str, ...] = ()
 SUPPORTED_SITE_BACKENDS = {"mkdocs"}
+
+
+def _register_unavailable_command(app: typer.Typer, command_name: str, message: str) -> None:
+    @app.command(command_name)
+    def unavailable_command() -> int:
+        raise click.ClickException(message)
+
+
+def _register_unavailable_site_commands(site_app: typer.Typer) -> None:
+    message = (
+        "coursemd site build, coursemd site build-preview, coursemd site preview require the "
+        'optional `mkdocs` dependencies. Install them with `pip install "coursemd[mkdocs]"`.'
+    )
+    _register_unavailable_command(site_app, "build", message)
+    _register_unavailable_command(site_app, "build-preview", message)
+    _register_unavailable_command(site_app, "preview", message)
 
 
 def _require_site_project_dir(project_dir: Path) -> Path:
@@ -260,6 +304,15 @@ def register_site_commands(site_app: typer.Typer) -> None:
         )
 
 
+def register_site_cli(app: typer.Typer) -> None:
+    site_app = typer.Typer(no_args_is_help=True, help=CLI_HELP)
+    app.add_typer(site_app, name=CLI_NAME)
+    if _MKDOCS_IMPORT_ERROR is not None:
+        _register_unavailable_site_commands(site_app)
+        return
+    register_site_commands(site_app)
+
+
 __all__ = [
     "DEFAULT_PREVIEW_CURRENT_DATE",
     "PREVIEW_EXCLUDED_PLUGINS",
@@ -268,5 +321,6 @@ __all__ = [
     "load_config",
     "mkdocs_build",
     "mkdocs_serve",
+    "register_site_cli",
     "register_site_commands",
 ]

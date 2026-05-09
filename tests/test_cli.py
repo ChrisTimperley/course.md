@@ -409,21 +409,15 @@ def test_validate_fails_without_coursemd_config(tmp_path: Path, monkeypatch) -> 
 
 def test_optional_site_commands_report_missing_mkdocs_dependency(monkeypatch) -> None:
     local_app = coursemd.cli.typer.Typer(no_args_is_help=True)
-
-    def fake_loader(module_name: str, function_name: str) -> object:
-        raise ModuleNotFoundError("No module named 'mkdocs'", name="mkdocs")
-
-    monkeypatch.setattr(coursemd.cli, "_load_register_function", fake_loader)
-
-    coursemd.cli._register_optional_group_commands(
-        local_app,
-        loaders=[("coursemd.integrations.mkdocs.cli", "register_site_commands")],
-        fallback_commands=["coursemd site build", "coursemd site preview"],
-        optional_modules={"mkdocs"},
-        extra_name="mkdocs",
+    monkeypatch.setattr(
+        coursemd.integrations.mkdocs.cli,
+        "_MKDOCS_IMPORT_ERROR",
+        ModuleNotFoundError("No module named 'mkdocs'", name="mkdocs"),
     )
 
-    result = runner.invoke(local_app, ["preview"])
+    coursemd.integrations.mkdocs.cli.register_site_cli(local_app)
+
+    result = runner.invoke(local_app, ["site", "preview"])
 
     assert result.exit_code == 1
     assert "coursemd[mkdocs]" in result.output
@@ -431,24 +425,17 @@ def test_optional_site_commands_report_missing_mkdocs_dependency(monkeypatch) ->
 
 def test_optional_canvas_commands_report_missing_canvas_dependency(monkeypatch) -> None:
     local_app = coursemd.cli.typer.Typer(no_args_is_help=True)
-
-    def fake_loader(module_name: str, function_name: str) -> object:
-        raise ModuleNotFoundError("No module named 'requests'", name="requests")
-
-    monkeypatch.setattr(coursemd.cli, "_load_register_function", fake_loader)
-
-    coursemd.cli._register_optional_group_commands(
-        local_app,
-        loaders=[
-            ("coursemd.integrations.canvas.cli", "register_sync_canvas_assignments_command"),
-            ("coursemd.integrations.canvas.cli", "register_sync_canvas_quizzes_command"),
-        ],
-        fallback_commands=["coursemd canvas assignments", "coursemd canvas quizzes"],
-        optional_modules={"requests"},
-        extra_name="canvas",
+    monkeypatch.setattr(
+        coursemd.integrations.canvas.cli,
+        "register_sync_canvas_assignments_command",
+        lambda app: (_ for _ in ()).throw(
+            ModuleNotFoundError("No module named 'requests'", name="requests")
+        ),
     )
 
-    result = runner.invoke(local_app, ["assignments"])
+    coursemd.integrations.canvas.cli.register_canvas_cli(local_app)
+
+    result = runner.invoke(local_app, ["canvas", "assignments"])
 
     assert result.exit_code == 1
     assert "coursemd[canvas]" in result.output
