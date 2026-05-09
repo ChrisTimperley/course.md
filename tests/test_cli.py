@@ -19,6 +19,7 @@ from coursemd.core.config import load_coursemd_config
 from coursemd.core.loaders.dates import normalize_release_date
 from coursemd.integrations.canvas.config import INTEGRATION_NAME as CANVAS_INTEGRATION_NAME
 from coursemd.integrations.canvas.config import CanvasConfig
+from coursemd.integrations.mkdocs.config import require_mkdocs_config
 
 runner = CliRunner()
 
@@ -494,7 +495,7 @@ def test_config_defaults_site_backend_to_mkdocs(tmp_path: Path) -> None:
 
     config = load_coursemd_config(start_dir=tmp_path / "website")
 
-    assert config.site_backend == "mkdocs"
+    assert require_mkdocs_config(config).backend == "mkdocs"
 
 
 def test_config_reads_explicit_site_backend(tmp_path: Path) -> None:
@@ -502,7 +503,7 @@ def test_config_reads_explicit_site_backend(tmp_path: Path) -> None:
 
     config = load_coursemd_config(start_dir=tmp_path / "website")
 
-    assert config.site_backend == "mkdocs"
+    assert require_mkdocs_config(config).backend == "mkdocs"
 
 
 def test_config_reads_course_timezone(tmp_path: Path) -> None:
@@ -670,7 +671,7 @@ def test_config_reads_site_url_paths(tmp_path: Path) -> None:
 
     config = load_coursemd_config(start_dir=tmp_path / "website")
 
-    assert config.site_assignments_url_path == "coursework"
+    assert require_mkdocs_config(config).assignments_url_path == "coursework"
 
 
 def test_site_build_uses_project_dir_from_config(tmp_path: Path, monkeypatch) -> None:

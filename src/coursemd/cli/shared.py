@@ -15,8 +15,8 @@ import typer
 from coursemd.core.config import CoursemdConfig, load_coursemd_config
 from coursemd.core.loaders.repository import load_repository_env
 from coursemd.core.utils import set_course_timezone
-from coursemd.integrations.slides.config import INTEGRATION_NAME as QUARTO_INTEGRATION_NAME
-from coursemd.integrations.slides.config import QuartoConfig
+from coursemd.integrations.mkdocs.config import require_mkdocs_config
+from coursemd.integrations.slides.config import require_quarto_config
 
 
 @dataclass
@@ -78,15 +78,12 @@ def default_quiz_files(state: AppState) -> list[Path]:
     )
 
 
-def site_project_dir(state: AppState) -> Path:
-    return state.config.site_project_dir
-
-
 def slides_dir(state: AppState) -> Path:
-    slides_config = state.config.get_integration(QUARTO_INTEGRATION_NAME, QuartoConfig)
-    if slides_config is None:
-        raise click.ClickException("Slides integration config is missing.")
-    return slides_config.directory
+    return require_quarto_config(state.config).directory
+
+
+def mkdocs_project_dir(state: AppState) -> Path:
+    return require_mkdocs_config(state.config).project_dir
 
 
 def parse_group_category_id_override() -> int | None:
@@ -131,7 +128,7 @@ __all__ = [
     "parse_group_category_id_override",
     "require_canvas_credentials",
     "require_paths_exist",
-    "site_project_dir",
+    "mkdocs_project_dir",
     "slides_dir",
     "write_json_output",
 ]

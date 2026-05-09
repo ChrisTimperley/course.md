@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import click
 
@@ -27,6 +27,9 @@ DEFAULT_INIT_SITE_BACKEND = "mkdocs"
 DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH = "assignments"
 DEFAULT_INIT_SITE_PROJECT_DIR = "website"
 SUPPORTED_SITE_BACKENDS = {DEFAULT_INIT_SITE_BACKEND}
+
+if TYPE_CHECKING:
+    from coursemd.core.config import CoursemdConfig
 
 
 @register_integration_config
@@ -82,6 +85,17 @@ class MkdocsIntegrationConfig(IntegrationConfig):
         )
 
 
+def get_mkdocs_config(config: CoursemdConfig) -> MkdocsIntegrationConfig | None:
+    return config.get_integration(INTEGRATION_NAME, MkdocsIntegrationConfig)
+
+
+def require_mkdocs_config(config: CoursemdConfig) -> MkdocsIntegrationConfig:
+    mkdocs_config = get_mkdocs_config(config)
+    if mkdocs_config is None:
+        raise RuntimeError("MkDocs integration config is required but missing.")
+    return mkdocs_config
+
+
 __all__ = [
     "DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH",
     "DEFAULT_INIT_SITE_BACKEND",
@@ -90,4 +104,6 @@ __all__ = [
     "INTEGRATION_NAME",
     "MkdocsIntegrationConfig",
     "SUPPORTED_SITE_BACKENDS",
+    "get_mkdocs_config",
+    "require_mkdocs_config",
 ]

@@ -11,7 +11,8 @@ from typing import Annotated, Any
 import click
 import typer
 
-from coursemd.cli.shared import get_state, site_project_dir
+from coursemd.cli.shared import get_state, mkdocs_project_dir
+from coursemd.integrations.mkdocs.config import SUPPORTED_SITE_BACKENDS, require_mkdocs_config
 
 CLI_NAME = "site"
 CLI_HELP = "Build and preview the course website."
@@ -47,7 +48,6 @@ except ModuleNotFoundError as exc:
 
 DEFAULT_PREVIEW_CURRENT_DATE = "2999-12-12"
 PREVIEW_EXCLUDED_PLUGINS: tuple[str, ...] = ()
-SUPPORTED_SITE_BACKENDS = {"mkdocs"}
 
 
 def _register_unavailable_command(app: typer.Typer, command_name: str, message: str) -> None:
@@ -193,12 +193,13 @@ def _preview_site(
 def register_site_commands(site_app: typer.Typer) -> None:
     def require_supported_backend(ctx: typer.Context) -> tuple[Path, Path]:
         state = get_state(ctx)
-        if state.config.site_backend not in SUPPORTED_SITE_BACKENDS:
+        mkdocs_config = require_mkdocs_config(state.config)
+        if mkdocs_config.backend not in SUPPORTED_SITE_BACKENDS:
             raise click.ClickException(
-                f"Unsupported site backend '{state.config.site_backend}'. "
+                f"Unsupported site backend '{mkdocs_config.backend}'. "
                 "Only 'mkdocs' is supported in this release."
             )
-        project_dir = site_project_dir(state)
+        project_dir = mkdocs_project_dir(state)
         config_file = _require_site_project_dir(project_dir)
         return project_dir, config_file
 

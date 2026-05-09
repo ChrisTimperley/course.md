@@ -24,6 +24,7 @@ from coursemd.core.models.repository import CourseRepository
 from coursemd.core.utils import current_date, set_course_timezone
 from coursemd.integrations.canvas.config import INTEGRATION_NAME as CANVAS_INTEGRATION_NAME
 from coursemd.integrations.canvas.config import CanvasConfig
+from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig, require_mkdocs_config
 
 MacroFunction = Callable[..., Any]
 
@@ -50,6 +51,7 @@ class CoursemdPlugin(BasePlugin):
     )
 
     course_config: CoursemdConfig
+    mkdocs_integration: MkdocsIntegrationConfig
     course_repository: CourseRepository
     course_data: dict[str, Any]
     current_date: dt.date
@@ -65,6 +67,7 @@ class CoursemdPlugin(BasePlugin):
     def on_config(self, config: MkDocsConfig) -> MkDocsConfig:
         config_path = self._resolve_coursemd_config_path(config)
         self.course_config = load_coursemd_config(start_dir=config_path.parent)
+        self.mkdocs_integration = require_mkdocs_config(self.course_config)
         set_course_timezone(self.course_config.timezone)
         self.course_repository = self._load_course_repository()
         self.course_data = self._build_course_data()
@@ -154,8 +157,8 @@ class CoursemdPlugin(BasePlugin):
             data_files=data_files,
             assignment_files=assignment_files,
             quiz_files=quiz_files,
-            site_base_url=self.course_config.site_base_url,
-            assignment_url_path=self.course_config.site_assignments_url_path,
+            site_base_url=self.mkdocs_integration.base_url,
+            assignment_url_path=self.mkdocs_integration.assignments_url_path,
             canvas_base_url=(
                 canvas_config.base_url
                 if (canvas_config := self.course_config.get_integration(
@@ -192,7 +195,7 @@ class CoursemdPlugin(BasePlugin):
     def _generated_nav(self, nav: list[Any]) -> list[Any]:
         assignment_nav = self._nav_items_for_markdown_dir(
             self.course_config.paths.assignments_dir,
-            base_uri=self.course_config.site_assignments_url_path,
+            base_uri=self.mkdocs_integration.assignments_url_path,
             include_index=True,
         )
 
@@ -238,7 +241,7 @@ class CoursemdPlugin(BasePlugin):
         for directory, base_uri, include_index in (
             (
                 self.course_config.paths.assignments_dir,
-                self.course_config.site_assignments_url_path,
+                self.mkdocs_integration.assignments_url_path,
                 True,
             ),
         ):

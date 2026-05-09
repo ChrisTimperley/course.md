@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
+
+import click
 
 from coursemd.core.config_helpers import (
     optional_version,
@@ -19,6 +21,9 @@ from coursemd.core.integration_config import (
 
 INTEGRATION_NAME = "quarto"
 DEFAULT_INIT_SLIDES_DIR = "slides"
+
+if TYPE_CHECKING:
+    from coursemd.core.config import CoursemdConfig
 
 
 @register_integration_config
@@ -44,6 +49,17 @@ class QuartoConfig(IntegrationConfig):
         )
 
 
+def get_quarto_config(config: CoursemdConfig) -> QuartoConfig | None:
+    return config.get_integration(INTEGRATION_NAME, QuartoConfig)
+
+
+def require_quarto_config(config: CoursemdConfig) -> QuartoConfig:
+    quarto_config = get_quarto_config(config)
+    if quarto_config is None:
+        raise click.ClickException("Slides integration config is missing.")
+    return quarto_config
+
+
 SlidesConfig = QuartoConfig
 
 
@@ -52,4 +68,6 @@ __all__ = [
     "INTEGRATION_NAME",
     "QuartoConfig",
     "SlidesConfig",
+    "get_quarto_config",
+    "require_quarto_config",
 ]

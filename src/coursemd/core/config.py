@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 
 import click
 import yaml
@@ -30,14 +30,12 @@ from .config_helpers import (
     resolve_relative_path,
 )
 from .integration_config import (
+    IntegrationConfig,
     IntegrationConfigContext,
     get_integration_config_type,
     iter_integration_config_types,
 )
 from .utils import DEFAULT_TIMEZONE
-
-if TYPE_CHECKING:
-    from ..integrations.mkdocs.config import MkdocsIntegrationConfig
 
 DEFAULT_INIT_DATA_DIR = "data"
 DEFAULT_INIT_ASSIGNMENTS_DIR = "assignments"
@@ -73,7 +71,7 @@ class CoursemdConfig:
     config_path: Path
     repo_root: Path
     timezone: str
-    integrations: dict[str, object]
+    integrations: dict[str, IntegrationConfig]
     paths: CoursemdPathsConfig
 
     def get_integration(self, name: str, config_type: type[T]) -> T | None:
@@ -86,32 +84,7 @@ class CoursemdConfig:
             )
         return value
 
-    @property
-    def site_backend(self) -> str:
-        return self._mkdocs_config().backend
-
-    @property
-    def site_base_url(self) -> str:
-        return self._mkdocs_config().base_url
-
-    @property
-    def site_project_dir(self) -> Path:
-        return self._mkdocs_config().project_dir
-
-    @property
-    def site_assignments_url_path(self) -> str:
-        return self._mkdocs_config().assignments_url_path
-
-    def _mkdocs_config(self) -> MkdocsIntegrationConfig:
-        from ..integrations.mkdocs.config import INTEGRATION_NAME, MkdocsIntegrationConfig
-
-        config = self.get_integration(INTEGRATION_NAME, MkdocsIntegrationConfig)
-        if config is None:
-            raise RuntimeError("MkDocs integration config is required but missing.")
-        return config
-
-
-T = TypeVar("T")
+T = TypeVar("T", bound=IntegrationConfig)
 
 
 def _load_builtin_integration_configs() -> None:
@@ -143,7 +116,7 @@ def _load_integrations(
     integrations_map: dict[str, Any],
     *,
     repo_root: Path,
-) -> dict[str, object]:
+) -> dict[str, IntegrationConfig]:
     context = IntegrationConfigContext(repo_root=repo_root)
     raw_integrations: dict[str, Any] = {}
 
@@ -168,7 +141,7 @@ def _load_integrations(
             )
         raw_integrations[config_type.metavar] = raw_value
 
-    integrations: dict[str, object] = {}
+    integrations: dict[str, IntegrationConfig] = {}
     for config_type in iter_integration_config_types():
         raw_value = raw_integrations.get(config_type.metavar)
         if raw_value is None:
