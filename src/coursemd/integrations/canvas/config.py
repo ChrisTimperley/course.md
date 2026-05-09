@@ -15,15 +15,12 @@ from coursemd.core.config_helpers import (
 from coursemd.core.integration_config import (
     IntegrationConfig,
     IntegrationConfigContext,
-    register_integration_config,
 )
 
 INTEGRATION_NAME = "canvas"
 DEFAULT_CANVAS_BASE_URL = "https://canvas.instructure.com"
 DEFAULT_INIT_CANVAS_COURSE_ID = "12345"
 
-
-@register_integration_config
 @dataclass(frozen=True)
 class CanvasConfig(IntegrationConfig):
     metavar: ClassVar[str] = INTEGRATION_NAME

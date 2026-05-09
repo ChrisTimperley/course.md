@@ -14,7 +14,6 @@ from coursemd.core.config_helpers import (
 from coursemd.core.integration_config import (
     IntegrationConfig,
     IntegrationConfigContext,
-    register_integration_config,
 )
 
 INTEGRATION_NAME = "github"
@@ -22,8 +21,6 @@ DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG = "instructors"
 DEFAULT_GITHUB_RULESET_NAME = "Protect main branch"
 DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION = "none"
 
-
-@register_integration_config
 @dataclass(frozen=True)
 class GitHubConfig(IntegrationConfig):
     metavar: ClassVar[str] = INTEGRATION_NAME

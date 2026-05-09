@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,6 +23,12 @@ class IntegrationConfig(ABC):
     metavar: ClassVar[str]
     aliases: ClassVar[tuple[str, ...]] = ()
     required: ClassVar[bool] = False
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        if inspect.isabstract(cls):
+            return
+        _register_integration_config(cls)
 
     @classmethod
     def get(cls: type[TIntegrationConfig], config: CoursemdConfig) -> TIntegrationConfig | None:
@@ -53,7 +60,7 @@ _INTEGRATION_CONFIGS: dict[str, type[IntegrationConfig]] = {}
 _INTEGRATION_ALIASES: dict[str, str] = {}
 
 
-def register_integration_config(
+def _register_integration_config(
     config_type: type[IntegrationConfig],
 ) -> type[IntegrationConfig]:
     name = getattr(config_type, "metavar", "").strip()
@@ -94,5 +101,4 @@ __all__ = [
     "IntegrationConfigContext",
     "get_integration_config_type",
     "iter_integration_config_types",
-    "register_integration_config",
 ]

@@ -14,13 +14,11 @@ from coursemd.core.config_helpers import (
 from coursemd.core.integration_config import (
     IntegrationConfig,
     IntegrationConfigContext,
-    register_integration_config,
 )
 
 INTEGRATION_NAME = "quarto"
 DEFAULT_INIT_SLIDES_DIR = "slides"
 
-@register_integration_config
 @dataclass(frozen=True)
 class QuartoConfig(IntegrationConfig):
     metavar: ClassVar[str] = INTEGRATION_NAME

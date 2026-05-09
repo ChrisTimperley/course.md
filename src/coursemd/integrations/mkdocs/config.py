@@ -18,7 +18,6 @@ from coursemd.core.config_helpers import (
 from coursemd.core.integration_config import (
     IntegrationConfig,
     IntegrationConfigContext,
-    register_integration_config,
 )
 
 INTEGRATION_NAME = "mkdocs"
@@ -28,7 +27,6 @@ DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH = "assignments"
 DEFAULT_INIT_SITE_PROJECT_DIR = "website"
 SUPPORTED_SITE_BACKENDS = {DEFAULT_INIT_SITE_BACKEND}
 
-@register_integration_config
 @dataclass(frozen=True)
 class MkdocsIntegrationConfig(IntegrationConfig):
     metavar: ClassVar[str] = INTEGRATION_NAME
