@@ -7,12 +7,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from coursemd.core.constants import (
+from coursemd.integrations.github.client import GhCliGitHubClient, GitHubClient, GitHubClientError
+from coursemd.integrations.github.config import (
     DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION,
     DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG,
     DEFAULT_GITHUB_RULESET_NAME,
 )
-from coursemd.integrations.github.client import GhCliGitHubClient, GitHubClient, GitHubClientError
 from coursemd.integrations.github.rulesets import build_main_branch_ruleset_payload
 
 

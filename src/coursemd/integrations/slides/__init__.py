@@ -1,5 +1,5 @@
 """Slides integration exports."""
 
-from coursemd.integrations.slides.cli import register_slides_commands
+from coursemd.integrations.slides.config import DEFAULT_INIT_SLIDES_DIR, SlidesConfig
 
-__all__ = ["register_slides_commands"]
+__all__ = ["DEFAULT_INIT_SLIDES_DIR", "SlidesConfig"]

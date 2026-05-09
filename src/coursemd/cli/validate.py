@@ -18,6 +18,8 @@ from coursemd.cli.shared import (
     require_paths_exist,
 )
 from coursemd.core.loaders.repository import load_course_repository
+from coursemd.integrations.canvas.config import INTEGRATION_NAME as CANVAS_INTEGRATION_NAME
+from coursemd.integrations.canvas.config import CanvasConfig
 
 
 def register_validate_command(app: typer.Typer) -> None:
@@ -77,6 +79,7 @@ def register_validate_command(app: typer.Typer) -> None:
         require_paths_exist(resolved_data_files, label="Data")
 
         try:
+            canvas_config = state.config.get_integration(CANVAS_INTEGRATION_NAME, CanvasConfig)
             repository = load_course_repository(
                 repo_root=repo_root,
                 data_files=resolved_data_files,
@@ -84,9 +87,7 @@ def register_validate_command(app: typer.Typer) -> None:
                 quiz_files=resolved_quiz_files,
                 site_base_url=resolved_site_base_url,
                 assignment_url_path=state.config.site_assignments_url_path,
-                canvas_base_url=(
-                    state.config.canvas.base_url if state.config.canvas is not None else ""
-                ),
+                canvas_base_url=canvas_config.base_url if canvas_config is not None else "",
             )
         except (ValueError, yaml.YAMLError) as exc:
             raise click.ClickException(str(exc)) from exc

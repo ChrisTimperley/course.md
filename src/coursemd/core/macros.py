@@ -2,11 +2,11 @@
 
 import typing as t
 
-from coursemd.core.constants import DEFAULT_CANVAS_BASE_URL
 from coursemd.core.loaders.dates import parse_date as _parse_date
 from coursemd.core.schedule import Schedule
 from coursemd.core.types import AssignmentDict
 from coursemd.core.utils import current_date
+from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL
 
 
 def _configured_canvas_base_url(env: t.Any) -> str:

@@ -7,7 +7,7 @@ from typing import Any, Self, cast
 
 import requests  # type: ignore[import-untyped]
 
-from coursemd.core.constants import DEFAULT_CANVAS_BASE_URL
+from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL
 
 
 @dataclass

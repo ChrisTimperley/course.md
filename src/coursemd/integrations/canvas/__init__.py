@@ -1,7 +1,8 @@
 """Canvas adapter for course repositories."""
 
 from coursemd.integrations.canvas.assignments import form_for_assignment
-from coursemd.integrations.canvas.client import DEFAULT_CANVAS_BASE_URL, CanvasApiClient
+from coursemd.integrations.canvas.client import CanvasApiClient
+from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL
 from coursemd.integrations.canvas.frontmatter import (
     update_assignment_frontmatter_with_ids,
     update_quiz_frontmatter_with_canvas_id,

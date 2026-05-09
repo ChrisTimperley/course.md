@@ -22,6 +22,8 @@ from coursemd.core.loaders.repository import load_course_repository
 from coursemd.core.macros import define_env
 from coursemd.core.models.repository import CourseRepository
 from coursemd.core.utils import current_date, set_course_timezone
+from coursemd.integrations.canvas.config import INTEGRATION_NAME as CANVAS_INTEGRATION_NAME
+from coursemd.integrations.canvas.config import CanvasConfig
 
 MacroFunction = Callable[..., Any]
 
@@ -76,8 +78,9 @@ class CoursemdPlugin(BasePlugin):
             .get("course", {})
             .get("canvas_course_id"),
         }
-        if self.course_config.canvas is not None:
-            extra["canvas_base_url"] = self.course_config.canvas.base_url
+        canvas_config = self.course_config.get_integration(CANVAS_INTEGRATION_NAME, CanvasConfig)
+        if canvas_config is not None:
+            extra["canvas_base_url"] = canvas_config.base_url
         extra["course_timezone"] = self.course_config.timezone
         config["extra"] = extra
 
@@ -154,7 +157,13 @@ class CoursemdPlugin(BasePlugin):
             site_base_url=self.course_config.site_base_url,
             assignment_url_path=self.course_config.site_assignments_url_path,
             canvas_base_url=(
-                self.course_config.canvas.base_url if self.course_config.canvas is not None else ""
+                canvas_config.base_url
+                if (canvas_config := self.course_config.get_integration(
+                    CANVAS_INTEGRATION_NAME,
+                    CanvasConfig,
+                ))
+                is not None
+                else ""
             ),
         )
 

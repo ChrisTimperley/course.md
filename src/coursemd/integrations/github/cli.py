@@ -9,10 +9,16 @@ import click
 import typer
 
 from coursemd.cli.shared import get_state
-from coursemd.integrations.github.setup import (
+from coursemd.integrations.github.config import (
     DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION,
     DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG,
     DEFAULT_GITHUB_RULESET_NAME,
+    GitHubConfig,
+)
+from coursemd.integrations.github.config import (
+    INTEGRATION_NAME as GITHUB_INTEGRATION_NAME,
+)
+from coursemd.integrations.github.setup import (
     GitHubSetupError,
     run_github_setup,
 )
@@ -79,7 +85,7 @@ def register_github_commands(github_app: typer.Typer) -> None:
         ] = False,
     ) -> int:
         state = get_state(ctx)
-        github_config = state.config.github
+        github_config = state.config.get_integration(GITHUB_INTEGRATION_NAME, GitHubConfig)
         organization = _resolve_github_value(
             org,
             github_config.organization if github_config is not None else None,

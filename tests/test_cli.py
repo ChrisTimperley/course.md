@@ -17,6 +17,8 @@ import coursemd.integrations.slides.cli
 from coursemd import cli
 from coursemd.core.config import load_coursemd_config
 from coursemd.core.loaders.dates import normalize_release_date
+from coursemd.integrations.canvas.config import INTEGRATION_NAME as CANVAS_INTEGRATION_NAME
+from coursemd.integrations.canvas.config import CanvasConfig
 
 runner = CliRunner()
 
@@ -566,7 +568,7 @@ def test_config_allows_repositories_without_canvas(tmp_path: Path, monkeypatch) 
     config = load_coursemd_config(start_dir=tmp_path)
     result = runner.invoke(cli.app, ["validate"])
 
-    assert config.canvas is None
+    assert config.get_integration(CANVAS_INTEGRATION_NAME, CanvasConfig) is None
     assert result.exit_code == 0
     assert "Validation passed." in result.stdout
 

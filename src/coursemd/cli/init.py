@@ -11,17 +11,19 @@ import typer
 from coursemd.core.config import (
     CONFIG_FILENAME,
     DEFAULT_INIT_ASSIGNMENTS_DIR,
-    DEFAULT_INIT_CANVAS_COURSE_ID,
     DEFAULT_INIT_DATA_DIR,
     DEFAULT_INIT_QUIZZES_DIR,
     DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH,
     DEFAULT_INIT_SITE_BASE_URL,
     DEFAULT_INIT_SITE_PROJECT_DIR,
-    DEFAULT_INIT_SLIDES_DIR,
     DEFAULT_INIT_TIMEZONE,
     build_default_config_text,
 )
-from coursemd.core.constants import DEFAULT_CANVAS_BASE_URL
+from coursemd.integrations.canvas.config import (
+    DEFAULT_CANVAS_BASE_URL,
+    DEFAULT_INIT_CANVAS_COURSE_ID,
+)
+from coursemd.integrations.slides.config import DEFAULT_INIT_SLIDES_DIR
 
 
 def register_init_command(app: typer.Typer) -> None:

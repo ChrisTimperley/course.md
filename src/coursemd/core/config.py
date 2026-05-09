@@ -4,51 +4,47 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import click
 import yaml
 
-from coursemd.core.constants import (
+from coursemd.core.utils import DEFAULT_TIMEZONE
+from coursemd.integrations.canvas.config import (
     DEFAULT_CANVAS_BASE_URL,
+    DEFAULT_INIT_CANVAS_COURSE_ID,
+    CanvasConfig,
+)
+from coursemd.integrations.canvas.config import (
+    INTEGRATION_NAME as CANVAS_INTEGRATION_NAME,
+)
+from coursemd.integrations.github.config import (
     DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION,
     DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG,
     DEFAULT_GITHUB_RULESET_NAME,
+    GitHubConfig,
 )
-from coursemd.core.utils import DEFAULT_TIMEZONE
+from coursemd.integrations.github.config import (
+    INTEGRATION_NAME as GITHUB_INTEGRATION_NAME,
+)
+from coursemd.integrations.slides.config import (
+    DEFAULT_INIT_SLIDES_DIR,
+    SlidesConfig,
+)
+from coursemd.integrations.slides.config import (
+    INTEGRATION_NAME as SLIDES_INTEGRATION_NAME,
+)
 
 CONFIG_FILENAME = ".coursemd.yml"
 DEFAULT_INIT_SITE_BASE_URL = "https://example.edu/course"
 DEFAULT_INIT_SITE_BACKEND = "mkdocs"
 DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH = "assignments"
-DEFAULT_INIT_CANVAS_COURSE_ID = "12345"
 DEFAULT_INIT_SITE_PROJECT_DIR = "website"
-DEFAULT_INIT_SLIDES_DIR = "slides"
 DEFAULT_INIT_DATA_DIR = "data"
 DEFAULT_INIT_ASSIGNMENTS_DIR = "assignments"
 DEFAULT_INIT_QUIZZES_DIR = "quizzes"
 DEFAULT_INIT_TIMEZONE = DEFAULT_TIMEZONE
-
-
-@dataclass(frozen=True)
-class CoursemdCanvasConfig:
-    base_url: str
-    course_id: str
-    group_category_id: int | None = None
-
-
-@dataclass(frozen=True)
-class CoursemdSlidesConfig:
-    directory: Path
-
-
-@dataclass(frozen=True)
-class CoursemdGithubConfig:
-    organization: str
-    instructors_team_slug: str = DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG
-    ruleset_name: str = DEFAULT_GITHUB_RULESET_NAME
-    default_repository_permission: str = DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION
 
 
 @dataclass(frozen=True)
@@ -68,21 +64,32 @@ class CoursemdConfig:
     site_base_url: str
     site_project_dir: Path
     site_assignments_url_path: str
-    slides: CoursemdSlidesConfig
-    github: CoursemdGithubConfig | None
-    canvas: CoursemdCanvasConfig | None
+    integrations: dict[str, object]
     paths: CoursemdPathsConfig
+
+    def get_integration(self, name: str, config_type: type[T]) -> T | None:
+        value = self.integrations.get(name)
+        if value is None:
+            return None
+        if not isinstance(value, config_type):
+            raise TypeError(
+                f"Integration {name!r} is not of expected type {config_type.__name__}."
+            )
+        return value
+
+
+T = TypeVar("T")
 
 
 def _require_mapping(value: Any, *, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise click.ClickException(f"{label} must be a mapping in {CONFIG_FILENAME}.")
-    return value
+    return cast(dict[str, Any], value)
 
 
 def _optional_mapping(value: Any, *, label: str) -> dict[str, Any]:
     if value is None:
-        return {}
+        return cast(dict[str, Any], {})
     return _require_mapping(value, label=label)
 
 
@@ -164,9 +171,11 @@ def load_coursemd_config(start_dir: Path | None = None) -> CoursemdConfig:
 
     try:
         with config_path.open("r", encoding="utf-8") as handle:
-            raw_config = yaml.safe_load(handle) or {}
+            loaded_config = yaml.safe_load(handle)
     except yaml.YAMLError as exc:
         raise click.ClickException(f"{config_path}: invalid YAML: {exc}") from exc
+
+    raw_config: Any = {} if loaded_config is None else loaded_config
 
     config_map = _require_mapping(raw_config, label="Top-level config")
     site_map = _require_mapping(config_map.get("site"), label="site")
@@ -181,9 +190,9 @@ def load_coursemd_config(start_dir: Path | None = None) -> CoursemdConfig:
             f"paths.env_file must be a non-empty string in {CONFIG_FILENAME}."
         )
 
-    github_config: CoursemdGithubConfig | None = None
+    integrations: dict[str, object] = {}
     if github_map:
-        github_config = CoursemdGithubConfig(
+        integrations[GITHUB_INTEGRATION_NAME] = GitHubConfig(
             organization=_require_string(
                 github_map.get("organization"), label="github.organization"
             ),
@@ -204,9 +213,8 @@ def load_coursemd_config(start_dir: Path | None = None) -> CoursemdConfig:
             ),
         )
 
-    canvas_config: CoursemdCanvasConfig | None = None
     if canvas_map:
-        canvas_config = CoursemdCanvasConfig(
+        integrations[CANVAS_INTEGRATION_NAME] = CanvasConfig(
             base_url=_require_string(canvas_map.get("base_url"), label="canvas.base_url"),
             course_id=_require_text(canvas_map.get("course_id"), label="canvas.course_id"),
             group_category_id=_optional_int(
@@ -214,6 +222,14 @@ def load_coursemd_config(start_dir: Path | None = None) -> CoursemdConfig:
                 label="canvas.group_category_id",
             ),
         )
+
+    integrations[SLIDES_INTEGRATION_NAME] = SlidesConfig(
+        directory=_resolve_relative_path(
+            repo_root,
+            slides_map.get("dir", slides_map.get("project_dir", DEFAULT_INIT_SLIDES_DIR)),
+            label="slides.dir",
+        ),
+    )
 
     return CoursemdConfig(
         config_path=config_path,
@@ -236,15 +252,7 @@ def load_coursemd_config(start_dir: Path | None = None) -> CoursemdConfig:
             site_map.get("assignments_url_path", DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH),
             label="site.assignments_url_path",
         ),
-        slides=CoursemdSlidesConfig(
-            directory=_resolve_relative_path(
-                repo_root,
-                slides_map.get("dir", slides_map.get("project_dir", DEFAULT_INIT_SLIDES_DIR)),
-                label="slides.dir",
-            ),
-        ),
-        github=github_config,
-        canvas=canvas_config,
+        integrations=integrations,
         paths=CoursemdPathsConfig(
             data_dir=_resolve_relative_path(
                 repo_root, paths_map.get("data_dir"), label="paths.data_dir"
@@ -316,4 +324,4 @@ def build_default_config_text(
         }
     if env_file != ".env":
         config["paths"]["env_file"] = env_file
-    return cast(str, yaml.safe_dump(config, sort_keys=False))
+    return yaml.safe_dump(config, sort_keys=False)

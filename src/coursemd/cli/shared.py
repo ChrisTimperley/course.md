@@ -81,7 +81,13 @@ def site_project_dir(state: AppState) -> Path:
 
 
 def slides_dir(state: AppState) -> Path:
-    return state.config.slides.directory
+    slides_config = state.config.integrations.get("slides")
+    if slides_config is None:
+        raise click.ClickException("Slides integration config is missing.")
+    directory = getattr(slides_config, "directory", None)
+    if not isinstance(directory, Path):
+        raise click.ClickException("Slides integration config is invalid.")
+    return directory
 
 
 def parse_group_category_id_override() -> int | None:
