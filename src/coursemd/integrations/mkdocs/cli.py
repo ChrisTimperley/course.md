@@ -11,7 +11,7 @@ from typing import Annotated, Any
 import click
 import typer
 
-from coursemd.cli.shared import get_state, mkdocs_project_dir
+from coursemd.cli.shared import AppState, mkdocs_project_dir
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
 
 CLI_NAME = "site"
@@ -192,7 +192,7 @@ def _preview_site(
 
 def register_site_commands(site_app: typer.Typer) -> None:
     def require_supported_backend(ctx: typer.Context) -> tuple[Path, Path]:
-        state = get_state(ctx)
+        state = AppState.from_typer(ctx)
         MkdocsIntegrationConfig.require(state.config)
         project_dir = mkdocs_project_dir(state)
         config_file = _require_site_project_dir(project_dir)
@@ -216,7 +216,7 @@ def register_site_commands(site_app: typer.Typer) -> None:
             typer.Option("--strict", help="Fail on warnings reported by MkDocs."),
         ] = False,
     ) -> int:
-        state = get_state(ctx)
+        state = AppState.from_typer(ctx)
         project_dir, config_file = require_supported_backend(ctx)
         resolved_output_dir = None
         if output_dir is not None:
@@ -256,7 +256,7 @@ def register_site_commands(site_app: typer.Typer) -> None:
             ),
         ] = DEFAULT_PREVIEW_CURRENT_DATE,
     ) -> int:
-        state = get_state(ctx)
+        state = AppState.from_typer(ctx)
         project_dir, config_file = require_supported_backend(ctx)
         resolved_output_dir = (
             output_dir if output_dir.is_absolute() else (state.repo_root / output_dir).resolve()

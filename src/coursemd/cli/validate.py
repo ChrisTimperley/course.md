@@ -10,10 +10,10 @@ import typer
 import yaml
 
 from coursemd.cli.shared import (
+    AppState,
     default_assignment_files,
     default_data_files,
     default_quiz_files,
-    get_state,
     normalize_input_paths,
     require_paths_exist,
 )
@@ -58,7 +58,7 @@ def register_validate_command(app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> int:
-        state = get_state(ctx)
+        state = AppState.from_typer(ctx)
         repo_root = state.repo_root
         mkdocs_config = MkdocsIntegrationConfig.require(state.config)
         resolved_site_base_url = site_base_url or mkdocs_config.base_url

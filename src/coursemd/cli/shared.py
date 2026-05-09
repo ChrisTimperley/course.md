@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,13 +32,13 @@ class AppState:
         set_course_timezone(config.timezone)
         return cls(config=config)
 
-
-def get_state(ctx: typer.Context) -> AppState:
-    if isinstance(ctx.obj, AppState):
-        return ctx.obj
-    state = AppState.load()
-    ctx.obj = state
-    return state
+    @classmethod
+    def from_typer(cls, ctx: typer.Context) -> AppState:
+        if isinstance(ctx.obj, AppState):
+            return ctx.obj
+        state = cls.load()
+        ctx.obj = state
+        return state
 
 
 def require_paths_exist(paths: Sequence[Path], *, label: str) -> None:
@@ -81,30 +80,6 @@ def mkdocs_project_dir(state: AppState) -> Path:
     return MkdocsIntegrationConfig.require(state.config).project_dir
 
 
-def parse_group_category_id_override() -> int | None:
-    group_category_env = os.environ.get("CANVAS_GROUP_CATEGORY_ID", "").strip()
-    if not group_category_env:
-        return None
-    try:
-        return int(group_category_env)
-    except ValueError:
-        return None
-
-
-def require_canvas_credentials(course_id: str | None, *, plan_only: bool) -> tuple[str, str]:
-    if plan_only:
-        return "", course_id or ""
-    if not course_id:
-        raise click.ClickException(
-            "course_id is required unless --plan-only is used. "
-            "Set it in .coursemd.yml or pass --course-id."
-        )
-    token = os.environ.get("CANVAS_TOKEN", "").strip()
-    if not token:
-        raise click.ClickException("CANVAS_TOKEN must be set unless --plan-only is used.")
-    return token, course_id
-
-
 def write_json_output(output_json: Path | None, results: list[dict[str, Any]]) -> None:
     if output_json is None:
         return
@@ -117,10 +92,7 @@ __all__ = [
     "default_assignment_files",
     "default_data_files",
     "default_quiz_files",
-    "get_state",
     "normalize_input_paths",
-    "parse_group_category_id_override",
-    "require_canvas_credentials",
     "require_paths_exist",
     "mkdocs_project_dir",
     "write_json_output",

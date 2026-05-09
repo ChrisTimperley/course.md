@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -9,11 +10,10 @@ import click
 import typer
 
 from coursemd.cli.shared import (
+    AppState,
     default_assignment_files,
     default_quiz_files,
-    get_state,
     normalize_input_paths,
-    require_canvas_credentials,
     require_paths_exist,
     write_json_output,
 )
@@ -101,6 +101,30 @@ def _print_quiz_plan(specs: list[QuizSpec]) -> None:
         )
 
 
+def parse_group_category_id_override() -> int | None:
+    group_category_env = os.environ.get("CANVAS_GROUP_CATEGORY_ID", "").strip()
+    if not group_category_env:
+        return None
+    try:
+        return int(group_category_env)
+    except ValueError:
+        return None
+
+
+def require_canvas_credentials(course_id: str | None, *, plan_only: bool) -> tuple[str, str]:
+    if plan_only:
+        return "", course_id or ""
+    if not course_id:
+        raise click.ClickException(
+            "course_id is required unless --plan-only is used. "
+            "Set it in .coursemd.yml or pass --course-id."
+        )
+    token = os.environ.get("CANVAS_TOKEN", "").strip()
+    if not token:
+        raise click.ClickException("CANVAS_TOKEN must be set unless --plan-only is used.")
+    return token, course_id
+
+
 def register_sync_canvas_assignments_command(canvas_app: typer.Typer) -> None:
     @canvas_app.command("assignments")
     def sync_canvas_assignments(
@@ -162,7 +186,7 @@ def register_sync_canvas_assignments_command(canvas_app: typer.Typer) -> None:
         from coursemd.integrations.canvas.resources import AssignmentCanvasClient
         from coursemd.integrations.canvas.sync import sync_assignments_to_canvas
 
-        state = get_state(ctx)
+        state = AppState.from_typer(ctx)
         repo_root = state.repo_root
         mkdocs_config = MkdocsIntegrationConfig.require(state.config)
         canvas_config = CanvasConfig.get(state.config)
@@ -277,7 +301,7 @@ def register_sync_canvas_quizzes_command(canvas_app: typer.Typer) -> None:
         from coursemd.integrations.canvas.resources import QuizCanvasClient
         from coursemd.integrations.canvas.sync import sync_quizzes_to_canvas
 
-        state = get_state(ctx)
+        state = AppState.from_typer(ctx)
         repo_root = state.repo_root
         canvas_config = CanvasConfig.get(state.config)
         resolved_base_url = base_url or (

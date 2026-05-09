@@ -8,7 +8,7 @@ from typing import Annotated
 import click
 import typer
 
-from coursemd.cli.shared import get_state
+from coursemd.cli.shared import AppState
 from coursemd.integrations.github.config import (
     DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION,
     DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG,
@@ -81,7 +81,7 @@ def register_github_commands(github_app: typer.Typer) -> None:
             typer.Option("--dry-run", help="Preview the changes without mutating GitHub state."),
         ] = False,
     ) -> int:
-        state = get_state(ctx)
+        state = AppState.from_typer(ctx)
         github_config = GitHubConfig.get(state.config)
         organization = _resolve_github_value(
             org,

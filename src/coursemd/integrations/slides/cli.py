@@ -9,7 +9,7 @@ from typing import Annotated
 import click
 import typer
 
-from coursemd.cli.shared import get_state
+from coursemd.cli.shared import AppState
 from coursemd.integrations.slides.config import QuartoConfig
 
 CLI_NAME = "slides"
@@ -71,7 +71,7 @@ def register_slides_commands(slides_app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> int:
-        state = get_state(ctx)
+        state = AppState.from_typer(ctx)
         quarto_config = QuartoConfig.require(state.config)
         directory = quarto_config.directory
         directory = _require_slides_dir(directory)
@@ -103,7 +103,7 @@ def register_slides_commands(slides_app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> int:
-        state = get_state(ctx)
+        state = AppState.from_typer(ctx)
         quarto_config = QuartoConfig.require(state.config)
         directory = _require_slides_dir(quarto_config.directory)
         resolved_output_dir = (
