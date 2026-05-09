@@ -11,7 +11,7 @@ from typing import Annotated, Any
 import click
 import typer
 
-from coursemd.cli.shared import AppState, mkdocs_project_dir
+from coursemd.cli.shared import AppState
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
 
 CLI_NAME = "site"
@@ -48,6 +48,10 @@ except ModuleNotFoundError as exc:
 
 DEFAULT_PREVIEW_CURRENT_DATE = "2999-12-12"
 PREVIEW_EXCLUDED_PLUGINS: tuple[str, ...] = ()
+
+
+def mkdocs_project_dir(state: AppState) -> Path:
+    return MkdocsIntegrationConfig.require(state.config).project_dir
 
 
 def _register_unavailable_command(app: typer.Typer, command_name: str, message: str) -> None:

@@ -14,7 +14,6 @@ import typer
 from coursemd.core.config import CourseConfig
 from coursemd.core.loaders.repository import load_repository_env
 from coursemd.core.utils import set_course_timezone
-from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
 
 
 @dataclass
@@ -76,10 +75,6 @@ def default_quiz_files(state: AppState) -> list[Path]:
     )
 
 
-def mkdocs_project_dir(state: AppState) -> Path:
-    return MkdocsIntegrationConfig.require(state.config).project_dir
-
-
 def write_json_output(output_json: Path | None, results: list[dict[str, Any]]) -> None:
     if output_json is None:
         return
@@ -94,6 +89,5 @@ __all__ = [
     "default_quiz_files",
     "normalize_input_paths",
     "require_paths_exist",
-    "mkdocs_project_dir",
     "write_json_output",
 ]
