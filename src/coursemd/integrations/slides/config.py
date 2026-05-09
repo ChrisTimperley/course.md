@@ -40,13 +40,4 @@ class QuartoConfig(IntegrationConfig):
             ),
         )
 
-
-SlidesConfig = QuartoConfig
-
-
-__all__ = [
-    "DEFAULT_INIT_SLIDES_DIR",
-    "INTEGRATION_NAME",
-    "QuartoConfig",
-    "SlidesConfig",
-]
+__all__ = ("QuartoConfig",)
