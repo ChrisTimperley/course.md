@@ -32,20 +32,23 @@ def _build_repo_fixture(repo_root: Path) -> None:
     _write_file(
         repo_root / ".coursemd.yml",
         """
-        site:
-          backend: mkdocs
-          base_url: https://example.edu/course
-          project_dir: website
-        github:
-          organization: example-course-org
-          instructors_team_slug: instructors
-        canvas:
-          base_url: https://canvas.example.edu
-          course_id: 12345
-        paths:
-          data_dir: data
-          assignments_dir: assignments
-          quizzes_dir: quizzes
+                integrations:
+                    mkdocs:
+                        backend: mkdocs
+                        base_url: https://example.edu/course
+                        project_dir: website
+                    quarto:
+                        dir: slides
+                    github:
+                        organization: example-course-org
+                        instructors_team_slug: instructors
+                    canvas:
+                        base_url: https://canvas.example.edu
+                        course_id: 12345
+                paths:
+                    data_dir: data
+                    assignments_dir: assignments
+                    quizzes_dir: quizzes
         """,
     )
     _write_file(
@@ -435,10 +438,12 @@ def test_init_writes_root_level_content_paths_by_default(tmp_path: Path, monkeyp
 
     assert result.exit_code == 0
     config_text = (tmp_path / ".coursemd.yml").read_text(encoding="utf-8")
+    assert "integrations:" in config_text
+    assert "mkdocs:" in config_text
     assert "backend: mkdocs" in config_text
     assert "project_dir: website" in config_text
     assert "assignments_url_path: assignments" in config_text
-    assert "slides:" in config_text
+    assert "quarto:" in config_text
     assert "dir: slides" in config_text
     assert "data_dir: data" in config_text
     assert "assignments_dir: assignments" in config_text
@@ -483,7 +488,7 @@ def test_config_defaults_site_backend_to_mkdocs(tmp_path: Path) -> None:
     _build_repo_fixture(tmp_path)
     config_path = tmp_path / ".coursemd.yml"
     config_path.write_text(
-        config_path.read_text(encoding="utf-8").replace("  backend: mkdocs\n", ""),
+        config_path.read_text(encoding="utf-8").replace("        backend: mkdocs\n", ""),
         encoding="utf-8",
     )
 
@@ -552,14 +557,15 @@ def test_config_allows_repositories_without_canvas(tmp_path: Path, monkeypatch) 
     config_path = tmp_path / ".coursemd.yml"
     config_path.write_text(
         """
-        site:
-          backend: mkdocs
-          base_url: https://example.edu/course
-          project_dir: website
-        paths:
-          data_dir: data
-          assignments_dir: assignments
-          quizzes_dir: quizzes
+integrations:
+    mkdocs:
+        backend: mkdocs
+        base_url: https://example.edu/course
+        project_dir: website
+paths:
+    data_dir: data
+    assignments_dir: assignments
+    quizzes_dir: quizzes
         """,
         encoding="utf-8",
     )
@@ -578,10 +584,11 @@ def test_repository_load_allows_non_canvas_content(tmp_path: Path, monkeypatch) 
     _write_file(
         tmp_path / ".coursemd.yml",
         """
-        site:
-          backend: mkdocs
-          base_url: https://example.edu/course
-          project_dir: website
+        integrations:
+          mkdocs:
+            backend: mkdocs
+            base_url: https://example.edu/course
+            project_dir: website
         paths:
           data_dir: data
           assignments_dir: assignments
@@ -623,13 +630,40 @@ def test_repository_load_allows_non_canvas_content(tmp_path: Path, monkeypatch) 
     assert "Validation passed." in result.stdout
 
 
+def test_config_rejects_legacy_top_level_integration_keys(tmp_path: Path, monkeypatch) -> None:
+        _write_file(
+                tmp_path / ".coursemd.yml",
+                """
+                site:
+                    backend: mkdocs
+                    base_url: https://example.edu/course
+                    project_dir: website
+                canvas:
+                    base_url: https://canvas.example.edu
+                    course_id: 12345
+                paths:
+                    data_dir: data
+                    assignments_dir: assignments
+                    quizzes_dir: quizzes
+                """,
+        )
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(cli.app, ["validate"])
+
+        assert result.exit_code == 1
+        assert "Moved config keys detected in .coursemd.yml" in result.output
+        assert "site -> integrations.mkdocs" in result.output
+        assert "canvas -> integrations.canvas" in result.output
+
+
 def test_config_reads_site_url_paths(tmp_path: Path) -> None:
     _build_repo_fixture(tmp_path)
     config_path = tmp_path / ".coursemd.yml"
     config_path.write_text(
         config_path.read_text(encoding="utf-8").replace(
-            "  project_dir: website\n",
-            "  project_dir: website\n  assignments_url_path: coursework\n",
+            "        project_dir: website\n",
+            "        project_dir: website\n        assignments_url_path: coursework\n",
         ),
         encoding="utf-8",
     )
@@ -856,19 +890,20 @@ def test_slides_preview_uses_configured_directory(tmp_path: Path, monkeypatch) -
     _write_file(
         tmp_path / ".coursemd.yml",
         """
-        site:
-          backend: mkdocs
-          base_url: https://example.edu/course
-          project_dir: website
-        slides:
-                    dir: lecture-slides
-        canvas:
-          base_url: https://canvas.example.edu
-          course_id: 12345
-        paths:
-          data_dir: data
-          assignments_dir: assignments
-          quizzes_dir: quizzes
+                integrations:
+                    mkdocs:
+                        backend: mkdocs
+                        base_url: https://example.edu/course
+                        project_dir: website
+                    quarto:
+                        dir: lecture-slides
+                    canvas:
+                        base_url: https://canvas.example.edu
+                        course_id: 12345
+                paths:
+                    data_dir: data
+                    assignments_dir: assignments
+                    quizzes_dir: quizzes
         """,
     )
     _write_file(
@@ -912,19 +947,20 @@ def test_slides_preview_accepts_legacy_project_dir_key(tmp_path: Path, monkeypat
     _write_file(
         tmp_path / ".coursemd.yml",
         """
-        site:
-          backend: mkdocs
-          base_url: https://example.edu/course
-          project_dir: website
-        slides:
-          project_dir: legacy-slides
-        canvas:
-          base_url: https://canvas.example.edu
-          course_id: 12345
-        paths:
-          data_dir: data
-          assignments_dir: assignments
-          quizzes_dir: quizzes
+                integrations:
+                    mkdocs:
+                        backend: mkdocs
+                        base_url: https://example.edu/course
+                        project_dir: website
+                    quarto:
+                        project_dir: legacy-slides
+                    canvas:
+                        base_url: https://canvas.example.edu
+                        course_id: 12345
+                paths:
+                    data_dir: data
+                    assignments_dir: assignments
+                    quizzes_dir: quizzes
         """,
     )
     _write_file(
@@ -994,14 +1030,15 @@ def test_coursemd_mkdocs_plugin_builds_non_canvas_course(
     _write_file(
         tmp_path / ".coursemd.yml",
         """
-        site:
-          backend: mkdocs
-          base_url: https://example.edu/course
-          project_dir: website
-        paths:
-          data_dir: data
-          assignments_dir: assignments
-          quizzes_dir: quizzes
+                integrations:
+                    mkdocs:
+                        backend: mkdocs
+                        base_url: https://example.edu/course
+                        project_dir: website
+                paths:
+                    data_dir: data
+                    assignments_dir: assignments
+                    quizzes_dir: quizzes
         """,
     )
     _write_file(
@@ -1152,8 +1189,8 @@ def test_coursemd_mkdocs_plugin_uses_configured_urls(
     config_path = tmp_path / ".coursemd.yml"
     config_path.write_text(
         config_path.read_text(encoding="utf-8").replace(
-            "  project_dir: website\n",
-            "  project_dir: website\n  assignments_url_path: coursework\n",
+            "        project_dir: website\n",
+            "        project_dir: website\n        assignments_url_path: coursework\n",
         ),
         encoding="utf-8",
     )

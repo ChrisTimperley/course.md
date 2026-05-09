@@ -15,6 +15,8 @@ import typer
 from coursemd.core.config import CoursemdConfig, load_coursemd_config
 from coursemd.core.loaders.repository import load_repository_env
 from coursemd.core.utils import set_course_timezone
+from coursemd.integrations.slides.config import INTEGRATION_NAME as QUARTO_INTEGRATION_NAME
+from coursemd.integrations.slides.config import QuartoConfig
 
 
 @dataclass
@@ -81,13 +83,10 @@ def site_project_dir(state: AppState) -> Path:
 
 
 def slides_dir(state: AppState) -> Path:
-    slides_config = state.config.integrations.get("slides")
+    slides_config = state.config.get_integration(QUARTO_INTEGRATION_NAME, QuartoConfig)
     if slides_config is None:
         raise click.ClickException("Slides integration config is missing.")
-    directory = getattr(slides_config, "directory", None)
-    if not isinstance(directory, Path):
-        raise click.ClickException("Slides integration config is invalid.")
-    return directory
+    return slides_config.directory
 
 
 def parse_group_category_id_override() -> int | None:

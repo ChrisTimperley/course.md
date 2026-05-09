@@ -2,49 +2,62 @@
 
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypeVar, cast
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import click
 import yaml
 
-from coursemd.core.utils import DEFAULT_TIMEZONE
-from coursemd.integrations.canvas.config import (
-    DEFAULT_CANVAS_BASE_URL,
-    DEFAULT_INIT_CANVAS_COURSE_ID,
-    CanvasConfig,
-)
-from coursemd.integrations.canvas.config import (
-    INTEGRATION_NAME as CANVAS_INTEGRATION_NAME,
-)
-from coursemd.integrations.github.config import (
+from ..integrations.canvas.config import DEFAULT_CANVAS_BASE_URL, DEFAULT_INIT_CANVAS_COURSE_ID
+from ..integrations.github.config import (
     DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION,
     DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG,
     DEFAULT_GITHUB_RULESET_NAME,
-    GitHubConfig,
 )
-from coursemd.integrations.github.config import (
-    INTEGRATION_NAME as GITHUB_INTEGRATION_NAME,
+from ..integrations.mkdocs.config import (
+    DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH,
+    DEFAULT_INIT_SITE_BACKEND,
+    DEFAULT_INIT_SITE_BASE_URL,
+    DEFAULT_INIT_SITE_PROJECT_DIR,
 )
-from coursemd.integrations.slides.config import (
-    DEFAULT_INIT_SLIDES_DIR,
-    SlidesConfig,
+from ..integrations.slides.config import DEFAULT_INIT_SLIDES_DIR
+from .config_helpers import (
+    CONFIG_FILENAME,
+    require_mapping,
+    require_timezone,
+    resolve_relative_path,
 )
-from coursemd.integrations.slides.config import (
-    INTEGRATION_NAME as SLIDES_INTEGRATION_NAME,
+from .integration_config import (
+    IntegrationConfigContext,
+    get_integration_config_type,
+    iter_integration_config_types,
 )
+from .utils import DEFAULT_TIMEZONE
 
-CONFIG_FILENAME = ".coursemd.yml"
-DEFAULT_INIT_SITE_BASE_URL = "https://example.edu/course"
-DEFAULT_INIT_SITE_BACKEND = "mkdocs"
-DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH = "assignments"
-DEFAULT_INIT_SITE_PROJECT_DIR = "website"
+if TYPE_CHECKING:
+    from ..integrations.mkdocs.config import MkdocsIntegrationConfig
+
 DEFAULT_INIT_DATA_DIR = "data"
 DEFAULT_INIT_ASSIGNMENTS_DIR = "assignments"
 DEFAULT_INIT_QUIZZES_DIR = "quizzes"
 DEFAULT_INIT_TIMEZONE = DEFAULT_TIMEZONE
+
+_BUILTIN_INTEGRATION_CONFIG_MODULES = (
+    "coursemd.integrations.mkdocs.config",
+    "coursemd.integrations.canvas.config",
+    "coursemd.integrations.github.config",
+    "coursemd.integrations.slides.config",
+)
+_LEGACY_INTEGRATION_KEYS = {
+    "site": "integrations.mkdocs",
+    "canvas": "integrations.canvas",
+    "github": "integrations.github",
+    "slides": "integrations.quarto",
+    "quarto": "integrations.quarto",
+}
+_builtin_integrations_loaded = False
 
 
 @dataclass(frozen=True)
@@ -60,10 +73,6 @@ class CoursemdConfig:
     config_path: Path
     repo_root: Path
     timezone: str
-    site_backend: str
-    site_base_url: str
-    site_project_dir: Path
-    site_assignments_url_path: str
     integrations: dict[str, object]
     paths: CoursemdPathsConfig
 
@@ -77,81 +86,100 @@ class CoursemdConfig:
             )
         return value
 
+    @property
+    def site_backend(self) -> str:
+        return self._mkdocs_config().backend
+
+    @property
+    def site_base_url(self) -> str:
+        return self._mkdocs_config().base_url
+
+    @property
+    def site_project_dir(self) -> Path:
+        return self._mkdocs_config().project_dir
+
+    @property
+    def site_assignments_url_path(self) -> str:
+        return self._mkdocs_config().assignments_url_path
+
+    def _mkdocs_config(self) -> MkdocsIntegrationConfig:
+        from ..integrations.mkdocs.config import INTEGRATION_NAME, MkdocsIntegrationConfig
+
+        config = self.get_integration(INTEGRATION_NAME, MkdocsIntegrationConfig)
+        if config is None:
+            raise RuntimeError("MkDocs integration config is required but missing.")
+        return config
+
 
 T = TypeVar("T")
 
 
-def _require_mapping(value: Any, *, label: str) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        raise click.ClickException(f"{label} must be a mapping in {CONFIG_FILENAME}.")
-    return cast(dict[str, Any], value)
+def _load_builtin_integration_configs() -> None:
+    global _builtin_integrations_loaded
+
+    if _builtin_integrations_loaded:
+        return
+
+    for module_name in _BUILTIN_INTEGRATION_CONFIG_MODULES:
+        importlib.import_module(module_name)
+    _builtin_integrations_loaded = True
 
 
-def _optional_mapping(value: Any, *, label: str) -> dict[str, Any]:
-    if value is None:
-        return cast(dict[str, Any], {})
-    return _require_mapping(value, label=label)
+def _reject_legacy_integration_keys(config_map: dict[str, Any]) -> None:
+    legacy_keys = [key for key in _LEGACY_INTEGRATION_KEYS if key in config_map]
+    if not legacy_keys:
+        return
+
+    guidance = ", ".join(
+        f"{key} -> {_LEGACY_INTEGRATION_KEYS[key]}" for key in sorted(legacy_keys)
+    )
+    raise click.ClickException(
+        f"Moved config keys detected in {CONFIG_FILENAME}: {guidance}. "
+        "Use the integrations mapping instead."
+    )
 
 
-def _require_string(value: Any, *, label: str) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise click.ClickException(f"{label} must be a non-empty string in {CONFIG_FILENAME}.")
-    return value.strip()
+def _load_integrations(
+    integrations_map: dict[str, Any],
+    *,
+    repo_root: Path,
+) -> dict[str, object]:
+    context = IntegrationConfigContext(repo_root=repo_root)
+    raw_integrations: dict[str, Any] = {}
 
+    for raw_name, raw_value in integrations_map.items():
+        if not raw_name.strip():
+            raise click.ClickException(
+                f"integrations keys must be non-empty strings in {CONFIG_FILENAME}."
+            )
+        config_type = get_integration_config_type(raw_name)
+        if config_type is None:
+            supported = ", ".join(
+                sorted(config_type.metavar for config_type in iter_integration_config_types())
+            )
+            raise click.ClickException(
+                f"Unknown integration {raw_name!r} in {CONFIG_FILENAME}. "
+                f"Supported integrations: {supported}."
+            )
+        if config_type.metavar in raw_integrations:
+            raise click.ClickException(
+                f"Integration {config_type.metavar!r} is configured more than once in "
+                f"{CONFIG_FILENAME}."
+            )
+        raw_integrations[config_type.metavar] = raw_value
 
-def _require_text(value: Any, *, label: str) -> str:
-    if value is None or isinstance(value, bool):
-        raise click.ClickException(
-            f"{label} must be a non-empty string or integer in {CONFIG_FILENAME}."
-        )
-    text = str(value).strip()
-    if not text:
-        raise click.ClickException(
-            f"{label} must be a non-empty string or integer in {CONFIG_FILENAME}."
-        )
-    return text
+    integrations: dict[str, object] = {}
+    for config_type in iter_integration_config_types():
+        raw_value = raw_integrations.get(config_type.metavar)
+        if raw_value is None:
+            if config_type.required:
+                raise click.ClickException(
+                    f"integrations.{config_type.metavar} is required in {CONFIG_FILENAME}."
+                )
+            continue
+        integrations[config_type.metavar] = config_type.parse(raw_value, context=context)
 
-
-def _optional_int(value: Any, *, label: str) -> int | None:
-    if value is None:
-        return None
-    try:
-        return int(value)
-    except (TypeError, ValueError) as exc:
-        raise click.ClickException(f"{label} must be an integer in {CONFIG_FILENAME}.") from exc
-
-
-def _resolve_relative_path(repo_root: Path, raw_path: Any, *, label: str) -> Path:
-    path_value = _require_string(raw_path, label=label)
-    return (repo_root / path_value).resolve()
-
-
-def _require_permission(value: Any, *, label: str) -> str:
-    permission = _require_string(value, label=label)
-    if permission not in {"none", "read", "write", "admin"}:
-        raise click.ClickException(
-            f"{label} must be one of none, read, write, or admin in {CONFIG_FILENAME}."
-        )
-    return permission
-
-
-def _require_url_path(value: Any, *, label: str) -> str:
-    path = _require_string(value, label=label).strip("/")
-    if not path:
-        raise click.ClickException(f"{label} must not be empty in {CONFIG_FILENAME}.")
-    return path
-
-
-def _require_timezone(value: Any, *, label: str) -> str:
-    timezone_name = _require_string(value, label=label)
-    try:
-        ZoneInfo(timezone_name)
-    except ZoneInfoNotFoundError as exc:
-        raise click.ClickException(
-            f"{label} must be a valid IANA timezone in {CONFIG_FILENAME} "
-            "(example: America/New_York)."
-        ) from exc
-    return timezone_name
+    return integrations
 
 
 def discover_config_path(start_dir: Path | None = None) -> Path:
@@ -166,6 +194,7 @@ def discover_config_path(start_dir: Path | None = None) -> Path:
 
 
 def load_coursemd_config(start_dir: Path | None = None) -> CoursemdConfig:
+    _load_builtin_integration_configs()
     config_path = discover_config_path(start_dir=start_dir)
     repo_root = config_path.parent
 
@@ -177,12 +206,10 @@ def load_coursemd_config(start_dir: Path | None = None) -> CoursemdConfig:
 
     raw_config: Any = {} if loaded_config is None else loaded_config
 
-    config_map = _require_mapping(raw_config, label="Top-level config")
-    site_map = _require_mapping(config_map.get("site"), label="site")
-    slides_map = _optional_mapping(config_map.get("slides"), label="slides")
-    github_map = _optional_mapping(config_map.get("github"), label="github")
-    canvas_map = _optional_mapping(config_map.get("canvas"), label="canvas")
-    paths_map = _require_mapping(config_map.get("paths"), label="paths")
+    config_map = require_mapping(raw_config, label="Top-level config")
+    _reject_legacy_integration_keys(config_map)
+    integrations_map = require_mapping(config_map.get("integrations"), label="integrations")
+    paths_map = require_mapping(config_map.get("paths"), label="paths")
 
     env_file = paths_map.get("env_file", ".env")
     if env_file is not None and (not isinstance(env_file, str) or not env_file.strip()):
@@ -190,79 +217,26 @@ def load_coursemd_config(start_dir: Path | None = None) -> CoursemdConfig:
             f"paths.env_file must be a non-empty string in {CONFIG_FILENAME}."
         )
 
-    integrations: dict[str, object] = {}
-    if github_map:
-        integrations[GITHUB_INTEGRATION_NAME] = GitHubConfig(
-            organization=_require_string(
-                github_map.get("organization"), label="github.organization"
-            ),
-            instructors_team_slug=_require_string(
-                github_map.get("instructors_team_slug", DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG),
-                label="github.instructors_team_slug",
-            ),
-            ruleset_name=_require_string(
-                github_map.get("ruleset_name", DEFAULT_GITHUB_RULESET_NAME),
-                label="github.ruleset_name",
-            ),
-            default_repository_permission=_require_permission(
-                github_map.get(
-                    "default_repository_permission",
-                    DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION,
-                ),
-                label="github.default_repository_permission",
-            ),
-        )
-
-    if canvas_map:
-        integrations[CANVAS_INTEGRATION_NAME] = CanvasConfig(
-            base_url=_require_string(canvas_map.get("base_url"), label="canvas.base_url"),
-            course_id=_require_text(canvas_map.get("course_id"), label="canvas.course_id"),
-            group_category_id=_optional_int(
-                canvas_map.get("group_category_id"),
-                label="canvas.group_category_id",
-            ),
-        )
-
-    integrations[SLIDES_INTEGRATION_NAME] = SlidesConfig(
-        directory=_resolve_relative_path(
-            repo_root,
-            slides_map.get("dir", slides_map.get("project_dir", DEFAULT_INIT_SLIDES_DIR)),
-            label="slides.dir",
-        ),
-    )
-
     return CoursemdConfig(
         config_path=config_path,
         repo_root=repo_root,
-        timezone=_require_timezone(
+        timezone=require_timezone(
             config_map.get("timezone", DEFAULT_INIT_TIMEZONE),
             label="timezone",
         ),
-        site_backend=_require_string(
-            site_map.get("backend", DEFAULT_INIT_SITE_BACKEND),
-            label="site.backend",
-        ),
-        site_base_url=_require_string(site_map.get("base_url"), label="site.base_url"),
-        site_project_dir=_resolve_relative_path(
-            repo_root,
-            site_map.get("project_dir", DEFAULT_INIT_SITE_PROJECT_DIR),
-            label="site.project_dir",
-        ),
-        site_assignments_url_path=_require_url_path(
-            site_map.get("assignments_url_path", DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH),
-            label="site.assignments_url_path",
-        ),
-        integrations=integrations,
+        integrations=_load_integrations(integrations_map, repo_root=repo_root),
         paths=CoursemdPathsConfig(
-            data_dir=_resolve_relative_path(
-                repo_root, paths_map.get("data_dir"), label="paths.data_dir"
+            data_dir=resolve_relative_path(
+                repo_root,
+                paths_map.get("data_dir"),
+                label="paths.data_dir",
             ),
-            assignments_dir=_resolve_relative_path(
+            assignments_dir=resolve_relative_path(
                 repo_root,
                 paths_map.get("assignments_dir"),
                 label="paths.assignments_dir",
             ),
-            quizzes_dir=_resolve_relative_path(
+            quizzes_dir=resolve_relative_path(
                 repo_root,
                 paths_map.get("quizzes_dir"),
                 label="paths.quizzes_dir",
@@ -292,36 +266,54 @@ def build_default_config_text(
     timezone: str = DEFAULT_INIT_TIMEZONE,
     include_canvas: bool = False,
 ) -> str:
-    timezone = _require_timezone(timezone, label="timezone")
-    config: dict[str, Any] = {
-        "timezone": timezone,
-        "site": {
+    timezone = require_timezone(timezone, label="timezone")
+    integrations: dict[str, Any] = {
+        "mkdocs": {
             "backend": site_backend,
             "base_url": site_base_url,
             "project_dir": site_project_dir,
             "assignments_url_path": site_assignments_url_path,
         },
-        "slides": {
+        "quarto": {
             "dir": slides_dir,
         },
+    }
+    if include_canvas:
+        integrations["canvas"] = {
+            "base_url": canvas_base_url,
+            "course_id": canvas_course_id,
+        }
+    if github_org is not None:
+        integrations["github"] = {
+            "organization": github_org,
+            "instructors_team_slug": github_instructors_team_slug,
+            "ruleset_name": github_ruleset_name,
+            "default_repository_permission": github_default_repository_permission,
+        }
+
+    config: dict[str, Any] = {
+        "timezone": timezone,
+        "integrations": integrations,
         "paths": {
             "data_dir": data_dir,
             "assignments_dir": assignments_dir,
             "quizzes_dir": quizzes_dir,
         },
     }
-    if include_canvas:
-        config["canvas"] = {
-            "base_url": canvas_base_url,
-            "course_id": canvas_course_id,
-        }
-    if github_org is not None:
-        config["github"] = {
-            "organization": github_org,
-            "instructors_team_slug": github_instructors_team_slug,
-            "ruleset_name": github_ruleset_name,
-            "default_repository_permission": github_default_repository_permission,
-        }
     if env_file != ".env":
         config["paths"]["env_file"] = env_file
     return yaml.safe_dump(config, sort_keys=False)
+
+
+__all__ = [
+    "CONFIG_FILENAME",
+    "CoursemdConfig",
+    "CoursemdPathsConfig",
+    "DEFAULT_INIT_ASSIGNMENTS_DIR",
+    "DEFAULT_INIT_DATA_DIR",
+    "DEFAULT_INIT_QUIZZES_DIR",
+    "DEFAULT_INIT_TIMEZONE",
+    "build_default_config_text",
+    "discover_config_path",
+    "load_coursemd_config",
+]

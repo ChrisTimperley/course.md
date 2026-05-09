@@ -110,13 +110,14 @@ Minimal example:
 
 ```yaml
 timezone: America/New_York
-site:
-  backend: mkdocs
-  base_url: https://example.edu/course
-  project_dir: website
-  assignments_url_path: assignments
-slides:
-  dir: slides
+integrations:
+  mkdocs:
+    backend: mkdocs
+    base_url: https://example.edu/course
+    project_dir: website
+    assignments_url_path: assignments
+  quarto:
+    dir: slides
 paths:
   data_dir: data
   assignments_dir: assignments
@@ -126,9 +127,10 @@ paths:
 The core repository contract is:
 
 - `timezone` is an IANA timezone name used for date-only timestamps and current-date checks
-- `site.backend` is currently expected to be `mkdocs`
-- `site.project_dir` points to the MkDocs project that consumes the package plugin
-- `site.assignments_url_path` controls where generated assignment pages are published
+- `integrations.mkdocs.backend` is currently expected to be `mkdocs`
+- `integrations.mkdocs.project_dir` points to the MkDocs project that consumes the package plugin
+- `integrations.mkdocs.assignments_url_path` controls where generated assignment pages are published
+- `integrations.quarto.dir` points to the Quarto slides project when slides commands are used
 - YAML data files live under the configured `paths.data_dir`
 - assignment source files live under the configured `paths.assignments_dir`
 - quiz source files live under the configured `paths.quizzes_dir`
@@ -140,17 +142,19 @@ The core repository contract is:
 Optional Canvas config:
 
 ```yaml
-canvas:
-  base_url: https://canvas.example.edu
-  course_id: 12345
+integrations:
+  canvas:
+    base_url: https://canvas.example.edu
+    course_id: 12345
 ```
 
 Optional GitHub organization setup config:
 
 ```yaml
-github:
-  organization: example-course-org
-  instructors_team_slug: instructors
+integrations:
+  github:
+    organization: example-course-org
+    instructors_team_slug: instructors
 ```
 
 Secrets should stay in the environment or a repository-local `.env`, for
