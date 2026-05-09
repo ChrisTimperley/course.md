@@ -9,7 +9,8 @@ from typing import Annotated
 import click
 import typer
 
-from coursemd.cli.shared import get_state, slides_dir
+from coursemd.cli.shared import get_state
+from coursemd.integrations.slides.config import QuartoConfig
 
 CLI_NAME = "slides"
 CLI_HELP = "Build and preview course slides."
@@ -71,7 +72,10 @@ def register_slides_commands(slides_app: typer.Typer) -> None:
         ] = None,
     ) -> int:
         state = get_state(ctx)
-        directory = _require_slides_dir(slides_dir(state))
+        quarto_config = QuartoConfig.require(state.config)
+        directory = quarto_config.directory
+        directory = _require_slides_dir(directory)
+
         resolved_output_dir = (
             _default_output_dir(state.repo_root)
             if output_dir is None
@@ -100,7 +104,8 @@ def register_slides_commands(slides_app: typer.Typer) -> None:
         ] = None,
     ) -> int:
         state = get_state(ctx)
-        directory = _require_slides_dir(slides_dir(state))
+        quarto_config = QuartoConfig.require(state.config)
+        directory = _require_slides_dir(quarto_config.directory)
         resolved_output_dir = (
             _default_output_dir(state.repo_root)
             if output_dir is None

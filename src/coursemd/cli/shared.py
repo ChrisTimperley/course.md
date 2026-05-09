@@ -16,7 +16,6 @@ from coursemd.core.config import CourseConfig
 from coursemd.core.loaders.repository import load_repository_env
 from coursemd.core.utils import set_course_timezone
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
-from coursemd.integrations.slides.config import QuartoConfig
 
 
 @dataclass
@@ -78,10 +77,6 @@ def default_quiz_files(state: AppState) -> list[Path]:
     )
 
 
-def slides_dir(state: AppState) -> Path:
-    return QuartoConfig.require(state.config).directory
-
-
 def mkdocs_project_dir(state: AppState) -> Path:
     return MkdocsIntegrationConfig.require(state.config).project_dir
 
@@ -129,6 +124,5 @@ __all__ = [
     "require_canvas_credentials",
     "require_paths_exist",
     "mkdocs_project_dir",
-    "slides_dir",
     "write_json_output",
 ]
