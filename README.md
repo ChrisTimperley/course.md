@@ -196,7 +196,6 @@ Example page usage:
 The package exposes one Typer CLI:
 
 ```bash
-coursemd init
 coursemd validate
 coursemd site preview
 coursemd site build --output-dir build/website
@@ -212,8 +211,6 @@ coursemd sync canvas quizzes --plan-only quizzes/week1.md
 
 Command notes:
 
-- `coursemd init` writes a starter `.coursemd.yml` and refuses to overwrite an existing config unless you pass `--force`
-- `coursemd init --include-canvas` includes Canvas sync settings in the starter config
 - `coursemd validate` checks YAML data files plus assignment and quiz frontmatter through the shared loaders
 - `coursemd site ...` requires the `mkdocs` extra and a Python environment that also has the website project's MkDocs plugins installed
 - `coursemd slides ...` requires Quarto on `PATH`

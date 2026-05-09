@@ -10,7 +10,7 @@ making those boundaries explicit enough for reuse across course repositories.
 Implemented today:
 
 - a typed `CourseRepository` loader that reads root-level YAML plus assignment and quiz Markdown files
-- a single `coursemd` CLI for `init`, `validate`, website builds, slide commands, GitHub setup, and Canvas sync
+- a single `coursemd` CLI for `validate`, website builds, slide commands, GitHub setup, and Canvas sync
 - a MkDocs plugin that loads the canonical repository once and injects preloaded data into templates
 - schedule rendering that uses preloaded repository data instead of re-reading source files at macro render time
 - configurable assignment publish paths that are decoupled from source file locations

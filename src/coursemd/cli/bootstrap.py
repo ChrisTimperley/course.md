@@ -9,7 +9,6 @@ from pathlib import Path
 import click
 import typer
 
-from coursemd.cli.init import register_init_command
 from coursemd.cli.shared import AppState as AppState
 from coursemd.cli.validate import register_validate_command
 from coursemd.integrations import register_integration_clis
@@ -20,7 +19,6 @@ app = typer.Typer(
     help="Course automation CLI for data-driven course repositories.",
 )
 register_validate_command(app)
-register_init_command(app)
 register_integration_clis(app)
 
 

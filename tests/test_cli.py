@@ -301,25 +301,6 @@ def test_validate_fails_for_quiz_missing_release_date(tmp_path: Path, monkeypatc
     assert "'release_date' must be a valid date or ISO-8601 timestamp" in result.output
 
 
-def test_init_writes_starter_config(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    result = runner.invoke(cli.app, ["init"])
-
-    assert result.exit_code == 0
-    assert "Wrote starter config" in result.stdout
-    assert (tmp_path / ".coursemd.yml").exists()
-
-
-def test_init_refuses_to_overwrite_existing_config(tmp_path: Path, monkeypatch) -> None:
-    _build_repo_fixture(tmp_path)
-    monkeypatch.chdir(tmp_path)
-
-    result = runner.invoke(cli.app, ["init"])
-
-    assert result.exit_code == 1
-    assert "already exists" in result.output
-
 def test_sync_command_discovers_config_in_parent_directory(tmp_path: Path, monkeypatch) -> None:
     _build_repo_fixture(tmp_path)
     nested_dir = tmp_path / "website" / "docs"
@@ -428,59 +409,6 @@ def test_optional_canvas_commands_report_missing_canvas_dependency(monkeypatch) 
 
     assert result.exit_code == 1
     assert "coursemd[canvas]" in result.output
-
-
-def test_init_writes_root_level_content_paths_by_default(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    result = runner.invoke(cli.app, ["init"])
-
-    assert result.exit_code == 0
-    config_text = (tmp_path / ".coursemd.yml").read_text(encoding="utf-8")
-    assert "integrations:" in config_text
-    assert "mkdocs:" in config_text
-    assert "project_dir: website" in config_text
-    assert "assignments_url_path: assignments" in config_text
-    assert "quarto:" in config_text
-    assert "dir: slides" in config_text
-    assert "data_dir: data" in config_text
-    assert "assignments_dir: assignments" in config_text
-    assert "quizzes_dir: quizzes" in config_text
-    assert "timezone: America/New_York" in config_text
-    assert "canvas:" not in config_text
-
-
-def test_init_can_include_canvas_settings(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    result = runner.invoke(
-        cli.app,
-        [
-            "init",
-            "--include-canvas",
-            "--canvas-base-url",
-            "https://canvas.example.edu",
-            "--canvas-course-id",
-            "12345",
-        ],
-    )
-
-    assert result.exit_code == 0
-    config_text = (tmp_path / ".coursemd.yml").read_text(encoding="utf-8")
-    assert "canvas:" in config_text
-    assert "base_url: https://canvas.example.edu" in config_text
-    assert "course_id: '12345'" in config_text
-
-
-def test_init_rejects_invalid_timezone(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    result = runner.invoke(cli.app, ["init", "--timezone", "Not/A_Timezone"])
-
-    assert result.exit_code == 1
-    assert "timezone must be a valid IANA timezone" in result.output
-    assert not (tmp_path / ".coursemd.yml").exists()
-
 
 
 def test_config_reads_course_timezone(tmp_path: Path) -> None:
