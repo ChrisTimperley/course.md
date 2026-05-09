@@ -34,7 +34,6 @@ def _build_repo_fixture(repo_root: Path) -> None:
         """
                 integrations:
                     mkdocs:
-                        backend: mkdocs
                         base_url: https://example.edu/course
                         project_dir: website
                     quarto:
@@ -440,7 +439,6 @@ def test_init_writes_root_level_content_paths_by_default(tmp_path: Path, monkeyp
     config_text = (tmp_path / ".coursemd.yml").read_text(encoding="utf-8")
     assert "integrations:" in config_text
     assert "mkdocs:" in config_text
-    assert "backend: mkdocs" in config_text
     assert "project_dir: website" in config_text
     assert "assignments_url_path: assignments" in config_text
     assert "quarto:" in config_text
@@ -483,26 +481,6 @@ def test_init_rejects_invalid_timezone(tmp_path: Path, monkeypatch) -> None:
     assert "timezone must be a valid IANA timezone" in result.output
     assert not (tmp_path / ".coursemd.yml").exists()
 
-
-def test_config_defaults_site_backend_to_mkdocs(tmp_path: Path) -> None:
-    _build_repo_fixture(tmp_path)
-    config_path = tmp_path / ".coursemd.yml"
-    config_path.write_text(
-        config_path.read_text(encoding="utf-8").replace("        backend: mkdocs\n", ""),
-        encoding="utf-8",
-    )
-
-    config = CourseConfig.load(start_dir=tmp_path / "website")
-
-    assert MkdocsIntegrationConfig.require(config).backend == "mkdocs"
-
-
-def test_config_reads_explicit_site_backend(tmp_path: Path) -> None:
-    _build_repo_fixture(tmp_path)
-
-    config = CourseConfig.load(start_dir=tmp_path / "website")
-
-    assert MkdocsIntegrationConfig.require(config).backend == "mkdocs"
 
 
 def test_config_reads_course_timezone(tmp_path: Path) -> None:
@@ -559,7 +537,6 @@ def test_config_allows_repositories_without_canvas(tmp_path: Path, monkeypatch) 
         """
 integrations:
     mkdocs:
-        backend: mkdocs
         base_url: https://example.edu/course
         project_dir: website
 paths:
@@ -586,7 +563,6 @@ def test_repository_load_allows_non_canvas_content(tmp_path: Path, monkeypatch) 
         """
         integrations:
           mkdocs:
-            backend: mkdocs
             base_url: https://example.edu/course
             project_dir: website
         paths:
@@ -865,7 +841,6 @@ def test_slides_preview_uses_configured_directory(tmp_path: Path, monkeypatch) -
         """
                 integrations:
                     mkdocs:
-                        backend: mkdocs
                         base_url: https://example.edu/course
                         project_dir: website
                     quarto:
@@ -948,7 +923,6 @@ def test_coursemd_mkdocs_plugin_builds_non_canvas_course(
         """
                 integrations:
                     mkdocs:
-                        backend: mkdocs
                         base_url: https://example.edu/course
                         project_dir: website
                 paths:

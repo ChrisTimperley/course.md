@@ -12,7 +12,7 @@ import click
 import typer
 
 from coursemd.cli.shared import get_state, mkdocs_project_dir
-from coursemd.integrations.mkdocs.config import SUPPORTED_SITE_BACKENDS, MkdocsIntegrationConfig
+from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
 
 CLI_NAME = "site"
 CLI_HELP = "Build and preview the course website."
@@ -193,12 +193,7 @@ def _preview_site(
 def register_site_commands(site_app: typer.Typer) -> None:
     def require_supported_backend(ctx: typer.Context) -> tuple[Path, Path]:
         state = get_state(ctx)
-        mkdocs_config = MkdocsIntegrationConfig.require(state.config)
-        if mkdocs_config.backend not in SUPPORTED_SITE_BACKENDS:
-            raise click.ClickException(
-                f"Unsupported site backend '{mkdocs_config.backend}'. "
-                "Only 'mkdocs' is supported in this release."
-            )
+        MkdocsIntegrationConfig.require(state.config)
         project_dir = mkdocs_project_dir(state)
         config_file = _require_site_project_dir(project_dir)
         return project_dir, config_file
@@ -318,7 +313,6 @@ __all__ = [
     "DEFAULT_PREVIEW_CURRENT_DATE",
     "PREVIEW_EXCLUDED_PLUGINS",
     "PluginCollection",
-    "SUPPORTED_SITE_BACKENDS",
     "load_config",
     "mkdocs_build",
     "mkdocs_serve",

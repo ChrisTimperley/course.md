@@ -19,11 +19,11 @@ from mkdocs.structure.nav import Navigation
 from coursemd.core.config import CourseConfig
 from coursemd.core.loaders.dates import parse_date
 from coursemd.core.loaders.repository import load_course_repository
-from coursemd.core.macros import define_env
 from coursemd.core.models.repository import CourseRepository
 from coursemd.core.utils import current_date, set_course_timezone
 from coursemd.integrations.canvas.config import CanvasConfig
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
+from coursemd.integrations.mkdocs.macros import define_env
 
 MacroFunction = Callable[..., Any]
 

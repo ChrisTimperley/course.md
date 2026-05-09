@@ -27,7 +27,7 @@ package, CLI command, and MkDocs plugin entry point remain `coursemd`.
 
 Important current constraints:
 
-- MkDocs is the only supported website backend in this release.
+- MkDocs is the only supported website integration in this release.
 - Quizzes are source-only metadata and are never published as website pages.
 - Canvas and GitHub are optional integrations, not required parts of the course repository contract.
 - Slides are still driven by the configured slide project, not by a separate slide adapter model.
@@ -112,7 +112,6 @@ Minimal example:
 timezone: America/New_York
 integrations:
   mkdocs:
-    backend: mkdocs
     base_url: https://example.edu/course
     project_dir: website
     assignments_url_path: assignments
@@ -127,7 +126,6 @@ paths:
 The core repository contract is:
 
 - `timezone` is an IANA timezone name used for date-only timestamps and current-date checks
-- `integrations.mkdocs.backend` is currently expected to be `mkdocs`
 - `integrations.mkdocs.project_dir` points to the MkDocs project that consumes the package plugin
 - `integrations.mkdocs.assignments_url_path` controls where generated assignment pages are published
 - `integrations.quarto.dir` points to the Quarto slides project when slides commands are used

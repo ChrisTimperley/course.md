@@ -8,7 +8,7 @@ from mkdocs.plugins import BasePlugin
 from mkdocs.structure.files import Files as MkDocsFiles
 from mkdocs.structure.nav import Navigation as MkDocsNavigation
 
-from coursemd.core.macros import _parse_date
+from coursemd.core.loaders.dates import parse_date as _parse_date
 from coursemd.core.utils import current_date
 
 

@@ -16,7 +16,6 @@ from coursemd.integrations.canvas.config import (
 )
 from coursemd.integrations.mkdocs.config import (
     DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH,
-    DEFAULT_INIT_SITE_BACKEND,
     DEFAULT_INIT_SITE_BASE_URL,
     DEFAULT_INIT_SITE_PROJECT_DIR,
 )
@@ -35,7 +34,6 @@ def _default_integrations_config(
 ) -> dict[str, object]:
     integrations: dict[str, object] = {
         "mkdocs": {
-            "backend": DEFAULT_INIT_SITE_BACKEND,
             "base_url": site_base_url,
             "project_dir": site_project_dir,
             "assignments_url_path": site_assignments_url_path,
