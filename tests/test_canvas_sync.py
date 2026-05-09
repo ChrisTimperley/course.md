@@ -5,6 +5,7 @@ from typing import Any
 
 from coursemd.adapters.canvas.sync import CanvasSyncEvent, sync_assignments_to_canvas
 from coursemd.models.assignment import AssignmentSpec
+from coursemd.models.integrations import AssignmentIntegrations, CanvasAssignmentIntegration
 
 
 class DryRunAssignmentClient:
@@ -23,7 +24,6 @@ def test_assignment_sync_reports_events_without_printing(capsys) -> None:
         source_file=Path("assignments/hw1.md"),
         name="Homework 1",
         due_at="2026-01-16T23:59:00-05:00",
-        assignment_group="Homework",
         submission_types=["none"],
         points_possible=100,
         published=False,
@@ -33,6 +33,9 @@ def test_assignment_sync_reports_events_without_printing(capsys) -> None:
         group_assignment=False,
         submission_form=[],
         rubric_criteria=[],
+        integrations=AssignmentIntegrations(
+            canvas=CanvasAssignmentIntegration(assignment_group="Homework")
+        ),
     )
     events: list[CanvasSyncEvent] = []
 

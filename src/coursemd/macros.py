@@ -372,7 +372,7 @@ def define_env(env: t.Any) -> None:
         """
         Render a Canvas submission callout for a specific assignment.
 
-        Looks up the assignment by canvas_id in the page's canvas_assignments
+        Looks up the assignment by canvas_id in the page's assignments
         frontmatter list and renders an admonition with a direct submission link.
         When the assignment defines a ``submission_form`` list, each field is
         rendered as a labelled item so students know exactly what to paste into
@@ -401,9 +401,13 @@ def define_env(env: t.Any) -> None:
         assignment_cfg: dict[str, t.Any] = {}
         page = env.variables.get("page")
         if page is not None:
-            assignments = getattr(page, "meta", {}).get("canvas_assignments", [])
+            assignments = getattr(page, "meta", {}).get("assignments", [])
             for assignment in assignments:
-                if assignment.get("canvas_id") == canvas_id:
+                integration_map = assignment.get("integrations", {})
+                if not isinstance(integration_map, dict):
+                    continue
+                canvas = integration_map.get("canvas", {})
+                if isinstance(canvas, dict) and canvas.get("id") == canvas_id:
                     assignment_cfg = assignment
                     break
 

@@ -36,9 +36,7 @@ class QuizSpec:
     source_file: Path
     title: str
     source_type: str
-    quiz_type: str
     due_at: str
-    assignment_group: str
     points: float | None
     published: bool
     unlock_at: str | None
@@ -46,12 +44,3 @@ class QuizSpec:
     readings: list[ReadingSpec] = field(default_factory=list)
     questions: list[QuestionSpec] = field(default_factory=list)
     integrations: QuizIntegrations = field(default_factory=QuizIntegrations)
-
-    @property
-    def canvas_id(self) -> int | None:
-        """Compatibility alias for the nested Canvas quiz ID."""
-
-        return self.integrations.canvas.quiz_id
-
-
-CanvasQuizSpec = QuizSpec

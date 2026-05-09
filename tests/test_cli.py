@@ -67,7 +67,7 @@ def _build_repo_fixture(repo_root: Path) -> None:
         kind: homework
         release_date: 2026-01-12
         due_date: 2026-01-16
-        canvas_assignments:
+        assignments:
           - name: Homework 1
             due_at: "2026-01-16T23:59:00-05:00"
             points: 100
@@ -157,7 +157,7 @@ def test_validate_discovers_assignment_files_without_hw_prefix(tmp_path: Path, m
         kind: homework
         release_date: 2026-01-12
         due_date: 2026-01-16
-        canvas_assignments:
+        assignments:
           - name: Phase A
             due_at: "2026-01-16T23:59:00-05:00"
             points: 100
@@ -213,7 +213,7 @@ def test_validate_fails_for_assignment_missing_release_date(tmp_path: Path, monk
 title: Homework 1
 kind: homework
 due_date: 2026-01-16
-canvas_assignments:
+assignments:
   - name: Homework 1
     due_at: "2026-01-16T23:59:00-05:00"
     points: 100
@@ -246,7 +246,7 @@ due_date: 2026-01-16
 checkpoints:
   - date: 2026-01-20
     title: Late checkpoint
-canvas_assignments:
+assignments:
   - name: Homework 1
     due_at: "2026-01-16T23:59:00-05:00"
     points: 100
@@ -323,7 +323,7 @@ def test_legacy_assignment_wrapper_routes_through_typer_cli(tmp_path: Path, caps
     captured = capsys.readouterr()
 
     assert exit_code == 0
-    assert "Loaded 1 Canvas assignment specs:" in captured.out
+    assert "Loaded 1 assignment spec(s) for the Canvas integration:" in captured.out
     assert "Homework 1" in captured.out
 
 
@@ -336,7 +336,6 @@ def test_sync_command_discovers_config_in_parent_directory(tmp_path: Path, monke
     result = runner.invoke(
         cli.app,
         [
-            "sync",
             "canvas",
             "assignments",
             "--plan-only",
@@ -345,7 +344,7 @@ def test_sync_command_discovers_config_in_parent_directory(tmp_path: Path, monke
     )
 
     assert result.exit_code == 0
-    assert "Loaded 1 Canvas assignment specs:" in result.stdout
+    assert "Loaded 1 assignment spec(s) for the Canvas integration:" in result.stdout
 
 
 def test_github_setup_uses_repository_defaults_in_dry_run(
@@ -440,7 +439,7 @@ def test_optional_canvas_commands_report_missing_canvas_dependency(monkeypatch) 
             ("coursemd.cli.sync_canvas_assignments", "register_sync_canvas_assignments_command"),
             ("coursemd.cli.sync_canvas_quizzes", "register_sync_canvas_quizzes_command"),
         ],
-        fallback_commands=["coursemd sync canvas assignments", "coursemd sync canvas quizzes"],
+        fallback_commands=["coursemd canvas assignments", "coursemd canvas quizzes"],
         optional_modules={"requests"},
         extra_name="canvas",
     )
@@ -1142,7 +1141,7 @@ def test_coursemd_mkdocs_plugin_renders_injected_assignment_includes(
         kind: homework
         release_date: 2026-01-12
         due_date: 2026-01-16
-        canvas_assignments:
+        assignments:
           - name: Homework 1
             due_at: "2026-01-16T23:59:00-05:00"
             points: 100
@@ -1182,45 +1181,55 @@ def test_coursemd_mkdocs_plugin_uses_configured_urls(
     )
     _write_file(
         tmp_path / "assignments" / "hw1.md",
-        """
-        ---
-        title: Homework 1
-        kind: homework
-        release_date: 2026-01-12
-        due_date: 2026-01-16
-        canvas_assignments:
-          - name: Homework 1
-            canvas_id: 456
-            due_at: "2026-01-16T23:59:00-05:00"
-            points: 100
-        ---
-
-        # Homework 1
-
-        {{ canvas_submission(456) }}
-        """,
+        "\n".join(
+            [
+                "---",
+                "title: Homework 1",
+                "kind: homework",
+                "release_date: 2026-01-12",
+                "due_date: 2026-01-16",
+                "assignments:",
+                "  - name: Homework 1",
+                '    due_at: "2026-01-16T23:59:00-05:00"',
+                "    points: 100",
+                "    integrations:",
+                "      canvas:",
+                "        id: 456",
+                "---",
+                "",
+                "# Homework 1",
+                "",
+                "{{ canvas_submission(456) }}",
+                "",
+            ]
+        ),
     )
     _write_file(
         tmp_path / "quizzes" / "week1.md",
-        """
-        ---
-        title: Week 1 Reading Quiz
-        type: reading
-        canvas_id: 987
-        release_date: 2026-01-12
-        due_at: "2026-01-16T23:59:00-05:00"
-        questions:
-          - question_type: multiple_choice
-            question_text: What is quality?
-            answers:
-              - text: Fitness for purpose
-                correct: true
-              - text: Just test coverage
-                correct: false
-        ---
-
-        # Quiz
-        """,
+        "\n".join(
+            [
+                "---",
+                "title: Week 1 Reading Quiz",
+                "type: reading",
+                "release_date: 2026-01-12",
+                'due_at: "2026-01-16T23:59:00-05:00"',
+                "integrations:",
+                "  canvas:",
+                "    id: 987",
+                "questions:",
+                "  - question_type: multiple_choice",
+                "    question_text: What is quality?",
+                "    answers:",
+                "      - text: Fitness for purpose",
+                "        correct: true",
+                "      - text: Just test coverage",
+                "        correct: false",
+                "---",
+                "",
+                "# Quiz",
+                "",
+            ]
+        ),
     )
     monkeypatch.setenv("CURRENT_DATE_OVERRIDE", "2026-01-13")
     monkeypatch.chdir(tmp_path / "website")

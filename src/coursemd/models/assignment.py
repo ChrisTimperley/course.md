@@ -12,16 +12,11 @@ from coursemd.models.rubric import RubricCriterion
 
 @dataclass(frozen=True)
 class AssignmentSpec:
-    """Canonical assignment sync specification.
-
-    The model still exposes a few Canvas-oriented fields for compatibility with
-    the existing CLI, while durable external IDs live under ``integrations``.
-    """
+    """Canonical assignment sync specification."""
 
     source_file: Path
     name: str
     due_at: str
-    assignment_group: str
     submission_types: list[str]
     points_possible: float
     published: bool
@@ -32,12 +27,3 @@ class AssignmentSpec:
     submission_form: list[dict[str, Any]]
     rubric_criteria: list[RubricCriterion]
     integrations: AssignmentIntegrations = field(default_factory=AssignmentIntegrations)
-
-    @property
-    def canvas_id(self) -> int | None:
-        """Compatibility alias for the nested Canvas assignment ID."""
-
-        return self.integrations.canvas.assignment_id
-
-
-CanvasAssignmentSpec = AssignmentSpec

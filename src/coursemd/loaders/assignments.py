@@ -55,6 +55,14 @@ def _parse_submission_form(
     return parsed
 
 
+def _optional_mapping(value: Any, source_file: Path, field_name: str) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"{source_file}: '{field_name}' must be an object/map.")
+    return value
+
+
 def validate_schedule_assignment_metadata(
     source_file: Path,
     metadata: dict[str, Any],
@@ -196,17 +204,17 @@ def parse_assignment_specs_from_file(
         assignment_url_path=assignment_url_path,
     )
 
-    assignments = metadata.get("canvas_assignments")
+    assignments = metadata.get("assignments")
     if assignments is None:
         if not require_canvas_fields:
             return []
-        raise ValueError(f"{source_file}: missing 'canvas_assignments' frontmatter list.")
+        raise ValueError(f"{source_file}: missing 'assignments' frontmatter list.")
     if not isinstance(assignments, list):
-        raise ValueError(f"{source_file}: 'canvas_assignments' must be a list.")
+        raise ValueError(f"{source_file}: 'assignments' must be a list.")
     if not assignments:
         if not require_canvas_fields:
             return []
-        raise ValueError(f"{source_file}: 'canvas_assignments' must contain at least one item.")
+        raise ValueError(f"{source_file}: 'assignments' must contain at least one item.")
 
     phase_title = schedule_metadata["title"]
     specs: list[AssignmentSpec] = []
@@ -214,20 +222,25 @@ def parse_assignment_specs_from_file(
 
     for item in assignments:
         if not isinstance(item, dict):
-            raise ValueError(
-                f"{source_file}: each item in canvas_assignments must be an object/map."
-            )
+            raise ValueError(f"{source_file}: each item in assignments must be an object/map.")
 
-        name = _require_non_empty_string(item.get("name"), source_file, "canvas_assignments[].name")
+        name = _require_non_empty_string(item.get("name"), source_file, "assignments[].name")
         if name in seen_names:
             raise ValueError(f"{source_file}: duplicate canvas assignment name '{name}'.")
         seen_names.add(name)
 
         due_at = normalize_due_at(item.get("due_at"), source_file, name)
-        group_name = str(item.get("assignment_group") or phase_title).strip()
+        integrations = _optional_mapping(item.get("integrations"), source_file, f"{name}.integrations")
+        canvas_integration_map = _optional_mapping(
+            integrations.get("canvas"),
+            source_file,
+            f"{name}.integrations.canvas",
+        )
+        group_name = str(canvas_integration_map.get("assignment_group") or phase_title).strip()
         if not group_name:
             raise ValueError(
-                f"{source_file}: '{name}' assignment_group must be a non-empty string."
+                f"{source_file}: '{name}' integrations.canvas.assignment_group must be a "
+                "non-empty string."
             )
 
         submission_types_raw = item.get("submission_types", ["none"])
@@ -261,12 +274,14 @@ def parse_assignment_specs_from_file(
         group_assignment = bool(
             item.get("group_assignment", metadata.get("group_assignment", False))
         )
-        canvas_id = item.get("canvas_id")
+        canvas_id = canvas_integration_map.get("id")
         if canvas_id is not None:
             try:
                 canvas_id = int(canvas_id)
             except (TypeError, ValueError) as exc:
-                raise ValueError(f"{source_file}: '{name}' canvas_id must be an integer.") from exc
+                raise ValueError(
+                    f"{source_file}: '{name}' integrations.canvas.id must be an integer."
+                ) from exc
 
         submission_form = _parse_submission_form(item.get("submission_form"), source_file, name)
 
@@ -282,7 +297,6 @@ def parse_assignment_specs_from_file(
                 source_file=source_file,
                 name=name,
                 due_at=due_at,
-                assignment_group=group_name,
                 submission_types=submission_types,
                 points_possible=points_possible,
                 published=published,
@@ -301,7 +315,7 @@ def parse_assignment_specs_from_file(
                 rubric_criteria=rubric_criteria,
                 integrations=AssignmentIntegrations(
                     canvas=CanvasAssignmentIntegration(
-                        assignment_id=canvas_id,
+                        id=canvas_id,
                         assignment_group=group_name,
                     )
                 ),

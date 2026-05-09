@@ -35,6 +35,14 @@ def _require_non_empty_string(value: Any, source_file: Path, field_name: str) ->
     return text
 
 
+def _optional_mapping(value: Any, source_file: Path, field_name: str) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"{source_file}: '{field_name}' must be an object/map.")
+    return value
+
+
 def parse_readings(value: Any, source_file: Path, quiz_type: str) -> list[ReadingSpec]:
     if value is None:
         return []
@@ -93,7 +101,13 @@ def validate_schedule_quiz_metadata(
             raise ValueError(f"{source_file}: 'link' must be a non-empty string when provided.")
         quiz["link"] = link_text
     else:
-        canvas_id = metadata.get("canvas_id")
+        integrations = _optional_mapping(metadata.get("integrations"), source_file, "integrations")
+        canvas_integration = _optional_mapping(
+            integrations.get("canvas"),
+            source_file,
+            "integrations.canvas",
+        )
+        canvas_id = canvas_integration.get("id")
         if canvas_course_id and canvas_id is not None:
             quiz["link"] = (
                 f"{canvas_base_url.rstrip('/')}/courses/{canvas_course_id}/quizzes/{canvas_id}"
@@ -119,11 +133,19 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
             f"{source_file}: 'type' must be one of: {', '.join(QUIZ_TYPE_MAP)}. Got '{qtype}'."
         )
 
-    quiz_type_override = meta.get("quiz_type")
+    integrations = _optional_mapping(meta.get("integrations"), source_file, "integrations")
+    canvas_integration_map = _optional_mapping(
+        integrations.get("canvas"),
+        source_file,
+        "integrations.canvas",
+    )
+    quiz_type_override = canvas_integration_map.get("quiz_type")
     canvas_quiz_type = str(quiz_type_override) if quiz_type_override else QUIZ_TYPE_MAP[qtype]
 
     due_at = normalize_due_at(meta.get("due_at"), source_file, title)
-    assignment_group = str(meta.get("assignment_group") or f"{qtype.title()} Quizzes")
+    assignment_group = str(
+        canvas_integration_map.get("assignment_group") or f"{qtype.title()} Quizzes"
+    )
     points = meta.get("points")
     if points is not None:
         try:
@@ -134,12 +156,12 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
     unlock_at = require_release_date(meta.get("release_date"), source_file, "release_date")
     description = str(meta.get("description", "")).strip() or None
     readings = parse_readings(meta.get("readings"), source_file, qtype)
-    canvas_id = meta.get("canvas_id")
+    canvas_id = canvas_integration_map.get("id")
     if canvas_id is not None:
         try:
             canvas_id = int(canvas_id)
         except (TypeError, ValueError) as exc:
-            raise ValueError(f"{source_file}: 'canvas_id' must be an integer.") from exc
+            raise ValueError(f"{source_file}: 'integrations.canvas.id' must be an integer.") from exc
 
     questions_raw = meta.get("questions")
     if questions_raw is None:
@@ -284,9 +306,7 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
         source_file=source_file,
         title=title,
         source_type=qtype,
-        quiz_type=canvas_quiz_type,
         due_at=due_at,
-        assignment_group=assignment_group,
         points=points,
         published=published,
         unlock_at=unlock_at,
@@ -295,8 +315,9 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
         questions=question_specs,
         integrations=QuizIntegrations(
             canvas=CanvasQuizIntegration(
-                quiz_id=canvas_id,
+                id=canvas_id,
                 assignment_group=assignment_group,
+                quiz_type=canvas_quiz_type,
             )
         ),
     )

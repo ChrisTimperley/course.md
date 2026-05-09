@@ -21,17 +21,18 @@ from coursemd.cli.shared import (
 )
 from coursemd.constants import DEFAULT_CANVAS_BASE_URL
 from coursemd.loaders.assignments import load_assignment_specs
-from coursemd.models.assignment import CanvasAssignmentSpec
+from coursemd.models.assignment import AssignmentSpec
 
 
-def _print_assignment_plan(specs: list[CanvasAssignmentSpec]) -> None:
-    typer.echo(f"Loaded {len(specs)} Canvas assignment specs:")
+def _print_assignment_plan(specs: list[AssignmentSpec]) -> None:
+    typer.echo(f"Loaded {len(specs)} assignment spec(s) for the Canvas integration:")
     for spec in specs:
         unlock = f" | unlock {spec.unlock_at}" if spec.unlock_at else ""
         group = " [group]" if spec.group_assignment else ""
+        assignment_group = spec.integrations.canvas.assignment_group or "<unassigned>"
         typer.echo(
             f"- {spec.name} | due {spec.due_at} | {spec.points_possible} pts{unlock}{group} | "
-            f"group '{spec.assignment_group}' | submissions={spec.submission_types} | "
+            f"group '{assignment_group}' | submissions={spec.submission_types} | "
             f"source={spec.source_file}"
         )
 

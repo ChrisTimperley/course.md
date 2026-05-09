@@ -9,7 +9,7 @@ from dataclasses import dataclass
 class CanvasAssignmentIntegration:
     """Canvas state for an assignment-like item."""
 
-    assignment_id: int | None = None
+    id: int | None = None
     assignment_group: str | None = None
 
 
@@ -17,8 +17,9 @@ class CanvasAssignmentIntegration:
 class CanvasQuizIntegration:
     """Canvas state for a quiz-like item."""
 
-    quiz_id: int | None = None
+    id: int | None = None
     assignment_group: str | None = None
+    quiz_type: str | None = None
 
 
 @dataclass(frozen=True)

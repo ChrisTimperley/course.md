@@ -22,18 +22,19 @@ from coursemd.cli.shared import (
 )
 from coursemd.constants import DEFAULT_CANVAS_BASE_URL
 from coursemd.loaders.quizzes import load_quiz_specs
-from coursemd.models.quiz import CanvasQuizSpec
+from coursemd.models.quiz import QuizSpec
 
 
-def _print_quiz_plan(specs: list[CanvasQuizSpec]) -> None:
-    typer.echo(f"Loaded {len(specs)} quiz spec(s):")
+def _print_quiz_plan(specs: list[QuizSpec]) -> None:
+    typer.echo(f"Loaded {len(specs)} quiz spec(s) for the Canvas integration:")
     for spec in specs:
         unlock = f" | unlock {spec.unlock_at}" if spec.unlock_at else ""
         readings = f" | readings={len(spec.readings)}" if spec.readings else ""
+        canvas = spec.integrations.canvas
         typer.echo(
-            f"- {spec.title} | type={spec.quiz_type} | due {spec.due_at} | "
+            f"- {spec.title} | type={canvas.quiz_type or '<unset>'} | due {spec.due_at} | "
             f"{total_quiz_points(spec)} pts | {len(spec.questions)} questions{readings}{unlock} | "
-            f"group '{spec.assignment_group}' | source={spec.source_file}"
+            f"group '{canvas.assignment_group or '<unassigned>'}' | source={spec.source_file}"
         )
 
 

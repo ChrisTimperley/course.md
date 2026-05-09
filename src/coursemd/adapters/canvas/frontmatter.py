@@ -24,7 +24,7 @@ def update_assignment_frontmatter_with_ids(results: list[dict[str, object]]) -> 
 
     for path, updates in by_file.items():
         post = load_markdown_post(path)
-        assignments = post.metadata.get("canvas_assignments")
+        assignments = post.metadata.get("assignments")
         if not isinstance(assignments, list):
             continue
 
@@ -33,17 +33,23 @@ def update_assignment_frontmatter_with_ids(results: list[dict[str, object]]) -> 
             if not isinstance(item, dict):
                 continue
             name = str(item.get("name", "")).strip()
-            if "canvas_id" in item:
+            integrations = item.setdefault("integrations", {})
+            if not isinstance(integrations, dict):
+                continue
+            canvas = integrations.setdefault("canvas", {})
+            if not isinstance(canvas, dict):
+                continue
+            if "id" in canvas:
                 continue
             for update in updates:
                 if update["name"] == name:
-                    item["canvas_id"] = _canvas_id_as_int(update["id"])
+                    canvas["id"] = _canvas_id_as_int(update["id"])
                     updated_names.append(name)
                     break
 
         if updated_names:
             path.write_text(frontmatter.dumps(post), encoding="utf-8")
-            print(f"Updated {path} with canvas_id for: {', '.join(updated_names)}")
+            print(f"Updated {path} with integrations.canvas.id for: {', '.join(updated_names)}")
 
 
 def update_quiz_frontmatter_with_canvas_id(results: list[dict[str, object]]) -> None:
@@ -54,8 +60,14 @@ def update_quiz_frontmatter_with_canvas_id(results: list[dict[str, object]]) -> 
         path = Path(str(result["source_file"]))
         post = load_markdown_post(path)
         canvas_id_int = _canvas_id_as_int(canvas_id)
-        if "canvas_id" in post.metadata and post.metadata["canvas_id"] == canvas_id_int:
+        integrations = post.metadata.setdefault("integrations", {})
+        if not isinstance(integrations, dict):
             continue
-        post.metadata["canvas_id"] = canvas_id_int
+        canvas = integrations.setdefault("canvas", {})
+        if not isinstance(canvas, dict):
+            continue
+        if canvas.get("id") == canvas_id_int:
+            continue
+        canvas["id"] = canvas_id_int
         path.write_text(frontmatter.dumps(post), encoding="utf-8")
-        print(f"Updated {path} with canvas_id={canvas_id}")
+        print(f"Updated {path} with integrations.canvas.id={canvas_id}")

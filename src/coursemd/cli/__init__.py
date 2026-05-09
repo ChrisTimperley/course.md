@@ -19,17 +19,15 @@ app = typer.Typer(
     no_args_is_help=True,
     help="Course automation CLI for data-driven course repositories.",
 )
-sync_app = typer.Typer(no_args_is_help=True, help="Sync course data to external systems.")
 canvas_app = typer.Typer(no_args_is_help=True, help="Canvas LMS workflows.")
 site_app = typer.Typer(no_args_is_help=True, help="Build and preview the course website.")
 slides_app = typer.Typer(no_args_is_help=True, help="Build and preview course slides.")
 github_app = typer.Typer(no_args_is_help=True, help="GitHub organization workflows.")
 
-app.add_typer(sync_app, name="sync")
+app.add_typer(canvas_app, name="canvas")
 app.add_typer(site_app, name="site")
 app.add_typer(slides_app, name="slides")
 app.add_typer(github_app, name="github")
-sync_app.add_typer(canvas_app, name="canvas")
 
 
 def _load_register_function(module_name: str, function_name: str) -> Any:
@@ -99,8 +97,8 @@ _register_optional_group_commands(
         ("coursemd.cli.sync_canvas_quizzes", "register_sync_canvas_quizzes_command"),
     ],
     fallback_commands=[
-        "coursemd sync canvas assignments",
-        "coursemd sync canvas quizzes",
+        "coursemd canvas assignments",
+        "coursemd canvas quizzes",
     ],
     optional_modules={"requests"},
     extra_name="canvas",
@@ -143,7 +141,6 @@ def main_sync_canvas_assignments(
     prog: str = "sync-canvas-assignments",
 ) -> int:
     args_list = [
-        "sync",
         "canvas",
         "assignments",
         *(list(argv) if argv is not None else sys.argv[1:]),
@@ -158,7 +155,6 @@ def main_sync_canvas_quizzes(
     prog: str = "sync-canvas-quizzes",
 ) -> int:
     args_list = [
-        "sync",
         "canvas",
         "quizzes",
         *(list(argv) if argv is not None else sys.argv[1:]),

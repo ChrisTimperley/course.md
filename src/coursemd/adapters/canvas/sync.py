@@ -92,22 +92,23 @@ def sync_assignments_to_canvas(
 
     results: list[dict[str, Any]] = []
     for spec in specs:
-        group = groups_by_name.get(spec.assignment_group)
+        assignment_group = spec.integrations.canvas.assignment_group or spec.name
+        group = groups_by_name.get(assignment_group)
         if group is None:
             _emit(
                 reporter,
                 CanvasSyncEvent(
                     action="create",
                     target="assignment_group",
-                    name=spec.assignment_group,
+                    name=assignment_group,
                     dry_run=client.dry_run,
                 ),
             )
             if client.dry_run:
-                group = {"id": -1, "name": spec.assignment_group}
+                group = {"id": -1, "name": assignment_group}
             else:
-                group = client.create_assignment_group(course_id, spec.assignment_group)
-            groups_by_name[spec.assignment_group] = group
+                group = client.create_assignment_group(course_id, assignment_group)
+            groups_by_name[assignment_group] = group
 
         group_id = int(group["id"])
         form = form_for_assignment(
@@ -117,8 +118,8 @@ def sync_assignments_to_canvas(
             group_category_id=group_category_id,
         )
         existing: dict[str, Any] | None = None
-        if spec.canvas_id is not None:
-            existing = assignments_by_id.get(spec.canvas_id)
+        if spec.integrations.canvas.id is not None:
+            existing = assignments_by_id.get(spec.integrations.canvas.id)
         if existing is None:
             existing = assignments_by_name.get(spec.name)
 
@@ -291,29 +292,30 @@ def sync_quizzes_to_canvas(
 
     results: list[dict[str, Any]] = []
     for spec in specs:
-        group = groups_by_name.get(spec.assignment_group)
+        assignment_group = spec.integrations.canvas.assignment_group or spec.title
+        group = groups_by_name.get(assignment_group)
         if group is None:
             _emit(
                 reporter,
                 CanvasSyncEvent(
                     action="create",
                     target="assignment_group",
-                    name=spec.assignment_group,
+                    name=assignment_group,
                     dry_run=client.dry_run,
                 ),
             )
             if client.dry_run:
-                group = {"id": -1, "name": spec.assignment_group}
+                group = {"id": -1, "name": assignment_group}
             else:
-                group = client.create_assignment_group(course_id, spec.assignment_group)
-            groups_by_name[spec.assignment_group] = group
+                group = client.create_assignment_group(course_id, assignment_group)
+            groups_by_name[assignment_group] = group
 
         group_id = int(group["id"])
         form = form_for_quiz(spec, group_id, publish_override)
 
         existing: dict[str, Any] | None = None
-        if spec.canvas_id is not None:
-            existing = quizzes_by_id.get(spec.canvas_id)
+        if spec.integrations.canvas.id is not None:
+            existing = quizzes_by_id.get(spec.integrations.canvas.id)
         if existing is None:
             existing = quizzes_by_title.get(spec.title)
 

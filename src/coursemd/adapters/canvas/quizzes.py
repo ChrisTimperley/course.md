@@ -123,9 +123,10 @@ def form_for_quiz(
     publish_override: bool,
 ) -> dict[str, Any]:
     publish_value = publish_override or spec.published
+    canvas = spec.integrations.canvas
     form: dict[str, Any] = {
         "quiz[title]": spec.title,
-        "quiz[quiz_type]": spec.quiz_type,
+        "quiz[quiz_type]": canvas.quiz_type or "assignment",
         "quiz[shuffle_answers]": "true",
         "quiz[due_at]": spec.due_at,
         "quiz[lock_at]": spec.due_at,
