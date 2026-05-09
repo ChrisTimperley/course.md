@@ -9,13 +9,13 @@ from mkdocs.commands.build import build as mkdocs_build
 from mkdocs.config import load_config
 from typer.testing import CliRunner
 
-import coursemd.adapters.github.client
 import coursemd.cli.site
 import coursemd.cli.slides
-import coursemd.services.github_setup
+import coursemd.github.client
+import coursemd.github.setup
 from coursemd import cli
-from coursemd.config import load_coursemd_config
-from coursemd.loaders.dates import normalize_release_date
+from coursemd.core.config import load_coursemd_config
+from coursemd.core.loaders.dates import normalize_release_date
 
 runner = CliRunner()
 
@@ -376,9 +376,9 @@ def test_github_setup_uses_repository_defaults_in_dry_run(
         raise AssertionError(f"Unexpected command: {argv}")
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(coursemd.services.github_setup, "_run_command", fake_run_command)
+    monkeypatch.setattr(coursemd.github.setup, "_run_command", fake_run_command)
     monkeypatch.setattr(
-        coursemd.adapters.github.client.shutil,
+        coursemd.github.client.shutil,
         "which",
         lambda program: "/usr/bin/gh",
     )

@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from coursemd.adapters.canvas.sync import CanvasSyncEvent, sync_assignments_to_canvas
-from coursemd.models.assignment import AssignmentSpec
-from coursemd.models.integrations import AssignmentIntegrations, CanvasAssignmentIntegration
+from coursemd.canvas.sync import CanvasSyncEvent, sync_assignments_to_canvas
+from coursemd.core.models.assignment import AssignmentSpec
+from coursemd.core.models.integrations import AssignmentIntegrations, CanvasAssignmentIntegration
 
 
 class DryRunAssignmentClient:

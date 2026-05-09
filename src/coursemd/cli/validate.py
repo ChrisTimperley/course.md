@@ -17,7 +17,7 @@ from coursemd.cli.shared import (
     normalize_input_paths,
     require_paths_exist,
 )
-from coursemd.loaders.repository import load_course_repository
+from coursemd.core.loaders.repository import load_course_repository
 
 
 def register_validate_command(app: typer.Typer) -> None:

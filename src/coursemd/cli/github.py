@@ -9,7 +9,7 @@ import click
 import typer
 
 from coursemd.cli.shared import get_state
-from coursemd.services.github_setup import (
+from coursemd.github.setup import (
     DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION,
     DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG,
     DEFAULT_GITHUB_RULESET_NAME,

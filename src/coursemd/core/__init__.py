@@ -1,6 +1,4 @@
-"""Coursemd - A reusable package for data-driven course websites."""
-
-__version__ = "0.1.0"
+"""Functional core for coursemd."""
 
 from coursemd.core.models import (
     AssignmentSpec,

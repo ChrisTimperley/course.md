@@ -8,10 +8,10 @@ from typing import Annotated
 import click
 import typer
 
-from coursemd.adapters.canvas.frontmatter import update_quiz_frontmatter_with_canvas_id
-from coursemd.adapters.canvas.quizzes import total_quiz_points
-from coursemd.adapters.canvas.resources import QuizCanvasClient
-from coursemd.adapters.canvas.sync import CanvasSyncEvent, sync_quizzes_to_canvas
+from coursemd.canvas.frontmatter import update_quiz_frontmatter_with_canvas_id
+from coursemd.canvas.quizzes import total_quiz_points
+from coursemd.canvas.resources import QuizCanvasClient
+from coursemd.canvas.sync import CanvasSyncEvent, sync_quizzes_to_canvas
 from coursemd.cli.shared import (
     default_quiz_files,
     get_state,
@@ -20,9 +20,9 @@ from coursemd.cli.shared import (
     require_paths_exist,
     write_json_output,
 )
-from coursemd.constants import DEFAULT_CANVAS_BASE_URL
-from coursemd.loaders.quizzes import load_quiz_specs
-from coursemd.models.quiz import QuizSpec
+from coursemd.core.constants import DEFAULT_CANVAS_BASE_URL
+from coursemd.core.loaders.quizzes import load_quiz_specs
+from coursemd.core.models.quiz import QuizSpec
 
 
 def _print_quiz_plan(specs: list[QuizSpec]) -> None:

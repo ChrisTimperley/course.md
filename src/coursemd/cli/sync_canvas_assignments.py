@@ -8,9 +8,9 @@ from typing import Annotated
 import click
 import typer
 
-from coursemd.adapters.canvas.frontmatter import update_assignment_frontmatter_with_ids
-from coursemd.adapters.canvas.resources import AssignmentCanvasClient
-from coursemd.adapters.canvas.sync import CanvasSyncEvent, sync_assignments_to_canvas
+from coursemd.canvas.frontmatter import update_assignment_frontmatter_with_ids
+from coursemd.canvas.resources import AssignmentCanvasClient
+from coursemd.canvas.sync import CanvasSyncEvent, sync_assignments_to_canvas
 from coursemd.cli.shared import (
     default_assignment_files,
     get_state,
@@ -19,9 +19,9 @@ from coursemd.cli.shared import (
     require_paths_exist,
     write_json_output,
 )
-from coursemd.constants import DEFAULT_CANVAS_BASE_URL
-from coursemd.loaders.assignments import load_assignment_specs
-from coursemd.models.assignment import AssignmentSpec
+from coursemd.core.constants import DEFAULT_CANVAS_BASE_URL
+from coursemd.core.loaders.assignments import load_assignment_specs
+from coursemd.core.models.assignment import AssignmentSpec
 
 
 def _print_assignment_plan(specs: list[AssignmentSpec]) -> None:

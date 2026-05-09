@@ -12,9 +12,9 @@ from typing import Any
 import click
 import typer
 
-from coursemd.config import CoursemdConfig, load_coursemd_config
-from coursemd.loaders.repository import load_repository_env
-from coursemd.utils import set_course_timezone
+from coursemd.core.config import CoursemdConfig, load_coursemd_config
+from coursemd.core.loaders.repository import load_repository_env
+from coursemd.core.utils import set_course_timezone
 
 
 @dataclass

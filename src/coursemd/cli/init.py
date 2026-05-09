@@ -8,7 +8,7 @@ from typing import Annotated
 import click
 import typer
 
-from coursemd.config import (
+from coursemd.core.config import (
     CONFIG_FILENAME,
     DEFAULT_INIT_ASSIGNMENTS_DIR,
     DEFAULT_INIT_CANVAS_COURSE_ID,
@@ -21,7 +21,7 @@ from coursemd.config import (
     DEFAULT_INIT_TIMEZONE,
     build_default_config_text,
 )
-from coursemd.constants import DEFAULT_CANVAS_BASE_URL
+from coursemd.core.constants import DEFAULT_CANVAS_BASE_URL
 
 
 def register_init_command(app: typer.Typer) -> None:
