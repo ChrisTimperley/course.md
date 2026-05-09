@@ -1,4 +1,4 @@
-"""Shared helpers for the package CLI."""
+"""Shared helpers for coursemd CLI entrypoints."""
 
 from __future__ import annotations
 
@@ -113,3 +113,20 @@ def write_json_output(output_json: Path | None, results: list[dict[str, Any]]) -
         return
     output_json.write_text(json.dumps(results, indent=2), encoding="utf-8")
     typer.echo(f"\nWrote JSON results to {output_json}")
+
+
+__all__ = [
+    "AppState",
+    "default_assignment_files",
+    "default_data_files",
+    "default_quiz_files",
+    "get_state",
+    "load_app_state",
+    "normalize_input_paths",
+    "parse_group_category_id_override",
+    "require_canvas_credentials",
+    "require_paths_exist",
+    "site_project_dir",
+    "slides_dir",
+    "write_json_output",
+]

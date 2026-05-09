@@ -1,4 +1,4 @@
-"""GitHub organization commands for the package CLI."""
+"""GitHub CLI commands."""
 
 from __future__ import annotations
 
@@ -152,3 +152,6 @@ def register_github_commands(github_app: typer.Typer) -> None:
                 typer.echo(json.dumps(result.ruleset.payload, indent=2))
 
         return 0
+
+
+__all__ = ["register_github_commands"]

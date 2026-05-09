@@ -9,10 +9,11 @@ from mkdocs.commands.build import build as mkdocs_build
 from mkdocs.config import load_config
 from typer.testing import CliRunner
 
-import coursemd.cli.site
-import coursemd.cli.slides
+import coursemd.canvas.cli
 import coursemd.github.client
 import coursemd.github.setup
+import coursemd.mkdocs.cli
+import coursemd.slides.cli
 from coursemd import cli
 from coursemd.core.config import load_coursemd_config
 from coursemd.core.loaders.dates import normalize_release_date
@@ -319,7 +320,10 @@ def test_init_refuses_to_overwrite_existing_config(tmp_path: Path, monkeypatch) 
 def test_legacy_assignment_wrapper_routes_through_typer_cli(tmp_path: Path, capsys) -> None:
     _build_repo_fixture(tmp_path)
 
-    exit_code = cli.main_sync_canvas_assignments(["--plan-only"], repo_root=tmp_path)
+    exit_code = coursemd.canvas.cli.main_sync_canvas_assignments(
+        ["--plan-only"],
+        repo_root=tmp_path,
+    )
     captured = capsys.readouterr()
 
     assert exit_code == 0
@@ -413,7 +417,7 @@ def test_optional_site_commands_report_missing_mkdocs_dependency(monkeypatch) ->
 
     coursemd.cli._register_optional_group_commands(
         local_app,
-        loaders=[("coursemd.cli.site", "register_site_commands")],
+        loaders=[("coursemd.mkdocs.cli", "register_site_commands")],
         fallback_commands=["coursemd site build", "coursemd site preview"],
         optional_modules={"mkdocs"},
         extra_name="mkdocs",
@@ -436,8 +440,8 @@ def test_optional_canvas_commands_report_missing_canvas_dependency(monkeypatch) 
     coursemd.cli._register_optional_group_commands(
         local_app,
         loaders=[
-            ("coursemd.cli.sync_canvas_assignments", "register_sync_canvas_assignments_command"),
-            ("coursemd.cli.sync_canvas_quizzes", "register_sync_canvas_quizzes_command"),
+            ("coursemd.canvas.cli", "register_sync_canvas_assignments_command"),
+            ("coursemd.canvas.cli", "register_sync_canvas_quizzes_command"),
         ],
         fallback_commands=["coursemd canvas assignments", "coursemd canvas quizzes"],
         optional_modules={"requests"},
@@ -699,8 +703,8 @@ def test_site_build_uses_project_dir_from_config(tmp_path: Path, monkeypatch) ->
         }
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(coursemd.cli.site, "load_config", fake_load_config)
-    monkeypatch.setattr(coursemd.cli.site, "mkdocs_build", fake_build)
+    monkeypatch.setattr(coursemd.mkdocs.cli, "load_config", fake_load_config)
+    monkeypatch.setattr(coursemd.mkdocs.cli, "mkdocs_build", fake_build)
 
     result = runner.invoke(cli.app, ["site", "build", "--output-dir", "build/website", "--strict"])
 
@@ -749,7 +753,7 @@ def test_site_preview_sets_current_date_override(tmp_path: Path, monkeypatch) ->
         }
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(coursemd.cli.site, "mkdocs_serve", fake_serve)
+    monkeypatch.setattr(coursemd.mkdocs.cli, "mkdocs_serve", fake_serve)
 
     result = runner.invoke(cli.app, ["site", "preview", "--dev-addr", "127.0.0.1:9000", "--dirty"])
 
@@ -782,7 +786,7 @@ def test_site_build_preview_sets_coursemd_preview_mode(tmp_path: Path, monkeypat
 
     class FakeConfig:
         def __init__(self) -> None:
-            plugins = coursemd.cli.site.PluginCollection()
+            plugins = coursemd.mkdocs.cli.PluginCollection()
             plugins["search"] = SearchPlugin()
             self.plugins = plugins
 
@@ -813,8 +817,8 @@ def test_site_build_preview_sets_coursemd_preview_mode(tmp_path: Path, monkeypat
         }
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(coursemd.cli.site, "load_config", fake_load_config)
-    monkeypatch.setattr(coursemd.cli.site, "mkdocs_build", fake_build)
+    monkeypatch.setattr(coursemd.mkdocs.cli, "load_config", fake_load_config)
+    monkeypatch.setattr(coursemd.mkdocs.cli, "mkdocs_build", fake_build)
 
     result = runner.invoke(
         cli.app,
@@ -855,7 +859,7 @@ def test_slides_build_uses_default_output_dir(tmp_path: Path, monkeypatch) -> No
         return subprocess.CompletedProcess(args=args, returncode=0)
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(coursemd.cli.slides.subprocess, "run", fake_run)
+    monkeypatch.setattr(coursemd.slides.cli.subprocess, "run", fake_run)
 
     result = runner.invoke(cli.app, ["slides", "build"])
 
@@ -911,7 +915,7 @@ def test_slides_preview_uses_configured_directory(tmp_path: Path, monkeypatch) -
         return subprocess.CompletedProcess(args=args, returncode=0)
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(coursemd.cli.slides.subprocess, "run", fake_run)
+    monkeypatch.setattr(coursemd.slides.cli.subprocess, "run", fake_run)
 
     result = runner.invoke(cli.app, ["slides", "preview", "--output-dir", "build/slides/preview"])
 
@@ -967,7 +971,7 @@ def test_slides_preview_accepts_legacy_project_dir_key(tmp_path: Path, monkeypat
         return subprocess.CompletedProcess(args=args, returncode=0)
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(coursemd.cli.slides.subprocess, "run", fake_run)
+    monkeypatch.setattr(coursemd.slides.cli.subprocess, "run", fake_run)
 
     result = runner.invoke(cli.app, ["slides", "build"])
 

@@ -1,33 +1,35 @@
-"""Typer-based package CLI for course automation workflows."""
+"""CLI package exports."""
 
 from __future__ import annotations
 
-import sys
-from collections.abc import Sequence
 from importlib import import_module
-from pathlib import Path
 from typing import Any
 
 import click
 import typer
 
-from coursemd.cli.shared import AppState as AppState
-from coursemd.cli.shared import load_app_state
+_APP_EXPORTS = {
+    "AppState",
+    "app",
+    "canvas_app",
+    "github_app",
+    "main",
+    "main_callback",
+    "site_app",
+    "slides_app",
+}
 
-app = typer.Typer(
-    add_completion=False,
-    no_args_is_help=True,
-    help="Course automation CLI for data-driven course repositories.",
+__all__ = sorted(
+    _APP_EXPORTS
+    | {
+        "typer",
+        "_is_optional_dependency_error",
+        "_load_register_function",
+        "_optional_dependency_message",
+        "_register_optional_group_commands",
+        "_register_unavailable_command",
+    }
 )
-canvas_app = typer.Typer(no_args_is_help=True, help="Canvas LMS workflows.")
-site_app = typer.Typer(no_args_is_help=True, help="Build and preview the course website.")
-slides_app = typer.Typer(no_args_is_help=True, help="Build and preview course slides.")
-github_app = typer.Typer(no_args_is_help=True, help="GitHub organization workflows.")
-
-app.add_typer(canvas_app, name="canvas")
-app.add_typer(site_app, name="site")
-app.add_typer(slides_app, name="slides")
-app.add_typer(github_app, name="github")
 
 
 def _load_register_function(module_name: str, function_name: str) -> Any:
@@ -40,7 +42,10 @@ def _is_optional_dependency_error(exc: ModuleNotFoundError, module_names: set[st
     return any(module_name == name or module_name.startswith(f"{name}.") for name in module_names)
 
 
-def _optional_dependency_message(extra_name: str, command_paths: Sequence[str]) -> str:
+def _optional_dependency_message(
+    extra_name: str,
+    command_paths: list[str] | tuple[str, ...],
+) -> str:
     commands = ", ".join(f"`{command_path}`" for command_path in command_paths)
     return (
         f"{commands} require the optional `{extra_name}` dependencies. "
@@ -57,8 +62,8 @@ def _register_unavailable_command(app: typer.Typer, command_name: str, message: 
 def _register_optional_group_commands(
     app: typer.Typer,
     *,
-    loaders: Sequence[tuple[str, str]],
-    fallback_commands: Sequence[str],
+    loaders: list[tuple[str, str]] | tuple[tuple[str, str], ...],
+    fallback_commands: list[str] | tuple[str, ...],
     optional_modules: set[str],
     extra_name: str,
 ) -> None:
@@ -73,94 +78,18 @@ def _register_optional_group_commands(
             _register_unavailable_command(app, command_name.split()[-1], message)
 
 
-_load_register_function("coursemd.cli.validate", "register_validate_command")(app)
-_load_register_function("coursemd.cli.init", "register_init_command")(app)
-_load_register_function("coursemd.cli.slides", "register_slides_commands")(slides_app)
-_load_register_function("coursemd.cli.github", "register_github_commands")(github_app)
-
-_register_optional_group_commands(
-    site_app,
-    loaders=[("coursemd.cli.site", "register_site_commands")],
-    fallback_commands=[
-        "coursemd site build",
-        "coursemd site build-preview",
-        "coursemd site preview",
-    ],
-    optional_modules={"mkdocs"},
-    extra_name="mkdocs",
-)
-
-_register_optional_group_commands(
-    canvas_app,
-    loaders=[
-        ("coursemd.cli.sync_canvas_assignments", "register_sync_canvas_assignments_command"),
-        ("coursemd.cli.sync_canvas_quizzes", "register_sync_canvas_quizzes_command"),
-    ],
-    fallback_commands=[
-        "coursemd canvas assignments",
-        "coursemd canvas quizzes",
-    ],
-    optional_modules={"requests"},
-    extra_name="canvas",
-)
+def main(*args: Any, **kwargs: Any) -> int:
+    module = import_module("coursemd.cli.bootstrap")
+    bootstrap_main = getattr(module, "main")
+    return int(bootstrap_main(*args, **kwargs))
 
 
-@app.callback()
-def main_callback(ctx: typer.Context) -> None:
-    return None
+def __getattr__(name: str) -> Any:
+    if name in _APP_EXPORTS:
+        module = import_module("coursemd.cli.bootstrap")
+        return getattr(module, name)
+    raise AttributeError(f"module 'coursemd.cli' has no attribute {name!r}")
 
 
-def main(
-    argv: Sequence[str] | None = None,
-    *,
-    prog: str = "coursemd",
-    start_dir: Path | None = None,
-) -> int:
-    args_list = list(argv) if argv is not None else sys.argv[1:]
-    state = load_app_state(start_dir=start_dir) if start_dir is not None else None
-    try:
-        result = app(args=args_list, prog_name=prog, standalone_mode=False, obj=state)
-        return int(result) if isinstance(result, int) else 0
-    except typer.Exit as exc:
-        return int(exc.exit_code)
-    except click.ClickException as exc:
-        exc.show(file=sys.stderr)
-        return int(exc.exit_code)
-    except click.Abort:
-        typer.echo("Aborted.", err=True)
-        return 1
-    except Exception as exc:
-        typer.echo(f"Error: {exc}", err=True)
-        return 1
-
-
-def main_sync_canvas_assignments(
-    argv: Sequence[str] | None = None,
-    *,
-    repo_root: Path | None = None,
-    prog: str = "sync-canvas-assignments",
-) -> int:
-    args_list = [
-        "canvas",
-        "assignments",
-        *(list(argv) if argv is not None else sys.argv[1:]),
-    ]
-    return main(args_list, prog=prog, start_dir=repo_root)
-
-
-def main_sync_canvas_quizzes(
-    argv: Sequence[str] | None = None,
-    *,
-    repo_root: Path | None = None,
-    prog: str = "sync-canvas-quizzes",
-) -> int:
-    args_list = [
-        "canvas",
-        "quizzes",
-        *(list(argv) if argv is not None else sys.argv[1:]),
-    ]
-    return main(args_list, prog=prog, start_dir=repo_root)
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | _APP_EXPORTS)

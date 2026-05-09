@@ -1,4 +1,4 @@
-"""Slides build and preview commands for the package CLI."""
+"""Slides CLI commands."""
 
 from __future__ import annotations
 
@@ -111,3 +111,6 @@ def register_slides_commands(slides_app: typer.Typer) -> None:
             quarto_command="preview",
             output_dir=resolved_output_dir,
         )
+
+
+__all__ = ["DEFAULT_SLIDES_OUTPUT_DIR", "register_slides_commands", "subprocess"]

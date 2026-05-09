@@ -1,4 +1,4 @@
-"""Website build and preview commands for the package CLI."""
+"""MkDocs CLI commands."""
 
 from __future__ import annotations
 
@@ -258,3 +258,15 @@ def register_site_commands(site_app: typer.Typer) -> None:
             current_date_override=current_date_override,
             dirty=dirty,
         )
+
+
+__all__ = [
+    "DEFAULT_PREVIEW_CURRENT_DATE",
+    "PREVIEW_EXCLUDED_PLUGINS",
+    "PluginCollection",
+    "SUPPORTED_SITE_BACKENDS",
+    "load_config",
+    "mkdocs_build",
+    "mkdocs_serve",
+    "register_site_commands",
+]
