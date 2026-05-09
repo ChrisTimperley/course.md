@@ -1,4 +1,4 @@
-"""Slides CLI commands."""
+"""Quarto CLI commands."""
 
 from __future__ import annotations
 
@@ -10,14 +10,14 @@ import click
 import typer
 
 from coursemd.cli.shared import AppState
-from coursemd.integrations.slides.config import QuartoConfig
+from coursemd.integrations.quarto.config import QuartoConfig
 
-CLI_NAME = "slides"
+CLI_NAME = "quarto"
 CLI_HELP = "Build and preview course slides."
-DEFAULT_SLIDES_OUTPUT_DIR = Path("build/slides/html")
+DEFAULT_QUARTO_OUTPUT_DIR = Path("build/slides/html")
 
 
-def _require_slides_dir(directory: Path) -> Path:
+def _require_quarto_dir(directory: Path) -> Path:
     if not directory.is_dir():
         raise click.ClickException(f"Slides directory not found: {directory}")
     config_file = directory / "_quarto.yml"
@@ -27,7 +27,7 @@ def _require_slides_dir(directory: Path) -> Path:
 
 
 def _default_output_dir(repo_root: Path) -> Path:
-    return (repo_root / DEFAULT_SLIDES_OUTPUT_DIR).resolve()
+    return (repo_root / DEFAULT_QUARTO_OUTPUT_DIR).resolve()
 
 
 def _run_quarto(
@@ -56,8 +56,8 @@ def _run_quarto(
     return completed.returncode
 
 
-def register_slides_commands(slides_app: typer.Typer) -> None:
-    @slides_app.command("build")
+def register_quarto_commands(quarto_app: typer.Typer) -> None:
+    @quarto_app.command("build")
     def build_command(
         ctx: typer.Context,
         output_dir: Annotated[
@@ -73,8 +73,7 @@ def register_slides_commands(slides_app: typer.Typer) -> None:
     ) -> int:
         state = AppState.from_typer(ctx)
         quarto_config = QuartoConfig.require(state.config)
-        directory = quarto_config.directory
-        directory = _require_slides_dir(directory)
+        directory = _require_quarto_dir(quarto_config.directory)
 
         resolved_output_dir = (
             _default_output_dir(state.repo_root)
@@ -89,7 +88,7 @@ def register_slides_commands(slides_app: typer.Typer) -> None:
             output_dir=resolved_output_dir,
         )
 
-    @slides_app.command("preview")
+    @quarto_app.command("preview")
     def preview_command(
         ctx: typer.Context,
         output_dir: Annotated[
@@ -105,7 +104,7 @@ def register_slides_commands(slides_app: typer.Typer) -> None:
     ) -> int:
         state = AppState.from_typer(ctx)
         quarto_config = QuartoConfig.require(state.config)
-        directory = _require_slides_dir(quarto_config.directory)
+        directory = _require_quarto_dir(quarto_config.directory)
         resolved_output_dir = (
             _default_output_dir(state.repo_root)
             if output_dir is None
@@ -120,15 +119,14 @@ def register_slides_commands(slides_app: typer.Typer) -> None:
         )
 
 
-def register_slides_cli(app: typer.Typer) -> None:
-    slides_app = typer.Typer(no_args_is_help=True, help=CLI_HELP)
-    app.add_typer(slides_app, name=CLI_NAME)
-    register_slides_commands(slides_app)
+def register_quarto_cli(app: typer.Typer) -> None:
+    quarto_app = typer.Typer(no_args_is_help=True, help=CLI_HELP)
+    app.add_typer(quarto_app, name=CLI_NAME)
+    register_quarto_commands(quarto_app)
 
 
 __all__ = [
-    "DEFAULT_SLIDES_OUTPUT_DIR",
-    "register_slides_cli",
-    "register_slides_commands",
-    "subprocess",
+    "DEFAULT_QUARTO_OUTPUT_DIR",
+    "register_quarto_cli",
+    "register_quarto_commands",
 ]

@@ -13,7 +13,7 @@ import coursemd.integrations.canvas.cli
 import coursemd.integrations.github.client
 import coursemd.integrations.github.setup
 import coursemd.integrations.mkdocs.cli
-import coursemd.integrations.slides.cli
+import coursemd.integrations.quarto.cli
 from coursemd import cli
 from coursemd.core.config import CourseConfig
 from coursemd.core.loaders.dates import normalize_release_date
@@ -816,9 +816,9 @@ def test_slides_build_uses_default_output_dir(tmp_path: Path, monkeypatch) -> No
         return subprocess.CompletedProcess(args=args, returncode=0)
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(coursemd.integrations.slides.cli.subprocess, "run", fake_run)
+    monkeypatch.setattr(coursemd.integrations.quarto.cli.subprocess, "run", fake_run)
 
-    result = runner.invoke(cli.app, ["slides", "build"])
+    result = runner.invoke(cli.app, ["quarto", "build"])
 
     assert result.exit_code == 0
     assert recorded["run"] == {
@@ -872,9 +872,9 @@ def test_slides_preview_uses_configured_directory(tmp_path: Path, monkeypatch) -
         return subprocess.CompletedProcess(args=args, returncode=0)
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(coursemd.integrations.slides.cli.subprocess, "run", fake_run)
+    monkeypatch.setattr(coursemd.integrations.quarto.cli.subprocess, "run", fake_run)
 
-    result = runner.invoke(cli.app, ["slides", "preview", "--output-dir", "build/slides/preview"])
+    result = runner.invoke(cli.app, ["quarto", "preview", "--output-dir", "build/slides/preview"])
 
     assert result.exit_code == 0
     assert recorded["run"] == {

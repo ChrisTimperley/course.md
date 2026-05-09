@@ -19,7 +19,7 @@ from coursemd.integrations.mkdocs.config import (
     DEFAULT_INIT_SITE_BASE_URL,
     DEFAULT_INIT_SITE_PROJECT_DIR,
 )
-from coursemd.integrations.slides.config import DEFAULT_INIT_SLIDES_DIR
+from coursemd.integrations.quarto.config import DEFAULT_QUARTO_DIR
 
 
 def _default_integrations_config(
@@ -82,7 +82,7 @@ def register_init_command(app: typer.Typer) -> None:
         slides_dir: Annotated[
             str,
             typer.Option("--slides-dir", help="Relative path to the Quarto slides directory."),
-        ] = DEFAULT_INIT_SLIDES_DIR,
+        ] = DEFAULT_QUARTO_DIR,
         canvas_base_url: Annotated[
             str,
             typer.Option(

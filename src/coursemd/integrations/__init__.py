@@ -10,7 +10,7 @@ _BUILTIN_INTEGRATION_CONFIG_MODULES = (
     "coursemd.integrations.mkdocs.config",
     "coursemd.integrations.canvas.config",
     "coursemd.integrations.github.config",
-    "coursemd.integrations.slides.config",
+    "coursemd.integrations.quarto.config",
 )
 _builtin_integrations_loaded = False
 
@@ -30,11 +30,11 @@ def register_integration_clis(app: typer.Typer) -> None:
     from coursemd.integrations.canvas.cli import register_canvas_cli
     from coursemd.integrations.github.cli import register_github_cli
     from coursemd.integrations.mkdocs.cli import register_site_cli
-    from coursemd.integrations.slides.cli import register_slides_cli
+    from coursemd.integrations.quarto.cli import register_quarto_cli
 
     register_canvas_cli(app)
     register_site_cli(app)
-    register_slides_cli(app)
+    register_quarto_cli(app)
     register_github_cli(app)
 
 

@@ -1,4 +1,4 @@
-"""Quarto-backed slides integration configuration."""
+"""Quarto integration configuration."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from coursemd.core.integration_config import (
 )
 
 INTEGRATION_NAME = "quarto"
-DEFAULT_INIT_SLIDES_DIR = "slides"
+DEFAULT_QUARTO_DIR = "slides"
 
 @dataclass(frozen=True)
 class QuartoConfig(IntegrationConfig):
@@ -35,9 +35,9 @@ class QuartoConfig(IntegrationConfig):
         return cls(
             directory=resolve_relative_path(
                 context.repo_root,
-                config_map.get("dir", DEFAULT_INIT_SLIDES_DIR),
+                config_map.get("dir", DEFAULT_QUARTO_DIR),
                 label=f"integrations.{cls.metavar}.dir",
             ),
         )
 
-__all__ = ("QuartoConfig",)
+__all__ = ("DEFAULT_QUARTO_DIR", "QuartoConfig")
