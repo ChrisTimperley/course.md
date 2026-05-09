@@ -26,18 +26,18 @@ class AppState:
     def repo_root(self) -> Path:
         return self.config.repo_root
 
-
-def load_app_state(start_dir: Path | None = None) -> AppState:
-    config = CourseConfig.load(start_dir=start_dir)
-    load_repository_env(config.repo_root, filename=config.paths.env_file, override=False)
-    set_course_timezone(config.timezone)
-    return AppState(config=config)
+    @classmethod
+    def load(cls, start_dir: Path | None = None) -> AppState:
+        config = CourseConfig.load(start_dir=start_dir)
+        load_repository_env(config.repo_root, filename=config.paths.env_file, override=False)
+        set_course_timezone(config.timezone)
+        return cls(config=config)
 
 
 def get_state(ctx: typer.Context) -> AppState:
     if isinstance(ctx.obj, AppState):
         return ctx.obj
-    state = load_app_state()
+    state = AppState.load()
     ctx.obj = state
     return state
 
@@ -118,7 +118,6 @@ __all__ = [
     "default_data_files",
     "default_quiz_files",
     "get_state",
-    "load_app_state",
     "normalize_input_paths",
     "parse_group_category_id_override",
     "require_canvas_credentials",

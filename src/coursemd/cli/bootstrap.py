@@ -11,7 +11,6 @@ import typer
 
 from coursemd.cli.init import register_init_command
 from coursemd.cli.shared import AppState as AppState
-from coursemd.cli.shared import load_app_state
 from coursemd.cli.validate import register_validate_command
 from coursemd.integrations import register_integration_clis
 
@@ -37,7 +36,7 @@ def main(
     start_dir: Path | None = None,
 ) -> int:
     args_list = list(argv) if argv is not None else sys.argv[1:]
-    state = load_app_state(start_dir=start_dir) if start_dir is not None else None
+    state = AppState.load(start_dir=start_dir) if start_dir is not None else None
     try:
         result = app(args=args_list, prog_name=prog, standalone_mode=False, obj=state)
         return int(result) if isinstance(result, int) else 0
