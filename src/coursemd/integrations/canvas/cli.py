@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -339,42 +338,6 @@ def register_canvas_cli(app: typer.Typer) -> None:
         _register_unavailable_canvas_commands(canvas_app)
 
 
-def main_sync_canvas_assignments(
-    argv: list[str] | None = None,
-    *,
-    repo_root: Path | None = None,
-    prog: str = "sync-canvas-assignments",
-) -> int:
-    from coursemd.cli import main
-
-    args_list = [
-        "canvas",
-        "assignments",
-        *(argv if argv is not None else sys.argv[1:]),
-    ]
-    return main(args_list, prog=prog, start_dir=repo_root)
-
-
-def main_sync_canvas_quizzes(
-    argv: list[str] | None = None,
-    *,
-    repo_root: Path | None = None,
-    prog: str = "sync-canvas-quizzes",
-) -> int:
-    from coursemd.cli import main
-
-    args_list = [
-        "canvas",
-        "quizzes",
-        *(argv if argv is not None else sys.argv[1:]),
-    ]
-    return main(args_list, prog=prog, start_dir=repo_root)
-
-
-__all__ = [
-    "main_sync_canvas_assignments",
-    "main_sync_canvas_quizzes",
+__all__ = (
     "register_canvas_cli",
-    "register_sync_canvas_assignments_command",
-    "register_sync_canvas_quizzes_command",
-]
+)

@@ -316,21 +316,6 @@ def test_init_refuses_to_overwrite_existing_config(tmp_path: Path, monkeypatch) 
     assert result.exit_code == 1
     assert "already exists" in result.output
 
-
-def test_legacy_assignment_wrapper_routes_through_typer_cli(tmp_path: Path, capsys) -> None:
-    _build_repo_fixture(tmp_path)
-
-    exit_code = coursemd.integrations.canvas.cli.main_sync_canvas_assignments(
-        ["--plan-only"],
-        repo_root=tmp_path,
-    )
-    captured = capsys.readouterr()
-
-    assert exit_code == 0
-    assert "Loaded 1 assignment spec(s) for the Canvas integration:" in captured.out
-    assert "Homework 1" in captured.out
-
-
 def test_sync_command_discovers_config_in_parent_directory(tmp_path: Path, monkeypatch) -> None:
     _build_repo_fixture(tmp_path)
     nested_dir = tmp_path / "website" / "docs"
