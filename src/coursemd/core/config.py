@@ -166,29 +166,3 @@ class CourseConfig:
                 env_file=env_file.strip() if isinstance(env_file, str) else ".env",
             ),
         )
-
-    @classmethod
-    def build_default_text(
-        cls,
-        *,
-        integrations: dict[str, Any],
-        data_dir: str | None = None,
-        assignments_dir: str | None = None,
-        quizzes_dir: str | None = None,
-        env_file: str = ".env",
-        timezone: str | None = None,
-    ) -> str:
-        resolved_timezone = require_timezone(timezone or cls.DEFAULT_TIMEZONE, label="timezone")
-
-        config: dict[str, Any] = {
-            "timezone": resolved_timezone,
-            "integrations": integrations,
-            "paths": {
-                "data_dir": data_dir or cls.DEFAULT_DATA_DIR,
-                "assignments_dir": assignments_dir or cls.DEFAULT_ASSIGNMENTS_DIR,
-                "quizzes_dir": quizzes_dir or cls.DEFAULT_QUIZZES_DIR,
-            },
-        }
-        if env_file != ".env":
-            config["paths"]["env_file"] = env_file
-        return yaml.safe_dump(config, sort_keys=False)
