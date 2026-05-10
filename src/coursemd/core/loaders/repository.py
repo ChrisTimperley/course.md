@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import yaml  # type: ignore[import-untyped]
+from dotenv import load_dotenv
 
 from coursemd.core.loaders.assignments import validate_schedule_assignment_metadata
 from coursemd.core.loaders.dates import require_date
@@ -125,8 +126,6 @@ def validate_schedule_data(source_file: Path, value: Any) -> dict[str, Any]:
 
 def load_repository_env(repo_root: Path, filename: str = ".env", *, override: bool = False) -> Path:
     """Load a repository-local dotenv file if present and return its path."""
-
-    from dotenv import load_dotenv
 
     env_path = repo_root / filename
     load_dotenv(env_path, override=override)

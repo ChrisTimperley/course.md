@@ -7,7 +7,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from coursemd.integrations.github.client import GhCliGitHubClient, GitHubClient, GitHubClientError
+from coursemd.integrations.github.client import (
+    GhCliGitHubClient,
+    GitHubClient,
+    GitHubClientError,
+    run_command,
+)
 from coursemd.integrations.github.config import (
     DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION,
     DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG,
@@ -52,8 +57,6 @@ def _run_command(
     *,
     input_text: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    from coursemd.integrations.github.client import run_command
-
     return run_command(args, input_text=input_text)
 
 

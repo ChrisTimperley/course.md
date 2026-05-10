@@ -6,6 +6,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from coursemd.core.loaders.assignments import load_assignment_specs
+from coursemd.core.loaders.quizzes import load_quiz_specs
+from coursemd.core.loaders.repository import load_data_files
 from coursemd.core.models.assignment import AssignmentSpec
 from coursemd.core.models.quiz import QuizSpec
 
@@ -59,10 +62,6 @@ class CourseRepository:
         require_canvas_fields: bool = False,
     ) -> CourseRepository:
         """Build a repository from a config, discovering files from configured paths."""
-        from coursemd.core.loaders.assignments import load_assignment_specs
-        from coursemd.core.loaders.quizzes import load_quiz_specs
-        from coursemd.core.loaders.repository import load_data_files
-
         resolved_data_files = data_files if data_files is not None else _default_data_files(config)
         resolved_assignment_files = (
             assignment_files if assignment_files is not None else _default_assignment_files(config)

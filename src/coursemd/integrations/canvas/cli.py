@@ -22,6 +22,13 @@ from coursemd.core.loaders.quizzes import load_quiz_specs
 from coursemd.core.models.assignment import AssignmentSpec
 from coursemd.core.models.quiz import QuizSpec
 from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL, CanvasConfig
+from coursemd.integrations.canvas.frontmatter import (
+    update_assignment_frontmatter_with_ids,
+    update_quiz_frontmatter_with_canvas_id,
+)
+from coursemd.integrations.canvas.quizzes import total_quiz_points
+from coursemd.integrations.canvas.resources import AssignmentCanvasClient, QuizCanvasClient
+from coursemd.integrations.canvas.sync import sync_assignments_to_canvas, sync_quizzes_to_canvas
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
 
 CLI_NAME = "canvas"
@@ -87,8 +94,6 @@ def _print_canvas_sync_event(event: Any) -> None:
 
 
 def _print_quiz_plan(specs: list[QuizSpec]) -> None:
-    from coursemd.integrations.canvas.quizzes import total_quiz_points
-
     typer.echo(f"Loaded {len(specs)} quiz spec(s) for the Canvas integration:")
     for spec in specs:
         unlock = f" | unlock {spec.unlock_at}" if spec.unlock_at else ""
@@ -182,10 +187,6 @@ def register_sync_canvas_assignments_command(canvas_app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> int:
-        from coursemd.integrations.canvas.frontmatter import update_assignment_frontmatter_with_ids
-        from coursemd.integrations.canvas.resources import AssignmentCanvasClient
-        from coursemd.integrations.canvas.sync import sync_assignments_to_canvas
-
         state = AppState.from_typer(ctx)
         repo_root = state.repo_root
         mkdocs_config = MkdocsIntegrationConfig.require(state.config)
@@ -295,10 +296,6 @@ def register_sync_canvas_quizzes_command(canvas_app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> int:
-        from coursemd.integrations.canvas.frontmatter import update_quiz_frontmatter_with_canvas_id
-        from coursemd.integrations.canvas.resources import QuizCanvasClient
-        from coursemd.integrations.canvas.sync import sync_quizzes_to_canvas
-
         state = AppState.from_typer(ctx)
         repo_root = state.repo_root
         canvas_config = CanvasConfig.get(state.config)

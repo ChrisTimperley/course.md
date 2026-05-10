@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,6 +19,7 @@ from mkdocs.structure.nav import Navigation
 
 from coursemd.core.config import CourseConfig
 from coursemd.core.loaders.dates import parse_date
+from coursemd.core.loaders.repository import load_schedule_assignments, load_schedule_quizzes
 from coursemd.core.models.repository import CourseRepository
 from coursemd.core.utils import current_date, set_course_timezone
 from coursemd.integrations.canvas.config import CanvasConfig
@@ -142,11 +144,6 @@ class CoursemdPlugin(BasePlugin):
         return CourseRepository.build(self.course_config)
 
     def _build_course_data(self) -> dict[str, Any]:
-        from coursemd.core.loaders.repository import (
-            load_schedule_assignments,
-            load_schedule_quizzes,
-        )
-
         course_data = dict(self.course_repository.data)
         schedule = course_data.get("schedule")
         if isinstance(schedule, dict):
@@ -324,6 +321,4 @@ class CoursemdPlugin(BasePlugin):
         return None
 
     def _env_truthy(self, name: str) -> bool:
-        import os
-
         return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
