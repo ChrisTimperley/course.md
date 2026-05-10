@@ -7,6 +7,7 @@ from coursemd.core.schedule import Schedule
 from coursemd.core.types import AssignmentDict
 from coursemd.core.utils import current_date
 from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL
+from coursemd.integrations.mkdocs.schedule import render_schedule
 
 
 def _configured_canvas_base_url(env: t.Any) -> str:
@@ -33,14 +34,14 @@ def define_env(env: t.Any) -> None:
         Returns:
             HTML string for the schedule table
         """
-        return Schedule.build(
+        return render_schedule(Schedule.build(
             earliest_date=schedule["course"]["start_date"],
             latest_date=schedule["course"]["end_date"],
             events=schedule.get("events", []),
             breaks=schedule.get("breaks", []),
             assignments=schedule.get("assignments", []),
             quizzes=schedule.get("quizzes", []),
-        ).render()
+        ))
 
     @env.macro
     def released_assignments(schedule: dict[str, t.Any]) -> list[AssignmentDict]:
