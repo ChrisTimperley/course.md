@@ -74,6 +74,7 @@ coursemd = "coursemd.cli:main"
 
 [project.entry-points."mkdocs.plugins"]
 coursemd = "coursemd.integrations.mkdocs.plugin:CoursemdPlugin"
+coursemd-drafts = "coursemd.integrations.mkdocs.drafts:DraftsPlugin"
 
 [tool.ruff]
 line-length = 100
