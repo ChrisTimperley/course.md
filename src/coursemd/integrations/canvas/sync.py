@@ -214,14 +214,6 @@ def sync_assignments_to_canvas(
     return results
 
 
-__all__ = [
-    "CanvasSyncEvent",
-    "CanvasSyncReporter",
-    "resolve_group_category_id",
-    "sync_assignments_to_canvas",
-    "sync_quiz_questions",
-    "sync_quizzes_to_canvas",
-]
 
 
 def sync_quiz_questions(

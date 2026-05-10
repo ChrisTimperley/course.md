@@ -65,9 +65,5 @@ class MkdocsIntegrationConfig(IntegrationConfig):
 
 
 __all__ = [
-    "DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH",
-    "DEFAULT_INIT_SITE_BASE_URL",
-    "DEFAULT_INIT_SITE_PROJECT_DIR",
-    "INTEGRATION_NAME",
     "MkdocsIntegrationConfig",
 ]

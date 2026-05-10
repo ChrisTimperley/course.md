@@ -8,16 +8,9 @@ from typing import Any
 _APP_EXPORTS = {
     "AppState",
     "app",
-    "main",
-    "main_callback",
 }
 
-__all__ = sorted(
-    _APP_EXPORTS
-    | {
-        "typer",
-    }
-)
+__all__ = ["AppState", "app", "main"]
 
 
 def main(*args: Any, **kwargs: Any) -> int:
@@ -27,8 +20,6 @@ def main(*args: Any, **kwargs: Any) -> int:
 
 
 def __getattr__(name: str) -> Any:
-    if name == "typer":
-        return import_module("typer")
     if name in _APP_EXPORTS:
         module = import_module("coursemd.cli.bootstrap")
         return getattr(module, name)

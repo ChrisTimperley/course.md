@@ -82,12 +82,3 @@ def write_json_output(output_json: Path | None, results: list[dict[str, Any]]) -
     typer.echo(f"\nWrote JSON results to {output_json}")
 
 
-__all__ = [
-    "AppState",
-    "default_assignment_files",
-    "default_data_files",
-    "default_quiz_files",
-    "normalize_input_paths",
-    "require_paths_exist",
-    "write_json_output",
-]

@@ -125,8 +125,4 @@ def register_quarto_cli(app: typer.Typer) -> None:
     register_quarto_commands(quarto_app)
 
 
-__all__ = [
-    "DEFAULT_QUARTO_OUTPUT_DIR",
-    "register_quarto_cli",
-    "register_quarto_commands",
-]
+__all__ = ["register_quarto_cli"]

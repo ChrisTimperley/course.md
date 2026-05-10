@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 from textwrap import dedent
 
+import typer
 from mkdocs.commands.build import build as mkdocs_build
 from mkdocs.config import load_config
 from typer.testing import CliRunner
@@ -378,7 +379,7 @@ def test_validate_fails_without_coursemd_config(tmp_path: Path, monkeypatch) -> 
 
 
 def test_optional_site_commands_report_missing_mkdocs_dependency(monkeypatch) -> None:
-    local_app = coursemd.cli.typer.Typer(no_args_is_help=True)
+    local_app = typer.Typer(no_args_is_help=True)
     monkeypatch.setattr(
         coursemd.integrations.mkdocs.cli,
         "_MKDOCS_IMPORT_ERROR",
@@ -394,7 +395,7 @@ def test_optional_site_commands_report_missing_mkdocs_dependency(monkeypatch) ->
 
 
 def test_optional_canvas_commands_report_missing_canvas_dependency(monkeypatch) -> None:
-    local_app = coursemd.cli.typer.Typer(no_args_is_help=True)
+    local_app = typer.Typer(no_args_is_help=True)
     monkeypatch.setattr(
         coursemd.integrations.canvas.cli,
         "register_sync_canvas_assignments_command",

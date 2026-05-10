@@ -7,8 +7,6 @@ from typing import Any, Self, cast
 
 import requests  # type: ignore[import-untyped]
 
-from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL
-
 
 @dataclass
 class CanvasApiClient:
@@ -78,4 +76,3 @@ class CanvasApiClient:
         return results
 
 
-__all__ = ["CanvasApiClient", "DEFAULT_CANVAS_BASE_URL"]

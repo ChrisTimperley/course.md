@@ -65,9 +65,5 @@ class GitHubConfig(IntegrationConfig):
 
 
 __all__ = [
-    "DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION",
-    "DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG",
-    "DEFAULT_GITHUB_RULESET_NAME",
     "GitHubConfig",
-    "INTEGRATION_NAME",
 ]

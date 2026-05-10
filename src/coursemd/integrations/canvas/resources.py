@@ -141,4 +141,3 @@ class QuizCanvasClient(CanvasApiClient):
         self._raise_for_status(response)
 
 
-__all__ = ["AssignmentCanvasClient", "QuizCanvasClient"]

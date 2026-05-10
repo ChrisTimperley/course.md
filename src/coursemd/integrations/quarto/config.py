@@ -40,4 +40,4 @@ class QuartoConfig(IntegrationConfig):
             ),
         )
 
-__all__ = ("DEFAULT_QUARTO_DIR", "QuartoConfig")
+__all__ = ("QuartoConfig",)

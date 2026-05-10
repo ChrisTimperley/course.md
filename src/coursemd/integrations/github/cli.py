@@ -166,4 +166,4 @@ def register_github_cli(app: typer.Typer) -> None:
     register_github_commands(github_app)
 
 
-__all__ = ["register_github_cli", "register_github_commands"]
+__all__ = ["register_github_cli"]
