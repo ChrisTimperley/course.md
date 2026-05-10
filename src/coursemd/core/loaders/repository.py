@@ -7,14 +7,10 @@ from typing import Any, cast
 
 import yaml  # type: ignore[import-untyped]
 
-from coursemd.core.loaders.assignments import (
-    load_assignment_specs,
-    validate_schedule_assignment_metadata,
-)
+from coursemd.core.loaders.assignments import validate_schedule_assignment_metadata
 from coursemd.core.loaders.dates import require_date
 from coursemd.core.loaders.markdown import load_markdown_metadata
-from coursemd.core.loaders.quizzes import load_quiz_specs, validate_schedule_quiz_metadata
-from coursemd.core.models.repository import CourseRepository
+from coursemd.core.loaders.quizzes import validate_schedule_quiz_metadata
 from coursemd.core.types import AssignmentDict, BreakDict, EventDict, QuizDict
 
 
@@ -197,43 +193,3 @@ def load_schedule_quizzes(
     return sorted(quizzes, key=lambda item: item["release_date"])
 
 
-def load_course_repository(
-    *,
-    repo_root: Path,
-    data_files: list[Path],
-    assignment_files: list[Path],
-    quiz_files: list[Path],
-    site_base_url: str,
-    assignment_url_path: str = "assignments",
-    canvas_base_url: str = "",
-    require_canvas_fields: bool = False,
-) -> CourseRepository:
-    """Load the configured repository as one object graph."""
-
-    data = load_data_files(data_files)
-    schedule_map = cast("dict[str, Any]", data.get("schedule", {}))
-    course_map = cast("dict[str, Any]", schedule_map.get("course", {}))
-
-    return CourseRepository(
-        repo_root=repo_root,
-        data=data,
-        assignments=load_assignment_specs(
-            assignment_files,
-            site_base_url=site_base_url,
-            assignment_url_path=assignment_url_path,
-            require_canvas_fields=require_canvas_fields,
-        ),
-        quizzes=load_quiz_specs(
-            quiz_files,
-            require_canvas_fields=require_canvas_fields,
-        ),
-        schedule_assignments=load_schedule_assignments(
-            assignment_files,
-            assignment_url_path=assignment_url_path,
-        ),
-        schedule_quizzes=load_schedule_quizzes(
-            quiz_files,
-            canvas_base_url=canvas_base_url,
-            canvas_course_id=course_map.get("canvas_course_id"),
-        ),
-    )

@@ -18,7 +18,6 @@ from mkdocs.structure.nav import Navigation
 
 from coursemd.core.config import CourseConfig
 from coursemd.core.loaders.dates import parse_date
-from coursemd.core.loaders.repository import load_course_repository
 from coursemd.core.models.repository import CourseRepository
 from coursemd.core.utils import current_date, set_course_timezone
 from coursemd.integrations.canvas.config import CanvasConfig
@@ -140,30 +139,7 @@ class CoursemdPlugin(BasePlugin):
         return Path(config.config_file_path).parent
 
     def _load_course_repository(self) -> CourseRepository:
-        data_dir = self.course_config.paths.data_dir
-        data_files: list[Path] = []
-        if data_dir.is_dir():
-            data_files = sorted(
-                path
-                for path in data_dir.iterdir()
-                if path.is_file() and path.suffix in {".yaml", ".yml"}
-            )
-        assignment_files = self._assignment_macro_files()
-        quiz_files = self._quiz_macro_files()
-
-        return load_course_repository(
-            repo_root=self.course_config.repo_root,
-            data_files=data_files,
-            assignment_files=assignment_files,
-            quiz_files=quiz_files,
-            site_base_url=self.mkdocs_integration.base_url,
-            assignment_url_path=self.mkdocs_integration.assignments_url_path,
-            canvas_base_url=(
-                canvas_config.base_url
-                if (canvas_config := CanvasConfig.get(self.course_config)) is not None
-                else ""
-            ),
-        )
+        return CourseRepository.build(self.course_config)
 
     def _build_course_data(self) -> dict[str, Any]:
         course_data = dict(self.course_repository.data)
@@ -266,18 +242,6 @@ class CoursemdPlugin(BasePlugin):
         )
         define_env(registry)
         return registry
-
-    def _assignment_macro_files(self) -> list[Path]:
-        directory = self.course_config.paths.assignments_dir
-        if not directory.is_dir():
-            return []
-        return sorted(path for path in directory.glob("*.md") if path.name != "index.md")
-
-    def _quiz_macro_files(self) -> list[Path]:
-        directory = self.course_config.paths.quizzes_dir
-        if not directory.is_dir():
-            return []
-        return sorted(path for path in directory.glob("*.md") if path.name != "index.md")
 
     def _load_file_metadata(self, file: File) -> dict[str, Any]:
         if not file.abs_src_path:

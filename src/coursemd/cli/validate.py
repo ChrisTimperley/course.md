@@ -17,9 +17,7 @@ from coursemd.cli.shared import (
     normalize_input_paths,
     require_paths_exist,
 )
-from coursemd.core.loaders.repository import load_course_repository
-from coursemd.integrations.canvas.config import CanvasConfig
-from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
+from coursemd.core.models.repository import CourseRepository
 
 
 def register_validate_command(app: typer.Typer) -> None:
@@ -60,8 +58,6 @@ def register_validate_command(app: typer.Typer) -> None:
     ) -> int:
         state = AppState.from_typer(ctx)
         repo_root = state.repo_root
-        mkdocs_config = MkdocsIntegrationConfig.require(state.config)
-        resolved_site_base_url = site_base_url or mkdocs_config.base_url
         resolved_assignment_files = normalize_input_paths(
             assignment_files or default_assignment_files(state),
             repo_root=repo_root,
@@ -80,15 +76,12 @@ def register_validate_command(app: typer.Typer) -> None:
         require_paths_exist(resolved_data_files, label="Data")
 
         try:
-            canvas_config = CanvasConfig.get(state.config)
-            repository = load_course_repository(
-                repo_root=repo_root,
+            repository = CourseRepository.build(
+                state.config,
                 data_files=resolved_data_files,
                 assignment_files=resolved_assignment_files,
                 quiz_files=resolved_quiz_files,
-                site_base_url=resolved_site_base_url,
-                assignment_url_path=mkdocs_config.assignments_url_path,
-                canvas_base_url=canvas_config.base_url if canvas_config is not None else "",
+                site_base_url=site_base_url,
             )
         except (ValueError, yaml.YAMLError) as exc:
             raise click.ClickException(str(exc)) from exc
