@@ -27,7 +27,6 @@ def test_assignment_sync_reports_events_without_printing(capsys) -> None:
         submission_types=["none"],
         points_possible=100,
         published=False,
-        description_html="<p>Homework 1</p>",
         position=None,
         unlock_at=None,
         group_assignment=False,

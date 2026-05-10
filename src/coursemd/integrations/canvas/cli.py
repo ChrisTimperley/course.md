@@ -206,11 +206,7 @@ def register_sync_canvas_assignments_command(canvas_app: typer.Typer) -> None:
             raise click.ClickException("No assignment files found.")
         require_paths_exist(files, label="Assignment")
 
-        specs = load_assignment_specs(
-            files=files,
-            site_base_url=resolved_site_base_url,
-            assignment_url_path=mkdocs_config.assignments_url_path,
-        )
+        specs = load_assignment_specs(files=files)
         _print_assignment_plan(specs)
 
         token, resolved_course_id = require_canvas_credentials(
@@ -230,6 +226,8 @@ def register_sync_canvas_assignments_command(canvas_app: typer.Typer) -> None:
                 publish_override=publish,
                 group_category_id_override=group_category_id,
                 reporter=_print_canvas_sync_event,
+                site_base_url=resolved_site_base_url,
+                assignment_url_path=mkdocs_config.assignments_url_path,
             )
 
         typer.echo("\nSync results:")

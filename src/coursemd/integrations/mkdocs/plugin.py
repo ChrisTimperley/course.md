@@ -142,12 +142,46 @@ class CoursemdPlugin(BasePlugin):
         return CourseRepository.build(self.course_config)
 
     def _build_course_data(self) -> dict[str, Any]:
+        from coursemd.core.loaders.repository import (
+            load_schedule_assignments,
+            load_schedule_quizzes,
+        )
+
         course_data = dict(self.course_repository.data)
         schedule = course_data.get("schedule")
         if isinstance(schedule, dict):
             schedule_data = dict(schedule)
-            schedule_data["assignments"] = self.course_repository.schedule_assignments
-            schedule_data["quizzes"] = self.course_repository.schedule_quizzes
+            canvas_cfg = CanvasConfig.get(self.course_config)
+            canvas_course_id = schedule_data.get("course", {}).get("canvas_course_id")
+
+            assignment_files = (
+                sorted(
+                    path
+                    for path in self.course_config.paths.assignments_dir.glob("*.md")
+                    if path.name != "index.md"
+                )
+                if self.course_config.paths.assignments_dir.is_dir()
+                else []
+            )
+            quiz_files = (
+                sorted(
+                    path
+                    for path in self.course_config.paths.quizzes_dir.glob("*.md")
+                    if path.name != "index.md"
+                )
+                if self.course_config.paths.quizzes_dir.is_dir()
+                else []
+            )
+
+            schedule_data["assignments"] = load_schedule_assignments(
+                assignment_files,
+                assignment_url_path=self.mkdocs_integration.assignments_url_path,
+            )
+            schedule_data["quizzes"] = load_schedule_quizzes(
+                quiz_files,
+                canvas_base_url=canvas_cfg.base_url if canvas_cfg is not None else "",
+                canvas_course_id=canvas_course_id,
+            )
             course_data["schedule"] = schedule_data
         return course_data
 

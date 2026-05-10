@@ -24,13 +24,6 @@ def register_validate_command(app: typer.Typer) -> None:
     @app.command()
     def validate(
         ctx: typer.Context,
-        site_base_url: Annotated[
-            str | None,
-            typer.Option(
-                "--site-base-url",
-                help="Course site base URL used for validating generated assignment links.",
-            ),
-        ] = None,
         assignment_files: Annotated[
             list[Path] | None,
             typer.Option(
@@ -81,7 +74,6 @@ def register_validate_command(app: typer.Typer) -> None:
                 data_files=resolved_data_files,
                 assignment_files=resolved_assignment_files,
                 quiz_files=resolved_quiz_files,
-                site_base_url=site_base_url,
             )
         except (ValueError, yaml.YAMLError) as exc:
             raise click.ClickException(str(exc)) from exc

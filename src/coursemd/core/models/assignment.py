@@ -20,10 +20,12 @@ class AssignmentSpec:
     submission_types: list[str]
     points_possible: float
     published: bool
-    description_html: str
     position: int | None
     unlock_at: str | None
     group_assignment: bool
     submission_form: list[dict[str, Any]]
     rubric_criteria: list[RubricCriterion]
+    doc_url: str | None = None
+    doc_anchor: str | None = None
+    notes: str | None = None
     integrations: AssignmentIntegrations = field(default_factory=AssignmentIntegrations)

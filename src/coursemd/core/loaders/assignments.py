@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from html import escape
 from pathlib import Path
 from typing import Any
 
@@ -136,73 +135,13 @@ def validate_schedule_assignment_metadata(
     return assignment
 
 
-def default_docs_url(
-    source_file: Path,
-    site_base_url: str,
-    assignment_url_path: str = DEFAULT_ASSIGNMENTS_URL_PATH,
-) -> str:
-    stem = source_file.stem
-    return f"{site_base_url.rstrip('/')}/{assignment_url_path.strip('/')}/{stem}/"
-
-
-def build_assignment_description_html(
-    source_file: Path,
-    assignment_name: str,
-    assignment_cfg: dict[str, Any],
-    site_base_url: str,
-    assignment_url_path: str = DEFAULT_ASSIGNMENTS_URL_PATH,
-    submission_form: list[dict[str, Any]] | None = None,
-) -> str:
-    if "description_html" in assignment_cfg:
-        return str(assignment_cfg["description_html"])
-
-    doc_url = str(
-        assignment_cfg.get("doc_url")
-        or default_docs_url(
-            source_file,
-            site_base_url,
-            assignment_url_path=assignment_url_path,
-        )
-    )
-    doc_anchor = assignment_cfg.get("doc_anchor")
-    if doc_anchor:
-        doc_url = f"{doc_url.rstrip('#')}#{doc_anchor}"
-
-    notes = assignment_cfg.get("notes")
-    html_parts = [
-        (
-            "<p><b>See assignment instructions on the course website:</b> "
-            f'<a href="{escape(doc_url, quote=True)}">{escape(assignment_name)}</a></p>'
-        )
-    ]
-    if notes:
-        html_parts.append(f"<p>{escape(str(notes))}</p>")
-
-    if submission_form:
-        html_parts.append("<p>Please submit the following deliverables:</p><ul>")
-        for field in submission_form:
-            label = escape(str(field.get("label", "")))
-            hint = field.get("hint", "")
-            hint_html = f"<strong>:</strong> {escape(str(hint))}" if hint else ""
-            html_parts.append(f"<li><strong>{label}</strong>{hint_html}</li>")
-        html_parts.append("</ul>")
-
-    return "\n".join(html_parts)
-
-
 def parse_assignment_specs_from_file(
     source_file: Path,
-    site_base_url: str,
-    assignment_url_path: str = DEFAULT_ASSIGNMENTS_URL_PATH,
     *,
     require_canvas_fields: bool = True,
 ) -> list[AssignmentSpec]:
     metadata = load_markdown_metadata(source_file)
-    schedule_metadata = validate_schedule_assignment_metadata(
-        source_file,
-        metadata,
-        assignment_url_path=assignment_url_path,
-    )
+    schedule_metadata = validate_schedule_assignment_metadata(source_file, metadata)
 
     assignments = metadata.get("assignments")
     if assignments is None:
@@ -296,6 +235,13 @@ def parse_assignment_specs_from_file(
         )
         rubric_criteria = select_rubric_criteria(metadata, rubric_section, rubric_criteria_filter)
 
+        doc_url_raw = item.get("doc_url")
+        doc_url = str(doc_url_raw).strip() if doc_url_raw is not None else None
+        doc_anchor_raw = item.get("doc_anchor")
+        doc_anchor = str(doc_anchor_raw).strip() or None if doc_anchor_raw is not None else None
+        notes_raw = item.get("notes")
+        notes = str(notes_raw).strip() or None if notes_raw is not None else None
+
         specs.append(
             AssignmentSpec(
                 source_file=source_file,
@@ -304,19 +250,14 @@ def parse_assignment_specs_from_file(
                 submission_types=submission_types,
                 points_possible=points_possible,
                 published=published,
-                description_html=build_assignment_description_html(
-                    source_file=source_file,
-                    assignment_name=name,
-                    assignment_cfg=item,
-                    site_base_url=site_base_url,
-                    assignment_url_path=assignment_url_path,
-                    submission_form=submission_form,
-                ),
                 position=position,
                 unlock_at=unlock_at,
                 group_assignment=group_assignment,
                 submission_form=submission_form,
                 rubric_criteria=rubric_criteria,
+                doc_url=doc_url,
+                doc_anchor=doc_anchor,
+                notes=notes,
                 integrations=AssignmentIntegrations(
                     canvas=CanvasAssignmentIntegration(
                         id=canvas_id,
@@ -335,19 +276,12 @@ def default_assignment_files(repo_root: Path) -> list[Path]:
 
 def load_assignment_specs(
     files: list[Path],
-    site_base_url: str,
-    assignment_url_path: str = DEFAULT_ASSIGNMENTS_URL_PATH,
     *,
     require_canvas_fields: bool = True,
 ) -> list[AssignmentSpec]:
     specs: list[AssignmentSpec] = []
     for path in files:
         specs.extend(
-            parse_assignment_specs_from_file(
-                path,
-                site_base_url,
-                assignment_url_path=assignment_url_path,
-                require_canvas_fields=require_canvas_fields,
-            )
+            parse_assignment_specs_from_file(path, require_canvas_fields=require_canvas_fields)
         )
     return specs
