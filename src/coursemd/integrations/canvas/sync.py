@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
 from coursemd.integrations.canvas.assignments import form_for_assignment
-from coursemd.integrations.canvas.models import canvas_assignment, canvas_quiz
+from coursemd.integrations.canvas.models import canvas_assignment_submissions, canvas_quiz
 from coursemd.integrations.canvas.quizzes import (
     QUIZ_TYPE_MAP,
     form_for_quiz,
@@ -68,7 +68,13 @@ def sync_assignments_to_canvas(
     reporter: CanvasSyncReporter | None = None,
     site_base_url: str = "",
 ) -> list[dict[str, Any]]:
-    any_group = any(spec.group_assignment for spec in specs)
+    canvas_specs = [
+        canvas_spec
+        for spec in specs
+        for canvas_spec in canvas_assignment_submissions(spec)
+    ]
+
+    any_group = any(spec.group_assignment for spec in canvas_specs)
     group_category_id: int | None = None
     if any_group:
         group_category_id = resolve_group_category_id(client, course_id, group_category_id_override)
@@ -99,9 +105,8 @@ def sync_assignments_to_canvas(
             assignments_by_id[int(assignment_id)] = assignment
 
     results: list[dict[str, Any]] = []
-    for spec in specs:
-        canvas_data = canvas_assignment(spec.integrations)
-        assignment_group = canvas_data.assignment_group or spec.name
+    for spec in canvas_specs:
+        assignment_group = spec.canvas_assignment_group or spec.name
         group = groups_by_name.get(assignment_group)
         if group is None:
             _emit(
@@ -128,8 +133,8 @@ def sync_assignments_to_canvas(
             site_base_url=site_base_url,
         )
         existing: dict[str, Any] | None = None
-        if canvas_data.id is not None:
-            existing = assignments_by_id.get(canvas_data.id)
+        if spec.canvas_id is not None:
+            existing = assignments_by_id.get(spec.canvas_id)
         if existing is None:
             existing = assignments_by_name.get(spec.name)
 
@@ -188,15 +193,16 @@ def sync_assignments_to_canvas(
                     )
                     assignments_by_name[spec.name] = canvas_obj
 
-        results.append(
-            {
-                "action": action,
-                "name": spec.name,
-                "id": canvas_obj.get("id"),
-                "html_url": canvas_obj.get("html_url"),
-                "source_file": str(spec.source_file),
-            }
-        )
+        result = {
+            "action": action,
+            "name": spec.name,
+            "id": canvas_obj.get("id"),
+            "html_url": canvas_obj.get("html_url"),
+            "source_file": str(spec.source_file),
+        }
+        if spec.doc_anchor is not None:
+            result["doc_anchor"] = spec.doc_anchor
+        results.append(result)
 
         if action != "skipped" and spec.rubric_criteria and canvas_obj.get("id") is not None:
             assignment_id = int(canvas_obj["id"])

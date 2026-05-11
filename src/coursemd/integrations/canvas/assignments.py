@@ -6,7 +6,7 @@ from html import escape
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from coursemd.core.models.assignment import Assignment
+    from coursemd.integrations.canvas.models import CanvasAssignmentSubmission
 
 
 def _render_description_html(text: str) -> str:
@@ -18,7 +18,7 @@ def _render_description_html(text: str) -> str:
 
 
 def build_assignment_description_html(
-    spec: Assignment,
+    spec: CanvasAssignmentSubmission,
     site_base_url: str,
 ) -> str:
     doc_url = spec.doc_url or f"{site_base_url.rstrip('/')}{spec.link}"
@@ -48,7 +48,7 @@ def build_assignment_description_html(
 
 
 def form_for_assignment(
-    spec: Assignment,
+    spec: CanvasAssignmentSubmission,
     assignment_group_id: int,
     publish_override: bool,
     group_category_id: int | None = None,

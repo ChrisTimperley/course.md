@@ -382,7 +382,7 @@ def define_env(env: t.Any) -> None:
 
         Looks up the assignment by canvas_id in the page's assignments
         frontmatter list and renders an admonition with a direct submission link.
-        When the assignment defines a ``submission_form`` list, each field is
+        When the Canvas submission defines a ``submission_form`` list, each field is
         rendered as a labelled item so students know exactly what to paste into
         the Canvas text-entry box.
         Falls back to a generic link if the assignment is not found in frontmatter.
@@ -405,19 +405,42 @@ def define_env(env: t.Any) -> None:
             else f"{canvas_base_url}/assignments/{canvas_id}"
         )
 
-        # Try to find the assignment config from the page's frontmatter.
+        # Try to find the Canvas submission config from the current page first,
+        # then from any assignment list injected into the page.
         assignment_cfg: dict[str, t.Any] = {}
         page = env.variables.get("page")
         if page is not None:
+            page_meta = getattr(page, "meta", {})
+            page_integrations = page_meta.get("integrations", {})
+            if isinstance(page_integrations, dict):
+                page_canvas = page_integrations.get("canvas", {})
+                if isinstance(page_canvas, dict):
+                    checkpoints = page_canvas.get("checkpoints", [])
+                    if isinstance(checkpoints, list):
+                        for checkpoint in checkpoints:
+                            if not isinstance(checkpoint, dict):
+                                continue
+                            checkpoint_id = checkpoint.get("canvas_id") or checkpoint.get("id")
+                            if checkpoint_id == canvas_id:
+                                assignment_cfg = checkpoint
+                                break
+                    if not assignment_cfg:
+                        page_id = page_canvas.get("canvas_id") or page_canvas.get("id")
+                        if page_id == canvas_id:
+                            assignment_cfg = page_canvas
             assignments = getattr(page, "meta", {}).get("assignments", [])
-            for assignment in assignments:
-                integration_map = assignment.get("integrations", {})
-                if not isinstance(integration_map, dict):
-                    continue
-                canvas = integration_map.get("canvas", {})
-                if isinstance(canvas, dict) and canvas.get("id") == canvas_id:
-                    assignment_cfg = assignment
-                    break
+            if not assignment_cfg:
+                for assignment in assignments:
+                    integration_map = assignment.get("integrations", {})
+                    if not isinstance(integration_map, dict):
+                        continue
+                    canvas = integration_map.get("canvas", {})
+                    if not isinstance(canvas, dict):
+                        continue
+                    canvas_id_value = canvas.get("canvas_id") or canvas.get("id")
+                    if canvas_id_value == canvas_id:
+                        assignment_cfg = assignment
+                        break
 
         name: str | None = assignment_cfg.get("name")
         link_text = f"Click here to submit {name}" if name else "Click here to submit"

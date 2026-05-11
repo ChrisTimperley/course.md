@@ -21,7 +21,7 @@ from coursemd.cli.shared import (
 from coursemd.core.loaders.quizzes import load_quiz_specs
 from coursemd.core.loaders.specs import load_assignments
 from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL, CanvasConfig
-from coursemd.integrations.canvas.models import canvas_assignment, canvas_quiz
+from coursemd.integrations.canvas.models import canvas_assignment_submissions, canvas_quiz
 from coursemd.integrations.canvas.quizzes import QUIZ_TYPE_MAP
 
 if TYPE_CHECKING:
@@ -57,17 +57,20 @@ def _register_unavailable_canvas_commands(canvas_app: typer.Typer) -> None:
 
 def _print_assignment_plan(specs: list[Assignment]) -> None:
     typer.echo(f"Loaded {len(specs)} assignment spec(s) for the Canvas integration:")
-    for spec in specs:
-        unlock = f" | unlock {spec.unlock_at}" if spec.unlock_at else ""
-        group = " [group]" if spec.group_assignment else ""
-        canvas = canvas_assignment(spec.integrations)
-        assignment_group = canvas.assignment_group or "<unassigned>"
-        due_text = spec.due_at or spec.due_date.isoformat()
-        typer.echo(
-            f"- {spec.name} | due {due_text} | {spec.points_possible} pts{unlock}{group} | "
-            f"group '{assignment_group}' | submissions={spec.submission_types} | "
-            f"source={spec.source_file}"
-        )
+    for assignment in specs:
+        submissions = canvas_assignment_submissions(assignment)
+        if len(submissions) > 1:
+            typer.echo(f"- {assignment.name} | {len(submissions)} Canvas checkpoints")
+        for spec in submissions:
+            unlock = f" | unlock {spec.unlock_at}" if spec.unlock_at else ""
+            group = " [group]" if spec.group_assignment else ""
+            assignment_group = spec.canvas_assignment_group or "<unassigned>"
+            due_text = spec.due_at or assignment.due_date.isoformat()
+            typer.echo(
+                f"- {spec.name} | due {due_text} | {spec.points_possible} pts"
+                f"{unlock}{group} | group '{assignment_group}' | "
+                f"submissions={spec.submission_types} | source={spec.source_file}"
+            )
 
 
 def _print_canvas_sync_event(event: Any) -> None:

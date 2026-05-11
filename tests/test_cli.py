@@ -22,7 +22,12 @@ from coursemd import cli
 from coursemd.core.config import CourseConfig
 from coursemd.core.exceptions import CoursemdError, CoursemdValidationError
 from coursemd.core.loaders.validation import normalize_release_date
-from coursemd.core.models.assignment import Assignment, AssignmentCheckpoint
+from coursemd.core.models.assignment import (
+    Assignment,
+    AssignmentCheckpoint,
+    AssignmentGradeTier,
+    AssignmentGrading,
+)
 from coursemd.core.models.repository import CourseRepository
 from coursemd.integrations.canvas.config import CanvasConfig
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
@@ -195,6 +200,36 @@ def test_assignment_load_uses_canonical_loader(tmp_path: Path) -> None:
     assert assignment.source_file == tmp_path / "assignments" / "hw1.md"
     assert assignment.due_at == "2026-01-16T23:59:00-05:00"
     assert assignment.description == "# Homework 1"
+
+
+def test_assignment_loads_homework_grading_and_rubric_from_hw3() -> None:
+    assignment = Assignment.load(Path("examples/hw3.md"))
+
+    assert assignment.name == "Phase C: Extend"
+    assert assignment.kind == "homework"
+    assert assignment.group_assignment is True
+    assert assignment.grading == AssignmentGrading(
+        raw_max=100,
+        tiers=[
+            AssignmentGradeTier(name="Platinum", min_score=93, points=25),
+            AssignmentGradeTier(name="Gold", min_score=85, points=23),
+            AssignmentGradeTier(name="Silver", min_score=80, points=20),
+            AssignmentGradeTier(name="Bronze", min_score=70, points=18),
+            AssignmentGradeTier(name="Copper", min_score=60, points=15),
+            AssignmentGradeTier(name="Fail", min_score=0, points=0),
+        ],
+    )
+    assert [checkpoint.title for checkpoint in assignment.checkpoints] == [
+        "C0: Scope Check",
+        "C1: Hazard Analysis & Draft Launch Argument",
+        "C2: Complete Launch Argument",
+        "C3: Final Presentation",
+    ]
+    assert [section.section for section in assignment.rubric.sections] == [
+        "Hazard Analysis & Launch Scope",
+        "Launch Argument",
+        "Presentation & Reflection",
+    ]
 
 
 def test_assignment_checkpoint_from_dict_loads_checkpoint() -> None:
