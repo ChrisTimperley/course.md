@@ -206,38 +206,12 @@ class CanvasAssignment:
 
 
 @dataclass(frozen=True)
-class CanvasAssignmentIntegration:
-    """Canvas state extracted from an assignment's integrations dict."""
-
-    id: int | None = None
-    assignment_group: str | None = None
-    checkpoints: list[dict[str, Any]] = field(default_factory=list)
-
-
-@dataclass(frozen=True)
 class CanvasQuizIntegration:
     """Canvas state extracted from a quiz's integrations dict."""
 
     id: int | None = None
     assignment_group: str | None = None
     quiz_type: str | None = None
-
-
-def canvas_assignment(integrations: dict[str, Any]) -> CanvasAssignmentIntegration:
-    """Extract Canvas integration data from an assignment's raw integrations dict."""
-    canvas_map = _canvas_map(integrations)
-    group = optional_string(canvas_map.get("assignment_group"))
-    checkpoints_raw = canvas_map.get("checkpoints") or []
-    checkpoints = (
-        [dict(cast("dict[str, Any]", item)) for item in checkpoints_raw if isinstance(item, dict)]
-        if isinstance(checkpoints_raw, list)
-        else []
-    )
-    return CanvasAssignmentIntegration(
-        id=_parse_int(canvas_map.get("id") or canvas_map.get("canvas_id")),
-        assignment_group=group,
-        checkpoints=checkpoints,
-    )
 
 
 def _rubric_criteria(
@@ -359,11 +333,9 @@ def canvas_quiz(
 
 __all__ = [
     "CanvasAssignment",
-    "CanvasAssignmentIntegration",
     "CanvasAssignmentSubmission",
     "CanvasQuizIntegration",
     "CanvasSubmissionField",
-    "canvas_assignment",
     "canvas_assignment_submissions",
     "canvas_quiz",
 ]
