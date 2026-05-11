@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from coursemd.core.exceptions import wrap_validation_errors
 from coursemd.core.loaders.markdown import load_markdown_post
@@ -16,15 +16,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from coursemd.core.types import QuizDict
-
-VALID_QUESTION_TYPES: frozenset[str] = frozenset({
-    "multiple_choice",
-    "true_false",
-    "multiple_answers",
-    "short_answer",
-    "essay",
-    "matching",
-})
 
 
 @wrap_validation_errors
@@ -98,123 +89,7 @@ def parse_quiz_file(source_file: Path) -> Quiz:
     if not questions_raw:
         raise ValueError("'questions' must contain at least one item.")
 
-    question_specs: list[QuizQuestion] = []
-    seen_positions: set[int] = set()
-    for i, question in enumerate(questions_raw):
-        if not isinstance(question, dict):
-            raise TypeError("each question must be an object.")
-        qtype_inner = str(question.get("question_type", "")).strip().lower()
-        if qtype_inner not in VALID_QUESTION_TYPES:
-            raise ValueError(
-                f"question {i + 1} has invalid question_type '{qtype_inner}'. "
-                f"Must be one of: {', '.join(sorted(VALID_QUESTION_TYPES))}."
-            )
-        qtext = question.get("question_text", "")
-        if not str(qtext).strip():
-            raise ValueError(f"question {i + 1} must have question_text.")
-        try:
-            pts = float(question.get("points_possible", 1))
-        except (TypeError, ValueError) as exc:
-            raise ValueError(f"question {i + 1} points_possible must be numeric.") from exc
-        try:
-            pos = int(question.get("position", i + 1))
-        except (TypeError, ValueError) as exc:
-            raise ValueError(f"question {i + 1} position must be an integer.") from exc
-        if pos < 1:
-            raise ValueError(f"question {i + 1} position must be at least 1.")
-        if pos in seen_positions:
-            raise ValueError("question positions must be unique within a quiz.")
-        seen_positions.add(pos)
-        answers_raw = question.get("answers", [])
-        if not isinstance(answers_raw, list):
-            raise TypeError(f"question {i + 1} answers must be a list.")
-        distractors = question.get("distractors")
-        if isinstance(distractors, list):
-            distractors = [str(d) for d in distractors]
-        elif distractors is None:
-            distractors = None
-        else:
-            raise TypeError(f"question {i + 1} distractors must be a list.")
-
-        answer_required_types = (
-            "multiple_choice",
-            "true_false",
-            "multiple_answers",
-            "matching",
-            "short_answer",
-        )
-        if (
-            qtype_inner in answer_required_types
-            and not answers_raw
-            and qtype_inner != "short_answer"
-        ):
-            raise ValueError(f"question {i + 1} ({qtype_inner}) must have answers.")
-
-        if qtype_inner in {"multiple_choice", "true_false", "multiple_answers"}:
-            correct_answers = 0
-            for answer_index, answer in enumerate(answers_raw):
-                if not isinstance(answer, dict):
-                    raise TypeError(
-                        f"question {i + 1} answers[{answer_index}] must be an object."
-                    )
-                answer_text = str(answer.get("text", "")).strip()
-                if not answer_text:
-                    raise ValueError(f"question {i + 1} answers[{answer_index}].text is required.")
-                if not isinstance(answer.get("correct"), bool):
-                    raise TypeError(
-                        f"question {i + 1} answers[{answer_index}].correct "
-                        "must be a boolean."
-                    )
-                if answer["correct"]:
-                    correct_answers += 1
-            if correct_answers == 0:
-                raise ValueError(f"question {i + 1} must mark at least one answer correct.")
-            if qtype_inner in {"multiple_choice", "true_false"} and correct_answers != 1:
-                raise ValueError(
-                    f"question {i + 1} ({qtype_inner}) must mark "
-                    "exactly one answer correct."
-                )
-
-        if qtype_inner == "matching":
-            for answer_index, answer in enumerate(answers_raw):
-                if not isinstance(answer, dict):
-                    raise TypeError(
-                        f"question {i + 1} answers[{answer_index}] must be an object."
-                    )
-                left = str(answer.get("left", "")).strip()
-                right = str(answer.get("right", "")).strip()
-                if not left or not right:
-                    raise ValueError(
-                        f"question {i + 1} matching answers must include "
-                        "non-empty 'left' and 'right' fields."
-                    )
-
-        if qtype_inner == "short_answer":
-            for answer_index, answer in enumerate(answers_raw):
-                if isinstance(answer, str):
-                    if not answer.strip():
-                        raise ValueError(
-                            f"question {i + 1} answers[{answer_index}] must not be blank."
-                        )
-                    continue
-                if not isinstance(answer, dict):
-                    raise TypeError(
-                        f"question {i + 1} answers[{answer_index}] must be a string or object."
-                    )
-                answer_text = str(answer.get("text", "")).strip()
-                if not answer_text:
-                    raise ValueError(f"question {i + 1} answers[{answer_index}].text is required.")
-
-        question_specs.append(
-            QuizQuestion(
-                question_type=qtype_inner,
-                question_text=str(qtext),
-                points_possible=pts,
-                position=pos,
-                answers=answers_raw if isinstance(answers_raw, list) else [],
-                distractors=distractors,
-            )
-        )
+    questions = QuizQuestion.from_list(cast("list[Any]", questions_raw))
 
     return Quiz(
         source_file=source_file,
@@ -225,7 +100,7 @@ def parse_quiz_file(source_file: Path) -> Quiz:
         unlock_at=unlock_at,
         description=description,
         readings=readings,
-        questions=question_specs,
+        questions=questions,
         integrations=integrations,
     )
 
