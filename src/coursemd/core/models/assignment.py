@@ -202,26 +202,6 @@ def _parse_rubric_criteria_filter(value: Any, source_file: Path) -> list[str] | 
     return [item.strip() for item in cast("list[str]", typed_values)]
 
 
-def _default_submission_types() -> list[str]:
-    return ["none"]
-
-
-def _default_submission_form() -> list[SubmissionField]:
-    return []
-
-
-def _default_rubric_criteria() -> list[RubricCriterion]:
-    return []
-
-
-def _default_checkpoints() -> list[AssignmentCheckpoint]:
-    return []
-
-
-def _default_integrations() -> dict[str, Any]:
-    return {}
-
-
 @dataclass(frozen=True)
 class Assignment:
     """Canonical assignment specification."""
@@ -235,19 +215,19 @@ class Assignment:
     kind: str = "assignment"
     description: str | None = None
     reveal_date: dt.date | None = None
-    submission_types: list[str] = field(default_factory=_default_submission_types)
+    submission_types: list[str] = field(default_factory=lambda: ["none"])
     points_possible: float = 100.0
     published: bool = False
     position: int | None = None
     unlock_at: str | None = None
     group_assignment: bool = False
-    submission_form: list[SubmissionField] = field(default_factory=_default_submission_form)
-    rubric_criteria: list[RubricCriterion] = field(default_factory=_default_rubric_criteria)
-    checkpoints: list[AssignmentCheckpoint] = field(default_factory=_default_checkpoints)
+    submission_form: list[SubmissionField] = field(default_factory=list)
+    rubric_criteria: list[RubricCriterion] = field(default_factory=list)
+    checkpoints: list[AssignmentCheckpoint] = field(default_factory=list)
     doc_url: str | None = None
     doc_anchor: str | None = None
     notes: str | None = None
-    integrations: dict[str, Any] = field(default_factory=_default_integrations)
+    integrations: dict[str, Any] = field(default_factory=dict)
 
     @property
     def name(self) -> str:
