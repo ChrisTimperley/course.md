@@ -7,8 +7,13 @@ from typing import TYPE_CHECKING, Any, cast
 
 from coursemd.core.exceptions import wrap_validation_errors
 from coursemd.core.loaders.assignments import DEFAULT_ASSIGNMENTS_URL_PATH, assignment_link_for
-from coursemd.core.loaders.dates import normalize_due_at, require_date, require_release_date
 from coursemd.core.loaders.markdown import load_markdown_post
+from coursemd.core.loaders.validation import (
+    BoundValidation,
+    bind_validation,
+    optional_string,
+    require_non_empty_string,
+)
 from coursemd.core.models.rubric import Rubric
 
 if TYPE_CHECKING:
@@ -18,21 +23,7 @@ if TYPE_CHECKING:
     from coursemd.core.models.rubric import RubricCriterion
 
 
-def _require_non_empty_string(value: Any, source_file: Path, field_name: str) -> str:
-    text = "" if value is None else str(value).strip()
-    if not text:
-        raise ValueError(f"{source_file}: '{field_name}' must be a non-empty string.")
-    return text
-
-
-def _parse_optional_string(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
-def _parse_submission_types(value: Any, source_file: Path) -> list[str]:
+def _parse_submission_types(value: Any) -> list[str]:
     if value is None:
         return ["none"]
     if isinstance(value, str):
@@ -40,25 +31,21 @@ def _parse_submission_types(value: Any, source_file: Path) -> list[str]:
     elif isinstance(value, list):
         typed_values = cast("list[Any]", value)
         if any(not isinstance(item, str) for item in typed_values):
-            raise TypeError(
-                f"{source_file}: 'submission_types' must be a string or list of strings."
-            )
+            raise TypeError("'submission_types' must be a string or list of strings.")
         submission_types = [item.strip() for item in cast("list[str]", typed_values)]
     else:
-        raise TypeError(
-            f"{source_file}: 'submission_types' must be a string or list of strings."
-        )
+        raise TypeError("'submission_types' must be a string or list of strings.")
     if not submission_types or any(not item for item in submission_types):
-        raise ValueError(f"{source_file}: 'submission_types' must include at least one value.")
+        raise ValueError("'submission_types' must include at least one value.")
     return submission_types
 
 
-def _parse_integrations(metadata: dict[str, Any], source_file: Path) -> dict[str, Any]:
+def _parse_integrations(metadata: dict[str, Any]) -> dict[str, Any]:
     integrations_raw = metadata.get("integrations")
     if integrations_raw is None:
         return {}
     if not isinstance(integrations_raw, dict):
-        raise TypeError(f"{source_file}: 'integrations' must be an object/map.")
+        raise TypeError("'integrations' must be an object/map.")
     return dict(cast("dict[str, Any]", integrations_raw))
 
 
@@ -70,25 +57,24 @@ class SubmissionField:
     hint: str | None = None
 
 
-def _parse_submission_form(value: Any, source_file: Path) -> list[SubmissionField]:
+def _parse_submission_form(value: Any) -> list[SubmissionField]:
     if value is None:
         return []
     if not isinstance(value, list):
-        raise TypeError(f"{source_file}: 'submission_form' must be a list of objects.")
+        raise TypeError("'submission_form' must be a list of objects.")
 
     fields: list[SubmissionField] = []
     for index, item in enumerate(cast("list[Any]", value)):
         if not isinstance(item, dict):
-            raise TypeError(f"{source_file}: submission_form[{index}] must be an object.")
+            raise TypeError(f"submission_form[{index}] must be an object.")
         field_map = cast("dict[str, Any]", item)
         fields.append(
             SubmissionField(
-                label=_require_non_empty_string(
+                label=require_non_empty_string(
                     field_map.get("label"),
-                    source_file,
                     f"submission_form[{index}].label",
                 ),
-                hint=_parse_optional_string(field_map.get("hint")),
+                hint=optional_string(field_map.get("hint")),
             )
         )
     return fields
@@ -101,89 +87,96 @@ class AssignmentCheckpoint:
     date: dt.date
     title: str
     description: str | None = None
+    # FIXME this should be a datetime; we will need a timezone to load this!
     due_at: str | None = None
     doc_anchor: str | None = None
 
     @classmethod
+    @wrap_validation_errors
     def from_dict(
         cls,
         value: dict[str, Any],
         *,
-        source_file: Path,
+        source_file: Path | None = None,
+        validate: BoundValidation | None = None,
         index: int,
         release_date: dt.date,
         due_date: dt.date,
     ) -> AssignmentCheckpoint:
-        checkpoint_date = require_date(
-            value.get("date"),
-            source_file,
-            f"checkpoints[{index}].date",
-        )
-        checkpoint_title = _require_non_empty_string(
+        if validate is None:
+            if source_file is None:
+                raise TypeError("from_dict requires either 'source_file' or 'validate'.")
+            validate = bind_validation(source_file)
+
+        checkpoint_date = validate.require_date(value.get("date"), f"checkpoints[{index}].date")
+        checkpoint_title = validate.require_non_empty_string(
             value.get("title"),
-            source_file,
             f"checkpoints[{index}].title",
         )
+
+        # FIXME this checking should take place in the assignment loader,
+        # not the checkpoint model, but we need to check this somewhere!
         if checkpoint_date < release_date or checkpoint_date > due_date:
             raise ValueError(
-                f"{source_file}: checkpoints[{index}].date must fall between "
-                f"'release_date' and 'due_date'."
+                f"checkpoints[{index}].date must fall between "
+                "'release_date' and 'due_date'."
             )
 
+        # FIXME this shouldn't really be an optional field
         checkpoint_due_at_raw = value.get("due_at")
         checkpoint_due_at = None
         if checkpoint_due_at_raw is not None:
-            checkpoint_due_at = normalize_due_at(
+            checkpoint_due_at = validate.normalize_due_at(
                 checkpoint_due_at_raw,
-                source_file,
                 f"checkpoints[{index}]",
             )
-            checkpoint_due_date = require_date(
+            checkpoint_due_date = validate.require_date(
                 checkpoint_due_at,
-                source_file,
                 f"checkpoints[{index}].due_at",
             )
+            # FIXME: this checking should happen in the assignment loader
             if checkpoint_due_date != checkpoint_date:
                 raise ValueError(
-                    f"{source_file}: checkpoints[{index}].due_at must fall on "
+                    f"checkpoints[{index}].due_at must fall on "
                     f"the same calendar date as checkpoints[{index}].date."
                 )
 
         return cls(
             date=checkpoint_date,
             title=checkpoint_title,
-            description=_parse_optional_string(value.get("description")),
+            description=optional_string(value.get("description")),
             due_at=checkpoint_due_at,
-            doc_anchor=_parse_optional_string(value.get("doc_anchor")),
+            doc_anchor=optional_string(value.get("doc_anchor")),
         )
 
 
 def _parse_checkpoints(
     value: Any,
-    source_file: Path,
+    *,
+    validate: BoundValidation,
     release_date: dt.date,
     due_date: dt.date,
 ) -> list[AssignmentCheckpoint]:
     if value is None:
         return []
     if not isinstance(value, list):
-        raise TypeError(f"{source_file}: 'checkpoints' must be a list.")
+        raise TypeError("'checkpoints' must be a list.")
 
     checkpoints: list[AssignmentCheckpoint] = []
     previous_date: dt.date | None = None
     for index, item in enumerate(cast("list[Any]", value)):
         if not isinstance(item, dict):
-            raise TypeError(f"{source_file}: checkpoints[{index}] must be an object.")
+            raise TypeError(f"checkpoints[{index}] must be an object.")
         checkpoint = AssignmentCheckpoint.from_dict(
             cast("dict[str, Any]", item),
-            source_file=source_file,
+            validate=validate,
             index=index,
             release_date=release_date,
             due_date=due_date,
         )
         checkpoint_date = checkpoint.date
         if previous_date is not None and checkpoint_date < previous_date:
-            raise ValueError(f"{source_file}: checkpoints must be ordered by ascending date.")
+            raise ValueError("checkpoints must be ordered by ascending date.")
 
         checkpoints.append(checkpoint)
         previous_date = checkpoint_date
@@ -191,14 +184,14 @@ def _parse_checkpoints(
     return checkpoints
 
 
-def _parse_rubric_criteria_filter(value: Any, source_file: Path) -> list[str] | None:
+def _parse_rubric_criteria_filter(value: Any) -> list[str] | None:
     if value is None:
         return None
     if not isinstance(value, list):
-        raise TypeError(f"{source_file}: 'rubric_criteria' must be a list of strings.")
+        raise TypeError("'rubric_criteria' must be a list of strings.")
     typed_values = cast("list[Any]", value)
     if any(not isinstance(item, str) for item in typed_values):
-        raise TypeError(f"{source_file}: 'rubric_criteria' must be a list of strings.")
+        raise TypeError("'rubric_criteria' must be a list of strings.")
     return [item.strip() for item in cast("list[str]", typed_values)]
 
 
@@ -253,42 +246,41 @@ class Assignment:
 
         post = load_markdown_post(filename)
         metadata = post.metadata
+        validate = bind_validation(filename)
 
-        title = _require_non_empty_string(metadata.get("title"), filename, "title")
-        release_date = require_date(metadata.get("release_date"), filename, "release_date")
+        title = validate.require_non_empty_string(metadata.get("title"), "title")
+        release_date = validate.require_date(metadata.get("release_date"), "release_date")
 
         due_date_raw = metadata.get("due_date")
         due_at_raw = metadata.get("due_at")
-        due_at = None if due_at_raw is None else normalize_due_at(due_at_raw, filename, title)
-        due_date_from_due_at = (
-            None if due_at is None else require_date(due_at, filename, "due_at")
-        )
+        due_at = None if due_at_raw is None else validate.normalize_due_at(due_at_raw, title)
+        due_date_from_due_at = None if due_at is None else validate.require_date(due_at, "due_at")
 
         if due_date_raw is None and due_date_from_due_at is None:
-            raise ValueError(f"{filename}: assignment must define 'due_date' or 'due_at'.")
+            raise ValueError("assignment must define 'due_date' or 'due_at'.")
 
         if due_date_raw is None:
             if due_date_from_due_at is None:
-                raise ValueError(f"{filename}: assignment must define 'due_date' or 'due_at'.")
+                raise ValueError("assignment must define 'due_date' or 'due_at'.")
             due_date = due_date_from_due_at
         else:
-            due_date = require_date(due_date_raw, filename, "due_date")
+            due_date = validate.require_date(due_date_raw, "due_date")
         if due_date_from_due_at is not None and due_date != due_date_from_due_at:
-            raise ValueError(f"{filename}: 'due_date' must match the calendar date of 'due_at'.")
+            raise ValueError("'due_date' must match the calendar date of 'due_at'.")
         if due_date < release_date:
-            raise ValueError(f"{filename}: 'due_date' must not be earlier than 'release_date'.")
+            raise ValueError("'due_date' must not be earlier than 'release_date'.")
 
         reveal_date = None
         if metadata.get("reveal_date") is not None:
-            reveal_date = require_date(metadata.get("reveal_date"), filename, "reveal_date")
+            reveal_date = validate.require_date(metadata.get("reveal_date"), "reveal_date")
             if reveal_date > due_date:
-                raise ValueError(f"{filename}: 'reveal_date' must not be later than 'due_date'.")
+                raise ValueError("'reveal_date' must not be later than 'due_date'.")
 
         points_raw = metadata.get("points", 100)
         try:
             points_possible = float(cast("Any", 100 if points_raw is None else points_raw))
         except (TypeError, ValueError) as exc:
-            raise ValueError(f"{filename}: 'points' must be numeric.") from exc
+            raise ValueError("'points' must be numeric.") from exc
 
         position_raw = metadata.get("position")
         position = None
@@ -296,13 +288,10 @@ class Assignment:
             try:
                 position = int(cast("Any", position_raw))
             except (TypeError, ValueError) as exc:
-                raise ValueError(f"{filename}: 'position' must be an integer.") from exc
+                raise ValueError("'position' must be an integer.") from exc
 
-        rubric_section = _parse_optional_string(metadata.get("rubric_section"))
-        rubric_criteria_filter = _parse_rubric_criteria_filter(
-            metadata.get("rubric_criteria"),
-            filename,
-        )
+        rubric_section = optional_string(metadata.get("rubric_section"))
+        rubric_criteria_filter = _parse_rubric_criteria_filter(metadata.get("rubric_criteria"))
 
         return cls(
             source_file=filename,
@@ -311,29 +300,29 @@ class Assignment:
             due_date=due_date,
             link=assignment_link_for(filename, assignment_url_path=DEFAULT_ASSIGNMENTS_URL_PATH),
             due_at=due_at,
-            kind=_parse_optional_string(metadata.get("kind")) or "assignment",
+            kind=optional_string(metadata.get("kind")) or "assignment",
             description=str(post.content).strip() or None,
             reveal_date=reveal_date,
-            submission_types=_parse_submission_types(metadata.get("submission_types"), filename),
+            submission_types=_parse_submission_types(metadata.get("submission_types")),
             points_possible=points_possible,
             published=bool(metadata.get("published", False)),
             position=position,
-            unlock_at=require_release_date(metadata.get("release_date"), filename, "release_date"),
+            unlock_at=validate.require_release_date(metadata.get("release_date"), "release_date"),
             group_assignment=bool(metadata.get("group_assignment", False)),
-            submission_form=_parse_submission_form(metadata.get("submission_form"), filename),
+            submission_form=_parse_submission_form(metadata.get("submission_form")),
             rubric_criteria=Rubric.from_metadata(metadata).select_criteria(
                 rubric_section,
                 rubric_criteria_filter,
             ),
             checkpoints=_parse_checkpoints(
                 metadata.get("checkpoints"),
-                filename,
-                release_date,
-                due_date,
+                validate=validate,
+                release_date=release_date,
+                due_date=due_date,
             ),
-            doc_url=_parse_optional_string(metadata.get("doc_url")),
-            doc_anchor=_parse_optional_string(metadata.get("doc_anchor")),
-            notes=_parse_optional_string(metadata.get("notes")),
-            integrations=_parse_integrations(metadata, filename),
+            doc_url=optional_string(metadata.get("doc_url")),
+            doc_anchor=optional_string(metadata.get("doc_anchor")),
+            notes=optional_string(metadata.get("notes")),
+            integrations=_parse_integrations(metadata),
         )
 

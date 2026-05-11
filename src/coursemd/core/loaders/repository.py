@@ -8,10 +8,10 @@ import yaml  # type: ignore[import-untyped]
 from dotenv import load_dotenv
 
 from coursemd.core.exceptions import CoursemdValidationError, wrap_validation_errors
-from coursemd.core.loaders.dates import require_date
 from coursemd.core.loaders.markdown import load_markdown_metadata
 from coursemd.core.loaders.quizzes import validate_schedule_quiz_metadata
 from coursemd.core.loaders.specs import load_assignments
+from coursemd.core.loaders.validation import bind_validation
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -20,85 +20,60 @@ if TYPE_CHECKING:
     from coursemd.core.types import BreakDict, EventDict, QuizDict
 
 
-def _require_mapping(value: Any, source_file: Path, label: str) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        raise TypeError(f"{source_file}: '{label}' must be an object/map.")
-    return value
-
-
-def _require_non_empty_string(value: Any, source_file: Path, field_name: str) -> str:
-    text = "" if value is None else str(value).strip()
-    if not text:
-        raise ValueError(f"{source_file}: '{field_name}' must be a non-empty string.")
-    return text
-
-
 @wrap_validation_errors
 def validate_schedule_data(source_file: Path, value: Any) -> dict[str, Any]:
     """Validate and normalize schedule.yaml content."""
-    schedule = _require_mapping(value, source_file, "schedule")
-    course_raw = _require_mapping(schedule.get("course"), source_file, "course")
-    start_date = require_date(course_raw.get("start_date"), source_file, "course.start_date")
-    end_date = require_date(course_raw.get("end_date"), source_file, "course.end_date")
+    validate = bind_validation(source_file)
+
+    schedule = validate.require_mapping(value, "schedule")
+    course_raw = validate.require_mapping(schedule.get("course"), "course")
+    start_date = validate.require_date(course_raw.get("start_date"), "course.start_date")
+    end_date = validate.require_date(course_raw.get("end_date"), "course.end_date")
     if end_date < start_date:
-        raise ValueError(
-            f"{source_file}: 'course.end_date' must not be earlier than 'course.start_date'."
-        )
+        raise ValueError("'course.end_date' must not be earlier than 'course.start_date'.")
 
     course = dict(course_raw)
-    course["title"] = _require_non_empty_string(
-        course_raw.get("title"),
-        source_file,
-        "course.title",
-    )
+    course["title"] = validate.require_non_empty_string(course_raw.get("title"), "course.title")
     course["start_date"] = start_date
     course["end_date"] = end_date
     events_raw = schedule.get("events", [])
     if not isinstance(events_raw, list):
-        raise TypeError(f"{source_file}: 'events' must be a list.")
+        raise TypeError("'events' must be a list.")
     events: list[EventDict] = []
     for index, event_raw in enumerate(events_raw):
-        event = _require_mapping(event_raw, source_file, f"events[{index}]")
-        kind = _require_non_empty_string(
-            event.get("kind"),
-            source_file,
-            f"events[{index}].kind",
-        ).lower()
-        event_date = require_date(event.get("date"), source_file, f"events[{index}].date")
+        event = validate.require_mapping(event_raw, f"events[{index}]")
+        kind = validate.require_non_empty_string(event.get("kind"), f"events[{index}].kind").lower()
+        event_date = validate.require_date(event.get("date"), f"events[{index}].date")
 
         normalized_event = dict(event)
         normalized_event["kind"] = kind
         normalized_event["date"] = event_date
-        normalized_event["title"] = _require_non_empty_string(
+        normalized_event["title"] = validate.require_non_empty_string(
             event.get("title"),
-            source_file,
             f"events[{index}].title",
         )
         if "link" in event and event.get("link") is not None:
-            normalized_event["link"] = _require_non_empty_string(
+            normalized_event["link"] = validate.require_non_empty_string(
                 event.get("link"),
-                source_file,
                 f"events[{index}].link",
             )
         events.append(cast("EventDict", normalized_event))
 
     breaks_raw = schedule.get("breaks", [])
     if not isinstance(breaks_raw, list):
-        raise TypeError(f"{source_file}: 'breaks' must be a list.")
+        raise TypeError("'breaks' must be a list.")
     breaks: list[BreakDict] = []
     for index, break_raw in enumerate(breaks_raw):
-        break_map = _require_mapping(break_raw, source_file, f"breaks[{index}]")
-        start = require_date(break_map.get("start"), source_file, f"breaks[{index}].start")
-        end = require_date(break_map.get("end"), source_file, f"breaks[{index}].end")
+        break_map = validate.require_mapping(break_raw, f"breaks[{index}]")
+        start = validate.require_date(break_map.get("start"), f"breaks[{index}].start")
+        end = validate.require_date(break_map.get("end"), f"breaks[{index}].end")
         if end < start:
-            raise ValueError(
-                f"{source_file}: breaks[{index}].end must not be earlier than "
-                f"breaks[{index}].start."
-            )
+            raise ValueError(f"breaks[{index}].end must not be earlier than breaks[{index}].start.")
         breaks.append(
             {
-                "name": _require_non_empty_string(
-                    break_map.get("name"), source_file, f"breaks[{index}].name"
+                "name": validate.require_non_empty_string(
+                    break_map.get("name"),
+                    f"breaks[{index}].name",
                 ),
                 "start": start,
                 "end": end,
@@ -110,7 +85,7 @@ def validate_schedule_data(source_file: Path, value: Any) -> dict[str, Any]:
     previous_break: BreakDict | None = None
     for index, break_ in sorted_breaks:
         if previous_break is not None and break_["start"] <= previous_break["end"]:
-            raise ValueError(f"{source_file}: breaks[{index}] overlaps breaks[{previous_index}].")
+            raise ValueError(f"breaks[{index}] overlaps breaks[{previous_index}].")
         previous_index = index
         previous_break = break_
 

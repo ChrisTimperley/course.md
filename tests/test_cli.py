@@ -21,7 +21,7 @@ import coursemd.integrations.quarto.cli
 from coursemd import cli
 from coursemd.core.config import CourseConfig
 from coursemd.core.exceptions import CoursemdError, CoursemdValidationError
-from coursemd.core.loaders.dates import normalize_release_date
+from coursemd.core.loaders.validation import normalize_release_date
 from coursemd.core.models.assignment import Assignment, AssignmentCheckpoint
 from coursemd.core.models.repository import CourseRepository
 from coursemd.integrations.canvas.config import CanvasConfig
@@ -619,8 +619,8 @@ def test_release_date_normalization_uses_configured_timezone_dst(
     result = runner.invoke(cli.app, ["validate"])
 
     assert result.exit_code == 0
-    assert normalize_release_date("2026-01-12", tmp_path / "jan.md") == "2026-01-12T00:00:00-05:00"
-    assert normalize_release_date("2026-07-01", tmp_path / "jul.md") == "2026-07-01T00:00:00-04:00"
+    assert normalize_release_date("2026-01-12") == "2026-01-12T00:00:00-05:00"
+    assert normalize_release_date("2026-07-01") == "2026-07-01T00:00:00-04:00"
 
 
 def test_config_allows_repositories_without_canvas(tmp_path: Path, monkeypatch) -> None:
