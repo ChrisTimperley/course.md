@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class QuestionSpec:
+class QuizQuestion:
     """A quiz question in the course repository model."""
 
     question_type: str
@@ -22,7 +22,7 @@ class QuestionSpec:
 
 
 @dataclass(frozen=True)
-class ReadingSpec:
+class Reading:
     """A required reading associated with a quiz."""
 
     title: str
@@ -30,7 +30,7 @@ class ReadingSpec:
 
 
 @dataclass(frozen=True)
-class QuizSpec:
+class Quiz:
     """Canonical quiz specification."""
 
     source_file: Path
@@ -41,6 +41,6 @@ class QuizSpec:
     published: bool
     unlock_at: str | None
     description: str | None
-    readings: list[ReadingSpec] = field(default_factory=list)
-    questions: list[QuestionSpec] = field(default_factory=list)
+    readings: list[Reading] = field(default_factory=list)
+    questions: list[QuizQuestion] = field(default_factory=list)
     integrations: dict[str, Any] = field(default_factory=dict)

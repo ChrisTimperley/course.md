@@ -26,7 +26,7 @@ from coursemd.integrations.canvas.quizzes import QUIZ_TYPE_MAP
 
 if TYPE_CHECKING:
     from coursemd.core.models.assignment import Assignment
-    from coursemd.core.models.quiz import QuizSpec
+    from coursemd.core.models.quiz import Quiz
 from coursemd.integrations.canvas.frontmatter import (
     update_assignment_frontmatter_with_ids,
     update_quiz_frontmatter_with_canvas_id,
@@ -103,7 +103,7 @@ def _print_canvas_sync_event(event: Any) -> None:
         typer.echo(f"  Creating question {event.name}")
 
 
-def _print_quiz_plan(specs: list[QuizSpec]) -> None:
+def _print_quiz_plan(specs: list[Quiz]) -> None:
     typer.echo(f"Loaded {len(specs)} quiz spec(s) for the Canvas integration:")
     for spec in specs:
         unlock = f" | unlock {spec.unlock_at}" if spec.unlock_at else ""

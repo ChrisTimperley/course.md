@@ -11,7 +11,7 @@ from coursemd.core.loaders.validation import (
     bind_validation,
     optional_string,
 )
-from coursemd.core.models.quiz import QuestionSpec, QuizSpec, ReadingSpec
+from coursemd.core.models.quiz import QuizQuestion, Quiz, Reading
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -30,7 +30,7 @@ VALID_QUESTION_TYPES: frozenset[str] = frozenset({
 VALID_QUIZ_TYPES: frozenset[str] = frozenset({"reading", "reflection", "phase"})
 
 
-def parse_readings(value: Any, quiz_type: str) -> list[ReadingSpec]:
+def parse_readings(value: Any, quiz_type: str) -> list[Reading]:
     if value is None:
         return []
     if not isinstance(value, list):
@@ -38,7 +38,7 @@ def parse_readings(value: Any, quiz_type: str) -> list[ReadingSpec]:
     if quiz_type != "reading" and value:
         raise ValueError("'readings' is only supported for quizzes with type='reading'.")
 
-    readings: list[ReadingSpec] = []
+    readings: list[Reading] = []
     for i, item in enumerate(value):
         if not isinstance(item, dict):
             raise TypeError(f"readings[{i}] must be an object with 'title' and 'url'.")
@@ -51,7 +51,7 @@ def parse_readings(value: Any, quiz_type: str) -> list[ReadingSpec]:
         parsed = urlparse(url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise ValueError(f"readings[{i}].url must be an absolute http(s) URL.")
-        readings.append(ReadingSpec(title=title, url=url))
+        readings.append(Reading(title=title, url=url))
     return readings
 
 
@@ -94,7 +94,7 @@ def validate_schedule_quiz_metadata(
 
 
 @wrap_validation_errors
-def parse_quiz_file(source_file: Path) -> QuizSpec:
+def parse_quiz_file(source_file: Path) -> Quiz:
     validate = bind_validation(source_file)
     post = load_markdown_post(source_file)
     meta = post.metadata
@@ -133,7 +133,7 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
     if not questions_raw:
         raise ValueError("'questions' must contain at least one item.")
 
-    question_specs: list[QuestionSpec] = []
+    question_specs: list[QuizQuestion] = []
     seen_positions: set[int] = set()
     for i, question in enumerate(questions_raw):
         if not isinstance(question, dict):
@@ -241,7 +241,7 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
                     raise ValueError(f"question {i + 1} answers[{answer_index}].text is required.")
 
         question_specs.append(
-            QuestionSpec(
+            QuizQuestion(
                 question_type=qtype_inner,
                 question_text=str(qtext),
                 points_possible=pts,
@@ -251,7 +251,7 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
             )
         )
 
-    return QuizSpec(
+    return Quiz(
         source_file=source_file,
         title=title,
         source_type=qtype,
@@ -273,8 +273,8 @@ def default_quiz_files(repo_root: Path) -> list[Path]:
     return sorted(path for path in quizzes_dir.glob("*.md") if path.name != "index.md")
 
 
-def load_quiz_specs(files: list[Path]) -> list[QuizSpec]:
-    specs: list[QuizSpec] = []
+def load_quiz_specs(files: list[Path]) -> list[Quiz]:
+    specs: list[Quiz] = []
     for path in files:
         metadata = load_markdown_post(path).metadata
         questions = metadata.get("questions")

@@ -5,9 +5,9 @@ __version__ = "0.1.0"
 from coursemd.core.models import (
     Assignment,
     CourseRepository,
-    QuestionSpec,
-    QuizSpec,
-    ReadingSpec,
+    QuizQuestion,
+    Quiz,
+    Reading,
     Rubric,
 )
 from coursemd.core.schedule import Schedule, ScheduleEntry
@@ -26,10 +26,10 @@ __all__ = [
     "BreakDict",
     "CourseRepository",
     "EventDict",
-    "QuestionSpec",
+    "QuizQuestion",
+    "Quiz",
     "QuizDict",
-    "QuizSpec",
-    "ReadingSpec",
+    "Reading",
     "Rubric",
     "RubricCriterion",
     "RubricSection",

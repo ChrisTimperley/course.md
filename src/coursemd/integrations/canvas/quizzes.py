@@ -10,7 +10,7 @@ from coursemd.integrations.canvas.models import canvas_quiz
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from coursemd.core.models.quiz import QuestionSpec, QuizSpec
+    from coursemd.core.models.quiz import QuizQuestion, Quiz
 
 QUESTION_TYPE_MAP: dict[str, str] = {
     "multiple_choice": "multiple_choice_question",
@@ -39,7 +39,7 @@ def _ensure_html(text: str) -> str:
     return f"<p>{text}</p>"
 
 
-def build_quiz_description(spec: QuizSpec) -> str:
+def build_quiz_description(spec: Quiz) -> str:
     parts: list[str] = []
     if spec.source_type == "reading" and spec.readings:
         items = "".join(
@@ -63,7 +63,7 @@ def build_quiz_description(spec: QuizSpec) -> str:
     return "".join(parts)
 
 
-def build_canvas_answers(question: QuestionSpec, source_file: Path) -> list[dict[str, Any]]:
+def build_canvas_answers(question: QuizQuestion, source_file: Path) -> list[dict[str, Any]]:
     qt = question.question_type
     canvas_answers: list[dict[str, Any]]
     if qt == "matching":
@@ -128,7 +128,7 @@ def build_canvas_answers(question: QuestionSpec, source_file: Path) -> list[dict
     raise ValueError(f"{source_file}: unsupported question_type '{qt}'")
 
 
-def total_quiz_points(spec: QuizSpec) -> float:
+def total_quiz_points(spec: Quiz) -> float:
     total_points = spec.points
     if total_points is None:
         total_points = sum(question.points_possible for question in spec.questions)
@@ -136,7 +136,7 @@ def total_quiz_points(spec: QuizSpec) -> float:
 
 
 def form_for_quiz(
-    spec: QuizSpec,
+    spec: Quiz,
     assignment_group_id: int,
     publish_override: bool,
 ) -> dict[str, Any]:
@@ -159,7 +159,7 @@ def form_for_quiz(
     return form
 
 
-def question_payload_for_canvas(spec: QuestionSpec, source_file: Path) -> dict[str, Any]:
+def question_payload_for_canvas(spec: QuizQuestion, source_file: Path) -> dict[str, Any]:
     canvas_type = QUESTION_TYPE_MAP[spec.question_type]
     payload: dict[str, Any] = {
         "question_name": f"Q{spec.position}",

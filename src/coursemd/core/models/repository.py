@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from coursemd.core.config import CourseConfig, CoursePathsConfig
     from coursemd.core.integration_config import IntegrationConfig
     from coursemd.core.models.assignment import Assignment
-    from coursemd.core.models.quiz import QuizSpec
+    from coursemd.core.models.quiz import Quiz
 
 T = TypeVar("T", bound="IntegrationConfig")
 
@@ -53,7 +53,7 @@ class CourseRepository:
     config: CourseConfig
     data: dict[str, Any] = field(default_factory=dict)
     assignments: list[Assignment] = field(default_factory=list)
-    quizzes: list[QuizSpec] = field(default_factory=list)
+    quizzes: list[Quiz] = field(default_factory=list)
 
     @property
     def repo_root(self) -> Path:

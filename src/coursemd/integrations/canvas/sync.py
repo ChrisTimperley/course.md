@@ -17,7 +17,7 @@ from coursemd.integrations.canvas.rubrics import form_for_rubric
 
 if TYPE_CHECKING:
     from coursemd.core.models.assignment import Assignment
-    from coursemd.core.models.quiz import QuizSpec
+    from coursemd.core.models.quiz import Quiz
     from coursemd.integrations.canvas.resources import AssignmentCanvasClient, QuizCanvasClient
 
 CanvasSyncAction = Literal["create", "delete", "skip", "sync", "update"]
@@ -236,7 +236,7 @@ def sync_quiz_questions(
     client: QuizCanvasClient,
     course_id: str,
     quiz_id: int,
-    spec: QuizSpec,
+    spec: Quiz,
     reporter: CanvasSyncReporter | None = None,
 ) -> None:
     existing = client.list_quiz_questions(course_id, quiz_id)
@@ -273,7 +273,7 @@ def sync_quiz_questions(
 def sync_quizzes_to_canvas(
     client: QuizCanvasClient,
     course_id: str,
-    specs: list[QuizSpec],
+    specs: list[Quiz],
     publish_override: bool,
     skip_if_submissions: bool = True,
     reporter: CanvasSyncReporter | None = None,
