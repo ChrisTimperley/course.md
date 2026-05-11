@@ -3,8 +3,8 @@
 import typing as t
 
 from coursemd.core.loaders.dates import parse_date as _parse_date
+from coursemd.core.models.assignment import Assignment
 from coursemd.core.schedule import Schedule
-from coursemd.core.types import AssignmentDict
 from coursemd.core.utils import current_date
 from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL
 from coursemd.integrations.mkdocs.schedule import render_schedule
@@ -47,7 +47,7 @@ def define_env(env: t.Any) -> None:
         ))
 
     @env.macro
-    def released_assignments(schedule: dict[str, t.Any]) -> list[AssignmentDict]:
+    def released_assignments(schedule: dict[str, t.Any]) -> list[Assignment]:
         """
         Return a list of assignments that have been released.
 
@@ -58,8 +58,8 @@ def define_env(env: t.Any) -> None:
             List of assignment dictionaries that have been released
         """
         now = current_date()
-        assignments: list[AssignmentDict] = schedule.get("assignments", [])
-        return [a for a in assignments if a["release_date"] <= now]
+        assignments = t.cast("list[Assignment]", schedule.get("assignments", []))
+        return [assignment for assignment in assignments if assignment.release_date <= now]
 
     @env.macro
     def grade_table(

@@ -51,28 +51,31 @@ def _render_what(entry: ScheduleEntry) -> str:
 
 def _render_assignment(entry: ScheduleEntry) -> str:
     if assignment := entry.assignment_released:
-        num_working_days = working_days_between(assignment["release_date"], assignment["due_date"])
-        end_date = assignment["due_date"]
+        num_working_days = working_days_between(assignment.release_date, assignment.due_date)
+        end_date = assignment.due_date
 
-        out = f"<b>{assignment['title']}</b><br>Due {end_date.strftime('%A, %B %d')} @ 11:59pm"
+        out = (
+            f"<b>{html.escape(assignment.title)}</b><br>"
+            f"Due {end_date.strftime('%A, %B %d')} @ 11:59pm"
+        )
 
-        if checkpoints := assignment.get("checkpoints"):
+        if checkpoints := assignment.checkpoints:
             out += '<ul class="checkpoints">'
             for checkpoint in checkpoints:
-                cp_date = checkpoint["date"]
+                cp_date = checkpoint.date
                 date_str = cp_date.strftime("%a %b ") + str(cp_date.day)
                 out += "<li>"
                 out += '<span class="checkpoint-badge">🚩</span>'
                 out += '<span class="checkpoint-info">'
                 out += f'<span class="checkpoint-date">{date_str}</span>'
-                out += f'<span class="checkpoint-title">{checkpoint["title"]}</span>'
+                out += f'<span class="checkpoint-title">{html.escape(checkpoint.title)}</span>'
                 out += "</span>"
                 out += "</li>"
             out += "</ul>"
         else:
             out += "<br>"
 
-        attributes = {"class": "label label-red", "href": assignment.get("link", "")}
+        attributes = {"class": "label label-red", "href": assignment.link}
         html_attributes = " ".join(f'{k}="{v}"' for k, v in attributes.items())
         out += f"<a {html_attributes}>Handout</a>"
 
@@ -149,7 +152,8 @@ def render_schedule(schedule: Schedule) -> str:
             )
         if entry.assignment_released:
             assignment_span_remaining = working_days_between(
-                entry.assignment_released["release_date"], entry.assignment_released["due_date"]
+                entry.assignment_released.release_date,
+                entry.assignment_released.due_date,
             )
 
         out += _render_entry(entry, skip_quiz=skip_quiz, skip_assignment=skip_assignment)

@@ -19,13 +19,13 @@ from coursemd.cli.shared import (
     write_json_output,
 )
 from coursemd.core.loaders.quizzes import load_quiz_specs
-from coursemd.core.loaders.specs import load_assignment_specs
+from coursemd.core.loaders.specs import load_assignments
 from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL, CanvasConfig
 from coursemd.integrations.canvas.models import canvas_assignment, canvas_quiz
 from coursemd.integrations.canvas.quizzes import QUIZ_TYPE_MAP
 
 if TYPE_CHECKING:
-    from coursemd.core.models.assignment import AssignmentSpec
+    from coursemd.core.models.assignment import Assignment
     from coursemd.core.models.quiz import QuizSpec
 from coursemd.integrations.canvas.frontmatter import (
     update_assignment_frontmatter_with_ids,
@@ -55,15 +55,16 @@ def _register_unavailable_canvas_commands(canvas_app: typer.Typer) -> None:
     _register_unavailable_command(canvas_app, "quizzes", message)
 
 
-def _print_assignment_plan(specs: list[AssignmentSpec]) -> None:
+def _print_assignment_plan(specs: list[Assignment]) -> None:
     typer.echo(f"Loaded {len(specs)} assignment spec(s) for the Canvas integration:")
     for spec in specs:
         unlock = f" | unlock {spec.unlock_at}" if spec.unlock_at else ""
         group = " [group]" if spec.group_assignment else ""
         canvas = canvas_assignment(spec.integrations)
         assignment_group = canvas.assignment_group or "<unassigned>"
+        due_text = spec.due_at or spec.due_date.isoformat()
         typer.echo(
-            f"- {spec.name} | due {spec.due_at} | {spec.points_possible} pts{unlock}{group} | "
+            f"- {spec.name} | due {due_text} | {spec.points_possible} pts{unlock}{group} | "
             f"group '{assignment_group}' | submissions={spec.submission_types} | "
             f"source={spec.source_file}"
         )
@@ -216,7 +217,10 @@ def register_sync_canvas_assignments_command(canvas_app: typer.Typer) -> None:
                 raise click.ClickException("No assignment files found.")
             require_paths_exist(files, label="Assignment")
 
-            specs = load_assignment_specs(files=files)
+            specs = load_assignments(
+                files=files,
+                assignment_url_path=mkdocs_config.assignments_url_path,
+            )
             _print_assignment_plan(specs)
 
             token, resolved_course_id = require_canvas_credentials(
@@ -237,7 +241,6 @@ def register_sync_canvas_assignments_command(canvas_app: typer.Typer) -> None:
                     group_category_id_override=group_category_id,
                     reporter=_print_canvas_sync_event,
                     site_base_url=resolved_site_base_url,
-                    assignment_url_path=mkdocs_config.assignments_url_path,
                 )
 
         typer.echo("\nSync results:")

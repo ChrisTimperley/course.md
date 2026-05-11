@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import os
 import subprocess
 from pathlib import Path
@@ -21,7 +22,7 @@ from coursemd import cli
 from coursemd.core.config import CourseConfig
 from coursemd.core.exceptions import CoursemdError, CoursemdValidationError
 from coursemd.core.loaders.dates import normalize_release_date
-from coursemd.core.loaders.specs import parse_assignment_specs_from_file
+from coursemd.core.models.assignment import Assignment, AssignmentCheckpoint
 from coursemd.core.models.repository import CourseRepository
 from coursemd.integrations.canvas.config import CanvasConfig
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
@@ -82,10 +83,8 @@ def _build_repo_fixture(repo_root: Path) -> None:
         kind: homework
         release_date: 2026-01-12
         due_date: 2026-01-16
-        assignments:
-          - name: Homework 1
-            due_at: "2026-01-16T23:59:00-05:00"
-            points: 100
+        due_at: "2026-01-16T23:59:00-05:00"
+        points: 100
         ---
 
         # Homework 1
@@ -172,10 +171,8 @@ def test_validate_discovers_assignment_files_without_hw_prefix(tmp_path: Path, m
         kind: homework
         release_date: 2026-01-12
         due_date: 2026-01-16
-        assignments:
-          - name: Phase A
-            due_at: "2026-01-16T23:59:00-05:00"
-            points: 100
+        due_at: "2026-01-16T23:59:00-05:00"
+        points: 100
         ---
 
         # Phase A
@@ -189,15 +186,39 @@ def test_validate_discovers_assignment_files_without_hw_prefix(tmp_path: Path, m
     assert "Validated 1 data file(s), 1 assignment spec(s), and 1 quiz spec(s)." in result.stdout
 
 
-def test_parse_assignment_specs_from_file_uses_rich_spec_loader(tmp_path: Path) -> None:
+def test_assignment_load_uses_canonical_loader(tmp_path: Path) -> None:
     _build_repo_fixture(tmp_path)
 
-    specs = parse_assignment_specs_from_file(tmp_path / "assignments" / "hw1.md")
+    assignment = Assignment.load(tmp_path / "assignments" / "hw1.md")
 
-    assert len(specs) == 1
-    assert specs[0].name == "Homework 1"
-    assert specs[0].source_file == tmp_path / "assignments" / "hw1.md"
-    assert specs[0].due_at == "2026-01-16T23:59:00-05:00"
+    assert assignment.name == "Homework 1"
+    assert assignment.source_file == tmp_path / "assignments" / "hw1.md"
+    assert assignment.due_at == "2026-01-16T23:59:00-05:00"
+    assert assignment.description == "# Homework 1"
+
+
+def test_assignment_checkpoint_from_dict_loads_checkpoint(tmp_path: Path) -> None:
+    checkpoint = AssignmentCheckpoint.from_dict(
+        {
+            "date": "2026-01-14",
+            "title": "Draft Due",
+            "description": "Share a draft.",
+            "due_at": "2026-01-14T23:59:00-05:00",
+            "doc_anchor": "draft-due",
+        },
+        source_file=tmp_path / "assignments" / "hw1.md",
+        index=0,
+        release_date=dt.date(2026, 1, 12),
+        due_date=dt.date(2026, 1, 16),
+    )
+
+    assert checkpoint == AssignmentCheckpoint(
+        date=dt.date(2026, 1, 14),
+        title="Draft Due",
+        description="Share a draft.",
+        due_at="2026-01-14T23:59:00-05:00",
+        doc_anchor="draft-due",
+    )
 
 
 def test_validate_allows_multiple_schedule_events_on_same_date(tmp_path: Path, monkeypatch) -> None:
@@ -239,10 +260,8 @@ def test_validate_fails_for_assignment_missing_release_date(tmp_path: Path, monk
 title: Homework 1
 kind: homework
 due_date: 2026-01-16
-assignments:
-  - name: Homework 1
-    due_at: "2026-01-16T23:59:00-05:00"
-    points: 100
+due_at: "2026-01-16T23:59:00-05:00"
+points: 100
 ---
 
 # Homework 1
@@ -272,10 +291,8 @@ due_date: 2026-01-16
 checkpoints:
   - date: 2026-01-20
     title: Late checkpoint
-assignments:
-  - name: Homework 1
-    due_at: "2026-01-16T23:59:00-05:00"
-    points: 100
+due_at: "2026-01-16T23:59:00-05:00"
+points: 100
 ---
 
 # Homework 1
@@ -558,10 +575,8 @@ def test_repository_build_raises_core_validation_error_for_invalid_assignment(
 title: Homework 1
 kind: homework
 due_date: 2026-01-16
-assignments:
-  - name: Homework 1
-    due_at: "2026-01-16T23:59:00-05:00"
-    points: 100
+due_at: "2026-01-16T23:59:00-05:00"
+points: 100
 ---
 
 # Homework 1
@@ -680,7 +695,7 @@ def test_repository_load_allows_non_canvas_content(tmp_path: Path, monkeypatch) 
     result = runner.invoke(cli.app, ["validate"])
 
     assert result.exit_code == 0
-    assert "Validated 1 data file(s), 0 assignment spec(s), and 0 quiz spec(s)." in result.stdout
+    assert "Validated 1 data file(s), 1 assignment spec(s), and 0 quiz spec(s)." in result.stdout
     assert "Validation passed." in result.stdout
 
 
@@ -1124,10 +1139,8 @@ def test_coursemd_mkdocs_plugin_renders_injected_assignment_includes(
         kind: homework
         release_date: 2026-01-12
         due_date: 2026-01-16
-        assignments:
-          - name: Homework 1
-            due_at: "2026-01-16T23:59:00-05:00"
-            points: 100
+        due_at: "2026-01-16T23:59:00-05:00"
+        points: 100
         ---
 
         # Homework 1
@@ -1171,13 +1184,11 @@ def test_coursemd_mkdocs_plugin_uses_configured_urls(
                 "kind: homework",
                 "release_date: 2026-01-12",
                 "due_date: 2026-01-16",
-                "assignments:",
-                "  - name: Homework 1",
-                '    due_at: "2026-01-16T23:59:00-05:00"',
-                "    points: 100",
-                "    integrations:",
-                "      canvas:",
-                "        id: 456",
+                'due_at: "2026-01-16T23:59:00-05:00"',
+                "points: 100",
+                "integrations:",
+                "  canvas:",
+                "    id: 456",
                 "---",
                 "",
                 "# Homework 1",

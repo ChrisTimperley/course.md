@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import datetime as dt
 from pathlib import Path
 from typing import Any
 
-from coursemd.core.models.assignment import AssignmentSpec
+from coursemd.core.models.assignment import Assignment
 from coursemd.integrations.canvas.sync import CanvasSyncEvent, sync_assignments_to_canvas
 
 
@@ -19,9 +20,12 @@ class DryRunAssignmentClient:
 
 
 def test_assignment_sync_reports_events_without_printing(capsys) -> None:
-    spec = AssignmentSpec(
+    spec = Assignment(
         source_file=Path("assignments/hw1.md"),
-        name="Homework 1",
+        title="Homework 1",
+        release_date=dt.date(2026, 1, 12),
+        due_date=dt.date(2026, 1, 16),
+        link="/assignments/hw1/",
         due_at="2026-01-16T23:59:00-05:00",
         submission_types=["none"],
         points_possible=100,

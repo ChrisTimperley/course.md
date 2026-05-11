@@ -7,14 +7,14 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from coursemd.core.loaders.quizzes import load_quiz_specs
 from coursemd.core.loaders.repository import load_data_files
-from coursemd.core.loaders.specs import load_assignment_specs
+from coursemd.core.loaders.specs import load_assignments
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from coursemd.core.config import CourseConfig, CoursePathsConfig
     from coursemd.core.integration_config import IntegrationConfig
-    from coursemd.core.models.assignment import AssignmentSpec
+    from coursemd.core.models.assignment import Assignment
     from coursemd.core.models.quiz import QuizSpec
 
 T = TypeVar("T", bound="IntegrationConfig")
@@ -52,7 +52,7 @@ class CourseRepository:
 
     config: CourseConfig
     data: dict[str, Any] = field(default_factory=dict)
-    assignments: list[AssignmentSpec] = field(default_factory=list)
+    assignments: list[Assignment] = field(default_factory=list)
     quizzes: list[QuizSpec] = field(default_factory=list)
 
     @property
@@ -91,6 +91,6 @@ class CourseRepository:
         return cls(
             config=config,
             data=load_data_files(resolved_data_files),
-            assignments=load_assignment_specs(resolved_assignment_files),
+            assignments=load_assignments(resolved_assignment_files),
             quizzes=load_quiz_specs(resolved_quiz_files),
         )

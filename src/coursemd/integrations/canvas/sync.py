@@ -16,7 +16,7 @@ from coursemd.integrations.canvas.quizzes import (
 from coursemd.integrations.canvas.rubrics import form_for_rubric
 
 if TYPE_CHECKING:
-    from coursemd.core.models.assignment import AssignmentSpec
+    from coursemd.core.models.assignment import Assignment
     from coursemd.core.models.quiz import QuizSpec
     from coursemd.integrations.canvas.resources import AssignmentCanvasClient, QuizCanvasClient
 
@@ -62,12 +62,11 @@ def resolve_group_category_id(
 def sync_assignments_to_canvas(
     client: AssignmentCanvasClient,
     course_id: str,
-    specs: list[AssignmentSpec],
+    specs: list[Assignment],
     publish_override: bool,
     group_category_id_override: int | None = None,
     reporter: CanvasSyncReporter | None = None,
     site_base_url: str = "",
-    assignment_url_path: str = "assignments",
 ) -> list[dict[str, Any]]:
     any_group = any(spec.group_assignment for spec in specs)
     group_category_id: int | None = None
@@ -127,7 +126,6 @@ def sync_assignments_to_canvas(
             publish_override=publish_override,
             group_category_id=group_category_id,
             site_base_url=site_base_url,
-            assignment_url_path=assignment_url_path,
         )
         existing: dict[str, Any] | None = None
         if canvas_data.id is not None:

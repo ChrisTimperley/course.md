@@ -14,42 +14,27 @@ def _canvas_id_as_int(value: object) -> int:
 
 
 def update_assignment_frontmatter_with_ids(results: list[dict[str, object]]) -> None:
-    by_file: dict[Path, list[dict[str, object]]] = {}
+    by_file: dict[Path, int] = {}
     for result in results:
         canvas_id = result.get("id")
         if canvas_id is None:
             continue
         path = Path(str(result["source_file"]))
-        by_file.setdefault(path, []).append({"name": result["name"], "id": canvas_id})
+        by_file[path] = _canvas_id_as_int(canvas_id)
 
-    for path, updates in by_file.items():
+    for path, canvas_id in by_file.items():
         post = load_markdown_post(path)
-        assignments = post.metadata.get("assignments")
-        if not isinstance(assignments, list):
+        integrations = post.metadata.setdefault("integrations", {})
+        if not isinstance(integrations, dict):
             continue
-
-        updated_names: list[str] = []
-        for item in assignments:
-            if not isinstance(item, dict):
-                continue
-            name = str(item.get("name", "")).strip()
-            integrations = item.setdefault("integrations", {})
-            if not isinstance(integrations, dict):
-                continue
-            canvas = integrations.setdefault("canvas", {})
-            if not isinstance(canvas, dict):
-                continue
-            if "id" in canvas:
-                continue
-            for update in updates:
-                if update["name"] == name:
-                    canvas["id"] = _canvas_id_as_int(update["id"])
-                    updated_names.append(name)
-                    break
-
-        if updated_names:
-            path.write_text(frontmatter.dumps(post), encoding="utf-8")
-            print(f"Updated {path} with integrations.canvas.id for: {', '.join(updated_names)}")
+        canvas = integrations.setdefault("canvas", {})
+        if not isinstance(canvas, dict):
+            continue
+        if canvas.get("id") == canvas_id:
+            continue
+        canvas["id"] = canvas_id
+        path.write_text(frontmatter.dumps(post), encoding="utf-8")
+        print(f"Updated {path} with integrations.canvas.id={canvas_id}")
 
 
 def update_quiz_frontmatter_with_canvas_id(results: list[dict[str, object]]) -> None:

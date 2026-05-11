@@ -4,7 +4,8 @@ import datetime as dt
 import typing as t
 from dataclasses import dataclass
 
-from coursemd.core.types import AssignmentDict, BreakDict, EventDict, QuizDict
+from coursemd.core.models.assignment import Assignment
+from coursemd.core.types import BreakDict, EventDict, QuizDict
 from coursemd.core.utils import current_date, working_days
 
 
@@ -15,8 +16,8 @@ class ScheduleEntry:
     date: dt.date
     events: list[EventDict]
     break_: BreakDict | None
-    assignment_released: AssignmentDict | None
-    assignment_due: AssignmentDict | None
+    assignment_released: Assignment | None
+    assignment_due: Assignment | None
     quiz_released: QuizDict | None
     quiz_due: QuizDict | None
 
@@ -34,7 +35,7 @@ class Schedule:
         latest_date: dt.date,
         events: list[EventDict],
         breaks: list[BreakDict],
-        assignments: list[AssignmentDict],
+        assignments: list[Assignment],
         quizzes: list[QuizDict],
     ) -> t.Self:
         """
@@ -83,14 +84,14 @@ class Schedule:
 
         # Build assignment dictionaries
         date_to_assignment_release = {
-            assignment["release_date"]: assignment
+            assignment.release_date: assignment
             for assignment in assignments
-            if assignment.get("reveal_date", assignment["release_date"]) <= now
+            if assignment.reveal_on <= now
         }
         date_to_assignment_due = {
-            assignment["due_date"]: assignment
+            assignment.due_date: assignment
             for assignment in assignments
-            if assignment["release_date"] <= now
+            if assignment.release_date <= now
         }
 
         # Build quiz dictionaries
