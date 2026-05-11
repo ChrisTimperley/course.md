@@ -55,6 +55,14 @@ class Reading:
             readings.append(reading)
         return readings
 
+    @classmethod
+    def load(cls, value: Any) -> list[Reading]:
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise TypeError("'readings' must be a list.")
+        return cls.from_list(cast("list[Any]", value))
+
 
 @dataclass(frozen=True)
 class Quiz:

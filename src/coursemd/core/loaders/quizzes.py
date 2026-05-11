@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from coursemd.core.exceptions import wrap_validation_errors
 from coursemd.core.loaders.markdown import load_markdown_post
@@ -25,14 +25,6 @@ VALID_QUESTION_TYPES: frozenset[str] = frozenset({
     "essay",
     "matching",
 })
-
-
-def parse_readings(value: Any) -> list[Reading]:
-    if value is None:
-        return []
-    if not isinstance(value, list):
-        raise TypeError("'readings' must be a list.")
-    return Reading.from_list(cast("list[Any]", value))
 
 
 @wrap_validation_errors
@@ -63,7 +55,7 @@ def validate_schedule_quiz_metadata(
             raise ValueError("'link' must be a non-empty string when provided.")
         quiz["link"] = link_text
 
-    readings = parse_readings(metadata.get("readings"))
+    readings = Reading.load(metadata.get("readings"))
     if readings:
         quiz["readings"] = [
             {"title": reading.title, "url": reading.url} for reading in readings
@@ -96,7 +88,7 @@ def parse_quiz_file(source_file: Path) -> Quiz:
     published = bool(meta.get("published", False))
     unlock_at = validate.require_release_date(meta.get("release_date"), "release_date")
     description = optional_string(meta.get("description"))
-    readings = parse_readings(meta.get("readings"))
+    readings = Reading.load(meta.get("readings"))
 
     questions_raw = meta.get("questions")
     if questions_raw is None:
