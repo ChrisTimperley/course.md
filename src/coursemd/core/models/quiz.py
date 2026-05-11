@@ -6,6 +6,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 from urllib.parse import urlparse
 
+from coursemd.core.loaders.markdown import load_markdown_post
+from coursemd.core.loaders.validation import bind_validation, optional_string
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -214,3 +217,50 @@ class Quiz:
     readings: list[Reading] = field(default_factory=list)
     questions: list[QuizQuestion] = field(default_factory=list)
     integrations: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def load(cls, path: Path) -> Quiz:
+        validate = bind_validation(path)
+        post = load_markdown_post(path)
+        meta = post.metadata
+        title = validate.require_non_empty_string(meta.get("title"), "title")
+
+        integrations_raw = meta.get("integrations")
+        integrations: dict[str, Any] = {}
+        if integrations_raw is not None:
+            if not isinstance(integrations_raw, dict):
+                raise TypeError("'integrations' must be an object/map.")
+            integrations = dict(cast("dict[str, Any]", integrations_raw))
+
+        due_at = validate.normalize_due_at(meta.get("due_at"), title)
+        points = meta.get("points")
+        if points is not None:
+            try:
+                points = float(points)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("'points' must be numeric.") from exc
+        published = bool(meta.get("published", False))
+        unlock_at = validate.require_release_date(meta.get("release_date"), "release_date")
+        description = optional_string(meta.get("description"))
+        readings = Reading.load(meta.get("readings"))
+
+        questions_raw = meta.get("questions")
+        if questions_raw is None:
+            raise ValueError("'questions' is required.")
+        if not isinstance(questions_raw, list):
+            raise TypeError("'questions' must be a list.")
+        if not questions_raw:
+            raise ValueError("'questions' must contain at least one item.")
+
+        return cls(
+            source_file=path,
+            title=title,
+            due_at=due_at,
+            points=points,
+            published=published,
+            unlock_at=unlock_at,
+            description=description,
+            readings=readings,
+            questions=QuizQuestion.from_list(cast("list[Any]", questions_raw)),
+            integrations=integrations,
+        )

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from coursemd.core.loaders.quizzes import load_quiz_specs
+from coursemd.core.loaders.quizzes import load_quizzes
 from coursemd.core.loaders.repository import load_data_files
 from coursemd.core.loaders.specs import load_assignments
 
@@ -92,5 +92,5 @@ class CourseRepository:
             config=config,
             data=load_data_files(resolved_data_files),
             assignments=load_assignments(resolved_assignment_files),
-            quizzes=load_quiz_specs(resolved_quiz_files),
+            quizzes=load_quizzes(resolved_quiz_files),
         )
