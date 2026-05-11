@@ -313,21 +313,13 @@ def canvas_assignment_submissions(assignment: Assignment) -> list[CanvasAssignme
     return CanvasAssignment.from_assignment(assignment).submissions
 
 
-def canvas_quiz(
-    integrations: dict[str, Any],
-    source_type: str,
-    quiz_type_map: dict[str, str],
-) -> CanvasQuizIntegration:
-    """Extract Canvas integration data from a quiz's raw integrations dict.
-
-    quiz_type_map should be the Canvas QUIZ_TYPE_MAP from the quizzes module.
-    """
+def canvas_quiz(integrations: dict[str, Any]) -> CanvasQuizIntegration:
+    """Extract Canvas integration data from a quiz's raw integrations dict."""
     canvas_map = _canvas_map(integrations)
     canvas_id = _parse_int(canvas_map.get("id") or canvas_map.get("canvas_id"))
     group = optional_string(canvas_map.get("assignment_group"))
     quiz_type_override = canvas_map.get("quiz_type")
-    default_quiz_type = quiz_type_map.get(source_type, "assignment")
-    quiz_type = str(quiz_type_override) if quiz_type_override else default_quiz_type
+    quiz_type = str(quiz_type_override) if quiz_type_override else None
     return CanvasQuizIntegration(id=canvas_id, assignment_group=group, quiz_type=quiz_type)
 
 

@@ -10,7 +10,7 @@ from coursemd.integrations.canvas.models import canvas_quiz
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from coursemd.core.models.quiz import QuizQuestion, Quiz
+    from coursemd.core.models.quiz import Quiz, QuizQuestion
 
 QUESTION_TYPE_MAP: dict[str, str] = {
     "multiple_choice": "multiple_choice_question",
@@ -20,13 +20,6 @@ QUESTION_TYPE_MAP: dict[str, str] = {
     "essay": "essay_question",
     "matching": "matching_question",
 }
-
-QUIZ_TYPE_MAP: dict[str, str] = {
-    "reading": "assignment",
-    "reflection": "graded_survey",
-    "phase": "assignment",
-}
-
 
 def _ensure_html(text: str) -> str:
     """Wrap plain text in <p> if it doesn't already look like HTML."""
@@ -41,7 +34,7 @@ def _ensure_html(text: str) -> str:
 
 def build_quiz_description(spec: Quiz) -> str:
     parts: list[str] = []
-    if spec.source_type == "reading" and spec.readings:
+    if spec.readings:
         items = "".join(
             (
                 '<li><a href="'
@@ -141,7 +134,7 @@ def form_for_quiz(
     publish_override: bool,
 ) -> dict[str, Any]:
     publish_value = publish_override or spec.published
-    canvas = canvas_quiz(spec.integrations, spec.source_type, QUIZ_TYPE_MAP)
+    canvas = canvas_quiz(spec.integrations)
     form: dict[str, Any] = {
         "quiz[title]": spec.title,
         "quiz[quiz_type]": canvas.quiz_type or "assignment",

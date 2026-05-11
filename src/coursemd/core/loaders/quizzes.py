@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-from urllib.parse import urlparse
+from typing import TYPE_CHECKING, Any, cast
 
 from coursemd.core.exceptions import wrap_validation_errors
 from coursemd.core.loaders.markdown import load_markdown_post
@@ -11,7 +10,7 @@ from coursemd.core.loaders.validation import (
     bind_validation,
     optional_string,
 )
-from coursemd.core.models.quiz import QuizQuestion, Quiz, Reading
+from coursemd.core.models.quiz import Quiz, QuizQuestion, Reading
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -27,32 +26,13 @@ VALID_QUESTION_TYPES: frozenset[str] = frozenset({
     "matching",
 })
 
-VALID_QUIZ_TYPES: frozenset[str] = frozenset({"reading", "reflection", "phase"})
 
-
-def parse_readings(value: Any, quiz_type: str) -> list[Reading]:
+def parse_readings(value: Any) -> list[Reading]:
     if value is None:
         return []
     if not isinstance(value, list):
         raise TypeError("'readings' must be a list.")
-    if quiz_type != "reading" and value:
-        raise ValueError("'readings' is only supported for quizzes with type='reading'.")
-
-    readings: list[Reading] = []
-    for i, item in enumerate(value):
-        if not isinstance(item, dict):
-            raise TypeError(f"readings[{i}] must be an object with 'title' and 'url'.")
-        title = str(item.get("title", "")).strip()
-        url = str(item.get("url", "")).strip()
-        if not title:
-            raise ValueError(f"readings[{i}].title is required.")
-        if not url:
-            raise ValueError(f"readings[{i}].url is required.")
-        parsed = urlparse(url)
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            raise ValueError(f"readings[{i}].url must be an absolute http(s) URL.")
-        readings.append(Reading(title=title, url=url))
-    return readings
+    return Reading.from_list(cast("list[Any]", value))
 
 
 @wrap_validation_errors
@@ -83,8 +63,7 @@ def validate_schedule_quiz_metadata(
             raise ValueError("'link' must be a non-empty string when provided.")
         quiz["link"] = link_text
 
-    quiz_type = str(metadata.get("type", "")).strip().lower()
-    readings = parse_readings(metadata.get("readings"), quiz_type)
+    readings = parse_readings(metadata.get("readings"))
     if readings:
         quiz["readings"] = [
             {"title": reading.title, "url": reading.url} for reading in readings
@@ -99,12 +78,6 @@ def parse_quiz_file(source_file: Path) -> Quiz:
     post = load_markdown_post(source_file)
     meta = post.metadata
     title = validate.require_non_empty_string(meta.get("title"), "title")
-
-    qtype = str(meta.get("type", "")).strip().lower()
-    if qtype not in VALID_QUIZ_TYPES:
-        raise ValueError(
-            f"'type' must be one of: {', '.join(sorted(VALID_QUIZ_TYPES))}. Got '{qtype}'."
-        )
 
     integrations_raw = meta.get("integrations")
     integrations: dict[str, Any] = {}
@@ -123,7 +96,7 @@ def parse_quiz_file(source_file: Path) -> Quiz:
     published = bool(meta.get("published", False))
     unlock_at = validate.require_release_date(meta.get("release_date"), "release_date")
     description = optional_string(meta.get("description"))
-    readings = parse_readings(meta.get("readings"), qtype)
+    readings = parse_readings(meta.get("readings"))
 
     questions_raw = meta.get("questions")
     if questions_raw is None:
@@ -254,7 +227,6 @@ def parse_quiz_file(source_file: Path) -> Quiz:
     return Quiz(
         source_file=source_file,
         title=title,
-        source_type=qtype,
         due_at=due_at,
         points=points,
         published=published,

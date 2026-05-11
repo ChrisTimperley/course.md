@@ -5,8 +5,8 @@ __version__ = "0.1.0"
 from coursemd.core.models import (
     Assignment,
     CourseRepository,
-    QuizQuestion,
     Quiz,
+    QuizQuestion,
     Reading,
     Rubric,
 )
@@ -26,9 +26,9 @@ __all__ = [
     "BreakDict",
     "CourseRepository",
     "EventDict",
-    "QuizQuestion",
     "Quiz",
     "QuizDict",
+    "QuizQuestion",
     "Reading",
     "Rubric",
     "RubricCriterion",

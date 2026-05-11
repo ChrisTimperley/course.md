@@ -96,7 +96,6 @@ def _build_repo_fixture(repo_root: Path) -> None:
         """
         ---
         title: Week 1 Reading Quiz
-        type: reading
         release_date: 2026-01-12
         due_at: "2026-01-16T23:59:00-05:00"
         questions:
@@ -409,7 +408,6 @@ def test_validate_fails_for_quiz_missing_release_date(tmp_path: Path, monkeypatc
             [
                 "---",
                 "title: Week 1 Reading Quiz",
-                "type: reading",
                 'due_at: "2026-01-16T23:59:00-05:00"',
                 "questions:",
                 "  - question_type: multiple_choice",
@@ -1298,7 +1296,6 @@ def test_coursemd_mkdocs_plugin_uses_configured_urls(
             [
                 "---",
                 "title: Week 1 Reading Quiz",
-                "type: reading",
                 "release_date: 2026-01-12",
                 'due_at: "2026-01-16T23:59:00-05:00"',
                 "integrations:",
@@ -1349,7 +1346,6 @@ def test_coursemd_macros_do_not_discover_quizzes_from_docs_dir(
         """
         ---
         title: Public Quiz Leak
-        type: reading
         release_date: 2026-01-12
         due_at: "2026-01-16T23:59:00-05:00"
         questions:

@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any, Literal
 from coursemd.integrations.canvas.assignments import form_for_assignment
 from coursemd.integrations.canvas.models import canvas_assignment_submissions, canvas_quiz
 from coursemd.integrations.canvas.quizzes import (
-    QUIZ_TYPE_MAP,
     form_for_quiz,
     question_payload_for_canvas,
 )
@@ -300,7 +299,7 @@ def sync_quizzes_to_canvas(
 
     results: list[dict[str, Any]] = []
     for spec in specs:
-        canvas_data = canvas_quiz(spec.integrations, spec.source_type, QUIZ_TYPE_MAP)
+        canvas_data = canvas_quiz(spec.integrations)
         assignment_group = canvas_data.assignment_group or spec.title
         group = groups_by_name.get(assignment_group)
         if group is None:

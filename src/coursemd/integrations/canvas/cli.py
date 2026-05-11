@@ -22,7 +22,6 @@ from coursemd.core.loaders.quizzes import load_quiz_specs
 from coursemd.core.loaders.specs import load_assignments
 from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL, CanvasConfig
 from coursemd.integrations.canvas.models import canvas_assignment_submissions, canvas_quiz
-from coursemd.integrations.canvas.quizzes import QUIZ_TYPE_MAP
 
 if TYPE_CHECKING:
     from coursemd.core.models.assignment import Assignment
@@ -108,11 +107,13 @@ def _print_quiz_plan(specs: list[Quiz]) -> None:
     for spec in specs:
         unlock = f" | unlock {spec.unlock_at}" if spec.unlock_at else ""
         readings = f" | readings={len(spec.readings)}" if spec.readings else ""
-        canvas = canvas_quiz(spec.integrations, spec.source_type, QUIZ_TYPE_MAP)
+        canvas = canvas_quiz(spec.integrations)
+        canvas_type = f" | canvas quiz_type={canvas.quiz_type}" if canvas.quiz_type else ""
         typer.echo(
-            f"- {spec.title} | type={canvas.quiz_type or '<unset>'} | due {spec.due_at} | "
+            f"- {spec.title} | due {spec.due_at} | "
             f"{total_quiz_points(spec)} pts | {len(spec.questions)} questions{readings}{unlock} | "
-            f"group '{canvas.assignment_group or '<unassigned>'}' | source={spec.source_file}"
+            f"group '{canvas.assignment_group or '<unassigned>'}'{canvas_type} | "
+            f"source={spec.source_file}"
         )
 
 
