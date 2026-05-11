@@ -5,13 +5,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Sequence
+
+    from coursemd.core.models.rubric import RubricCriterion
 
 
 def form_for_rubric(
     *,
     assignment_id: int,
-    criteria: Sequence[Mapping[str, Any]],
+    criteria: Sequence[RubricCriterion],
     title: str,
 ) -> dict[str, Any]:
     form: dict[str, Any] = {
@@ -23,12 +25,12 @@ def form_for_rubric(
     }
     for ci, criterion in enumerate(criteria):
         criterion_prefix = f"rubric[criteria][{ci}]"
-        form[f"{criterion_prefix}[description]"] = criterion["name"]
-        form[f"{criterion_prefix}[long_description]"] = criterion.get("desc", "")
-        form[f"{criterion_prefix}[points]"] = str(criterion["points"])
-        for ri, tier in enumerate(criterion.get("tiers", [])):
+        form[f"{criterion_prefix}[description]"] = criterion.name
+        form[f"{criterion_prefix}[long_description]"] = criterion.desc
+        form[f"{criterion_prefix}[points]"] = str(criterion.points)
+        for ri, tier in enumerate(criterion.tiers):
             rating_prefix = f"{criterion_prefix}[ratings][{ri}]"
-            form[f"{rating_prefix}[description]"] = tier["label"]
-            form[f"{rating_prefix}[long_description]"] = tier.get("desc", "")
-            form[f"{rating_prefix}[points]"] = str(tier["points"])
+            form[f"{rating_prefix}[description]"] = tier.label
+            form[f"{rating_prefix}[long_description]"] = tier.desc
+            form[f"{rating_prefix}[points]"] = str(tier.points)
     return form

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from coursemd.core.loaders.dates import normalize_due_at, require_date, require_release_date
 from coursemd.core.loaders.markdown import load_markdown_metadata
 from coursemd.core.models.assignment import AssignmentSpec
-from coursemd.core.rubric import select_rubric_criteria
+from coursemd.core.models.rubric import Rubric
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -209,7 +209,10 @@ def parse_assignment_specs_from_file(source_file: Path) -> list[AssignmentSpec]:
         rubric_criteria_filter: list[str] | None = (
             rubric_criteria_filter_raw if isinstance(rubric_criteria_filter_raw, list) else None
         )
-        rubric_criteria = select_rubric_criteria(metadata, rubric_section, rubric_criteria_filter)
+        rubric_criteria = Rubric.from_metadata(metadata).select_criteria(
+            rubric_section,
+            rubric_criteria_filter,
+        )
 
         doc_url_raw = item.get("doc_url")
         doc_url = str(doc_url_raw).strip() if doc_url_raw is not None else None

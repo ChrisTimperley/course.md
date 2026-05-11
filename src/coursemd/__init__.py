@@ -8,6 +8,7 @@ from coursemd.core.models import (
     QuestionSpec,
     QuizSpec,
     ReadingSpec,
+    Rubric,
 )
 from coursemd.core.rubric import (
     flatten_rubric_criteria,
@@ -38,6 +39,7 @@ __all__ = [
     "QuizDict",
     "QuizSpec",
     "ReadingSpec",
+    "Rubric",
     "RubricCriterion",
     "RubricSection",
     "RubricTier",
