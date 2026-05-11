@@ -10,11 +10,6 @@ from coursemd.core.models import (
     ReadingSpec,
     Rubric,
 )
-from coursemd.core.rubric import (
-    flatten_rubric_criteria,
-    load_rubric_sections,
-    select_rubric_criteria,
-)
 from coursemd.core.schedule import Schedule, ScheduleEntry
 from coursemd.core.types import (
     AssignmentDict,
@@ -46,8 +41,5 @@ __all__ = [
     "Schedule",
     "ScheduleEntry",
     "current_date",
-    "flatten_rubric_criteria",
-    "load_rubric_sections",
-    "select_rubric_criteria",
     "working_days",
 ]
