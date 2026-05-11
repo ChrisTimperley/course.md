@@ -102,28 +102,33 @@ class CanvasSubmissionField:
     label: str
     hint: str | None = None
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> CanvasSubmissionField:
+        label = require_non_empty_string(data.get("label"), "submission_form.label")
+        hint = optional_string(data.get("hint"))
+        return cls(
+            label=label,
+            hint=hint,
+        )
+
+    @classmethod
+    def from_list(cls, data: list[Any]) -> list[CanvasSubmissionField]:
+        fields: list[CanvasSubmissionField] = []
+        for index, item in enumerate(data):
+            if not isinstance(item, dict):
+                raise TypeError(f"submission_form[{index}] must be an object.")
+            field_map = cast("dict[str, Any]", item)
+            field = CanvasSubmissionField.from_dict(field_map)
+            fields.append(field)
+        return fields
+
 
 def _parse_submission_form(value: Any) -> list[CanvasSubmissionField]:
     if value is None:
         return []
     if not isinstance(value, list):
         raise TypeError("'submission_form' must be a list of objects.")
-
-    fields: list[CanvasSubmissionField] = []
-    for index, item in enumerate(cast("list[Any]", value)):
-        if not isinstance(item, dict):
-            raise TypeError(f"submission_form[{index}] must be an object.")
-        field_map = cast("dict[str, Any]", item)
-        fields.append(
-            CanvasSubmissionField(
-                label=require_non_empty_string(
-                    field_map.get("label"),
-                    f"submission_form[{index}].label",
-                ),
-                hint=optional_string(field_map.get("hint")),
-            )
-        )
-    return fields
+    return CanvasSubmissionField.from_list(cast("list[Any]", value))
 
 
 def _find_checkpoint(
