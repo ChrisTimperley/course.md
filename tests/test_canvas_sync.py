@@ -28,7 +28,6 @@ def test_assignment_sync_reports_events_without_printing(capsys) -> None:
         link="/assignments/hw1/",
         due_at="2026-01-16T23:59:00-05:00",
         group_assignment=False,
-        points=100,
         integrations={"canvas": {"assignment_group": "Homework"}},
     )
     events: list[CanvasSyncEvent] = []

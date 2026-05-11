@@ -48,74 +48,6 @@ def _parse_checkpoints(
     )
 
 
-def _parse_float(value: Any, field_name: str) -> float:
-    try:
-        return float(cast("Any", value))
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"'{field_name}' must be numeric.") from exc
-
-
-@dataclass(frozen=True)
-class AssignmentGradeTier:
-    """A course grading tier for an assignment."""
-
-    name: str
-    min_score: float
-    points: float
-
-
-@dataclass(frozen=True)
-class AssignmentGrading:
-    """Raw-score grading policy for an assignment."""
-
-    raw_max: float
-    tiers: list[AssignmentGradeTier] = field(default_factory=list)
-
-
-def _parse_grading(value: Any) -> AssignmentGrading | None:
-    if value is None:
-        return None
-    if not isinstance(value, dict):
-        raise TypeError("'grading' must be an object/map.")
-    grading_map = cast("dict[str, Any]", value)
-    raw_max = _parse_float(grading_map.get("raw_max"), "grading.raw_max")
-
-    tiers_raw = grading_map.get("tiers", [])
-    if tiers_raw is None:
-        tiers_raw = []
-    if not isinstance(tiers_raw, list):
-        raise TypeError("'grading.tiers' must be a list of objects.")
-
-    tiers: list[AssignmentGradeTier] = []
-    for index, item in enumerate(cast("list[Any]", tiers_raw)):
-        if not isinstance(item, dict):
-            raise TypeError(f"grading.tiers[{index}] must be an object.")
-        tier_map = cast("dict[str, Any]", item)
-        tiers.append(
-            AssignmentGradeTier(
-                name=require_non_empty_string(
-                    tier_map.get("name"),
-                    f"grading.tiers[{index}].name",
-                ),
-                min_score=_parse_float(
-                    tier_map.get("min_score"),
-                    f"grading.tiers[{index}].min_score",
-                ),
-                points=_parse_float(
-                    tier_map.get("points"),
-                    f"grading.tiers[{index}].points",
-                ),
-            )
-        )
-    return AssignmentGrading(raw_max=raw_max, tiers=tiers)
-
-
-def _parse_legacy_points(value: Any) -> float | None:
-    if value is None:
-        return None
-    return _parse_float(value, "points")
-
-
 def _parse_bool(value: Any, *, default: bool = False) -> bool:
     if value is None:
         return default
@@ -130,12 +62,18 @@ def _parse_bool(value: Any, *, default: bool = False) -> bool:
     return bool(value)
 
 
-def _parse_meta(value: Any) -> dict[str, Any]:
-    if value is None:
-        return {}
-    if not isinstance(value, dict):
+def _parse_meta(metadata: dict[str, Any]) -> dict[str, Any]:
+    meta_raw = metadata.get("meta")
+    if meta_raw is None:
+        meta: dict[str, Any] = {}
+    elif isinstance(meta_raw, dict):
+        meta = dict(cast("dict[str, Any]", meta_raw))
+    else:
         raise TypeError("'meta' must be an object/map.")
-    return dict(cast("dict[str, Any]", value))
+
+    if metadata.get("grading") is not None:
+        meta["grading"] = metadata["grading"]
+    return meta
 
 
 def _parse_rubric(value: dict[str, Any]) -> Rubric:
@@ -156,8 +94,6 @@ class Assignment:
     description: str | None = None
     reveal_date: dt.date | None = None
     group_assignment: bool = False
-    points: float | None = None
-    grading: AssignmentGrading | None = None
     rubric: Rubric = field(default_factory=lambda: Rubric(sections=[]))
     checkpoints: list[AssignmentCheckpoint] = field(default_factory=list)
     doc_url: str | None = None
@@ -173,16 +109,6 @@ class Assignment:
     @property
     def reveal_on(self) -> dt.date:
         return self.reveal_date or self.release_date
-
-    @property
-    def points_possible(self) -> float:
-        """Best generic raw-score total for integrations that need a default."""
-
-        if self.points is not None:
-            return self.points
-        if self.grading is not None:
-            return self.grading.raw_max
-        return 100.0
 
     def with_assignment_url_path(self, assignment_url_path: str) -> Assignment:
         return replace(
@@ -243,8 +169,6 @@ class Assignment:
                 description=str(post.content).strip() or None,
                 reveal_date=reveal_date,
                 group_assignment=_parse_bool(metadata.get("group_assignment")),
-                points=_parse_legacy_points(metadata.get("points")),
-                grading=_parse_grading(metadata.get("grading")),
                 rubric=_parse_rubric(metadata),
                 checkpoints=_parse_checkpoints(
                     metadata.get("checkpoints"),
@@ -254,7 +178,7 @@ class Assignment:
                 doc_url=optional_string(metadata.get("doc_url")),
                 doc_anchor=optional_string(metadata.get("doc_anchor")),
                 notes=optional_string(metadata.get("notes")),
-                meta=_parse_meta(metadata.get("meta")),
+                meta=_parse_meta(metadata),
                 integrations=_parse_integrations(metadata),
             )
 
@@ -262,6 +186,4 @@ class Assignment:
 __all__ = (
     "Assignment",
     "AssignmentCheckpoint",
-    "AssignmentGradeTier",
-    "AssignmentGrading",
 )

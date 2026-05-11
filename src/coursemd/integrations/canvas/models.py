@@ -269,9 +269,7 @@ def _submission_from_canvas_map(
         due_at = assignment.due_at
 
     points_raw = source.get("points", source.get("points_possible", default_points))
-    points_possible = (
-        assignment.points_possible if points_raw is None else _parse_float(points_raw, "points")
-    )
+    points_possible = 100.0 if points_raw is None else _parse_float(points_raw, "points")
 
     doc_anchor = (
         optional_string(source.get("doc_anchor"))

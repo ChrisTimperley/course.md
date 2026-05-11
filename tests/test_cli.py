@@ -22,17 +22,13 @@ from coursemd import cli
 from coursemd.core.config import CourseConfig
 from coursemd.core.exceptions import CoursemdError, CoursemdValidationError
 from coursemd.core.loaders.validation import normalize_release_date
-from coursemd.core.models.assignment import (
-    Assignment,
-    AssignmentCheckpoint,
-    AssignmentGradeTier,
-    AssignmentGrading,
-)
+from coursemd.core.models.assignment import Assignment, AssignmentCheckpoint
 from coursemd.core.models.repository import CourseRepository
 from coursemd.integrations.canvas.config import CanvasConfig
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
 
 runner = CliRunner()
+HW3_RAW_MAX = 100
 
 
 def test_validation_error_is_a_coursemd_error() -> None:
@@ -202,23 +198,22 @@ def test_assignment_load_uses_canonical_loader(tmp_path: Path) -> None:
     assert assignment.description == "# Homework 1"
 
 
-def test_assignment_loads_homework_grading_and_rubric_from_hw3() -> None:
+def test_assignment_loads_homework_meta_and_rubric_from_hw3() -> None:
     assignment = Assignment.load(Path("examples/hw3.md"))
 
     assert assignment.name == "Phase C: Extend"
     assert assignment.kind == "homework"
     assert assignment.group_assignment is True
-    assert assignment.grading == AssignmentGrading(
-        raw_max=100,
-        tiers=[
-            AssignmentGradeTier(name="Platinum", min_score=93, points=25),
-            AssignmentGradeTier(name="Gold", min_score=85, points=23),
-            AssignmentGradeTier(name="Silver", min_score=80, points=20),
-            AssignmentGradeTier(name="Bronze", min_score=70, points=18),
-            AssignmentGradeTier(name="Copper", min_score=60, points=15),
-            AssignmentGradeTier(name="Fail", min_score=0, points=0),
-        ],
-    )
+    assert assignment.meta["grading"]["raw_max"] == HW3_RAW_MAX
+    assert [tier["name"] for tier in assignment.meta["grading"]["tiers"]] == [
+        "Platinum",
+        "Gold",
+        "Silver",
+        "Bronze",
+        "Copper",
+        "Fail",
+    ]
+    assert assignment.meta["template_gdoc_id"] == "1eO83EOS7jzQGuiTmwQezaY6KTLHr02-HEhuiModxVOA"
     assert [checkpoint.title for checkpoint in assignment.checkpoints] == [
         "C0: Scope Check",
         "C1: Hazard Analysis & Draft Launch Argument",
