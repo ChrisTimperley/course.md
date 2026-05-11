@@ -18,8 +18,8 @@ from coursemd.cli.shared import (
     require_paths_exist,
     write_json_output,
 )
-from coursemd.core.loaders.assignments import load_assignment_specs
 from coursemd.core.loaders.quizzes import load_quiz_specs
+from coursemd.core.loaders.specs import load_assignment_specs
 from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL, CanvasConfig
 from coursemd.integrations.canvas.models import canvas_assignment, canvas_quiz
 from coursemd.integrations.canvas.quizzes import QUIZ_TYPE_MAP

@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from coursemd.core.loaders.assignments import load_assignment_specs
 from coursemd.core.loaders.quizzes import load_quiz_specs
 from coursemd.core.loaders.repository import load_data_files
+from coursemd.core.loaders.specs import load_assignment_specs
 
 if TYPE_CHECKING:
     from pathlib import Path

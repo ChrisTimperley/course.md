@@ -21,6 +21,7 @@ from coursemd import cli
 from coursemd.core.config import CourseConfig
 from coursemd.core.exceptions import CoursemdError, CoursemdValidationError
 from coursemd.core.loaders.dates import normalize_release_date
+from coursemd.core.loaders.specs import parse_assignment_specs_from_file
 from coursemd.core.models.repository import CourseRepository
 from coursemd.integrations.canvas.config import CanvasConfig
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
@@ -186,6 +187,17 @@ def test_validate_discovers_assignment_files_without_hw_prefix(tmp_path: Path, m
 
     assert result.exit_code == 0
     assert "Validated 1 data file(s), 1 assignment spec(s), and 1 quiz spec(s)." in result.stdout
+
+
+def test_parse_assignment_specs_from_file_uses_rich_spec_loader(tmp_path: Path) -> None:
+    _build_repo_fixture(tmp_path)
+
+    specs = parse_assignment_specs_from_file(tmp_path / "assignments" / "hw1.md")
+
+    assert len(specs) == 1
+    assert specs[0].name == "Homework 1"
+    assert specs[0].source_file == tmp_path / "assignments" / "hw1.md"
+    assert specs[0].due_at == "2026-01-16T23:59:00-05:00"
 
 
 def test_validate_allows_multiple_schedule_events_on_same_date(tmp_path: Path, monkeypatch) -> None:
