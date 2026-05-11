@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterator, Sequence
     from pathlib import Path
 
 import click
 import typer
 
 from coursemd.core.config import CourseConfig
+from coursemd.core.exceptions import CoursemdError
 from coursemd.core.loaders.repository import load_repository_env
 from coursemd.core.utils import set_course_timezone
 
@@ -79,5 +81,13 @@ def write_json_output(output_json: Path | None, results: list[dict[str, Any]]) -
         return
     output_json.write_text(json.dumps(results, indent=2), encoding="utf-8")
     typer.echo(f"\nWrote JSON results to {output_json}")
+
+
+@contextmanager
+def click_error_boundary() -> Iterator[None]:
+    try:
+        yield
+    except CoursemdError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 

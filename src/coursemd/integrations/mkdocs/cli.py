@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 import click
 import typer
 
-from coursemd.cli.shared import AppState
+from coursemd.cli.shared import AppState, click_error_boundary
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
 
 CLI_NAME = "site"
@@ -198,11 +198,12 @@ def _preview_site(
 
 def register_site_commands(site_app: typer.Typer) -> None:
     def require_supported_backend(ctx: typer.Context) -> tuple[Path, Path]:
-        state = AppState.from_typer(ctx)
-        MkdocsIntegrationConfig.require(state.config)
-        project_dir = mkdocs_project_dir(state)
-        config_file = _require_site_project_dir(project_dir)
-        return project_dir, config_file
+        with click_error_boundary():
+            state = AppState.from_typer(ctx)
+            MkdocsIntegrationConfig.require(state.config)
+            project_dir = mkdocs_project_dir(state)
+            config_file = _require_site_project_dir(project_dir)
+            return project_dir, config_file
 
     @site_app.command("build")
     def build_command(
@@ -222,20 +223,23 @@ def register_site_commands(site_app: typer.Typer) -> None:
             typer.Option("--strict", help="Fail on warnings reported by MkDocs."),
         ] = False,
     ) -> int:
-        state = AppState.from_typer(ctx)
-        project_dir, config_file = require_supported_backend(ctx)
-        resolved_output_dir = None
-        if output_dir is not None:
-            resolved_output_dir = (
-                output_dir if output_dir.is_absolute() else (state.repo_root / output_dir).resolve()
-            )
+        with click_error_boundary():
+            state = AppState.from_typer(ctx)
+            project_dir, config_file = require_supported_backend(ctx)
+            resolved_output_dir = None
+            if output_dir is not None:
+                resolved_output_dir = (
+                    output_dir
+                    if output_dir.is_absolute()
+                    else (state.repo_root / output_dir).resolve()
+                )
 
-        return _build_site(
-            config_file=config_file,
-            project_dir=project_dir,
-            site_dir=resolved_output_dir,
-            strict=strict,
-        )
+            return _build_site(
+                config_file=config_file,
+                project_dir=project_dir,
+                site_dir=resolved_output_dir,
+                strict=strict,
+            )
 
     @site_app.command("build-preview")
     def build_preview_command(
@@ -262,21 +266,22 @@ def register_site_commands(site_app: typer.Typer) -> None:
             ),
         ] = DEFAULT_PREVIEW_CURRENT_DATE,
     ) -> int:
-        state = AppState.from_typer(ctx)
-        project_dir, config_file = require_supported_backend(ctx)
-        resolved_output_dir = (
-            output_dir if output_dir.is_absolute() else (state.repo_root / output_dir).resolve()
-        )
+        with click_error_boundary():
+            state = AppState.from_typer(ctx)
+            project_dir, config_file = require_supported_backend(ctx)
+            resolved_output_dir = (
+                output_dir if output_dir.is_absolute() else (state.repo_root / output_dir).resolve()
+            )
 
-        return _build_site(
-            config_file=config_file,
-            project_dir=project_dir,
-            site_dir=resolved_output_dir,
-            strict=strict,
-            current_date_override=current_date_override,
-            excluded_plugins=PREVIEW_EXCLUDED_PLUGINS,
-            preview=True,
-        )
+            return _build_site(
+                config_file=config_file,
+                project_dir=project_dir,
+                site_dir=resolved_output_dir,
+                strict=strict,
+                current_date_override=current_date_override,
+                excluded_plugins=PREVIEW_EXCLUDED_PLUGINS,
+                preview=True,
+            )
 
     @site_app.command("preview")
     def preview_command(
@@ -297,13 +302,14 @@ def register_site_commands(site_app: typer.Typer) -> None:
             typer.Option("--dirty", help="Pass --dirty to mkdocs serve for faster rebuilds."),
         ] = False,
     ) -> int:
-        _project_dir, config_file = require_supported_backend(ctx)
-        return _preview_site(
-            config_file=config_file,
-            dev_addr=dev_addr,
-            current_date_override=current_date_override,
-            dirty=dirty,
-        )
+        with click_error_boundary():
+            _project_dir, config_file = require_supported_backend(ctx)
+            return _preview_site(
+                config_file=config_file,
+                dev_addr=dev_addr,
+                current_date_override=current_date_override,
+                dirty=dirty,
+            )
 
 
 def register_site_cli(app: typer.Typer) -> None:

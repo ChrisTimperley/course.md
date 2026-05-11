@@ -11,6 +11,7 @@ import typer
 
 from coursemd.cli.shared import (
     AppState,
+    click_error_boundary,
     default_assignment_files,
     default_quiz_files,
     normalize_input_paths,
@@ -192,49 +193,52 @@ def register_sync_canvas_assignments_command(canvas_app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> int:
-        state = AppState.from_typer(ctx)
-        repo_root = state.repo_root
-        mkdocs_config = MkdocsIntegrationConfig.require(state.config)
-        canvas_config = CanvasConfig.get(state.config)
-        resolved_site_base_url = site_base_url or mkdocs_config.base_url
-        resolved_base_url = base_url or (
-            canvas_config.base_url if canvas_config is not None else DEFAULT_CANVAS_BASE_URL
-        )
-        resolved_course_id = course_id or (
-            canvas_config.course_id if canvas_config is not None else None
-        )
-        group_category_id = canvas_config.group_category_id if canvas_config is not None else None
-        files = normalize_input_paths(
-            assignment_files or default_assignment_files(state),
-            repo_root=repo_root,
-        )
-        if not files:
-            raise click.ClickException("No assignment files found.")
-        require_paths_exist(files, label="Assignment")
-
-        specs = load_assignment_specs(files=files)
-        _print_assignment_plan(specs)
-
-        token, resolved_course_id = require_canvas_credentials(
-            resolved_course_id,
-            plan_only=plan_only,
-        )
-        if plan_only:
-            return 0
-
-        with AssignmentCanvasClient(
-            base_url=resolved_base_url, token=token, dry_run=dry_run
-        ) as client:
-            results = sync_assignments_to_canvas(
-                client=client,
-                course_id=resolved_course_id,
-                specs=specs,
-                publish_override=publish,
-                group_category_id_override=group_category_id,
-                reporter=_print_canvas_sync_event,
-                site_base_url=resolved_site_base_url,
-                assignment_url_path=mkdocs_config.assignments_url_path,
+        with click_error_boundary():
+            state = AppState.from_typer(ctx)
+            repo_root = state.repo_root
+            mkdocs_config = MkdocsIntegrationConfig.require(state.config)
+            canvas_config = CanvasConfig.get(state.config)
+            resolved_site_base_url = site_base_url or mkdocs_config.base_url
+            resolved_base_url = base_url or (
+                canvas_config.base_url if canvas_config is not None else DEFAULT_CANVAS_BASE_URL
             )
+            resolved_course_id = course_id or (
+                canvas_config.course_id if canvas_config is not None else None
+            )
+            group_category_id = (
+                canvas_config.group_category_id if canvas_config is not None else None
+            )
+            files = normalize_input_paths(
+                assignment_files or default_assignment_files(state),
+                repo_root=repo_root,
+            )
+            if not files:
+                raise click.ClickException("No assignment files found.")
+            require_paths_exist(files, label="Assignment")
+
+            specs = load_assignment_specs(files=files)
+            _print_assignment_plan(specs)
+
+            token, resolved_course_id = require_canvas_credentials(
+                resolved_course_id,
+                plan_only=plan_only,
+            )
+            if plan_only:
+                return 0
+
+            with AssignmentCanvasClient(
+                base_url=resolved_base_url, token=token, dry_run=dry_run
+            ) as client:
+                results = sync_assignments_to_canvas(
+                    client=client,
+                    course_id=resolved_course_id,
+                    specs=specs,
+                    publish_override=publish,
+                    group_category_id_override=group_category_id,
+                    reporter=_print_canvas_sync_event,
+                    site_base_url=resolved_site_base_url,
+                    assignment_url_path=mkdocs_config.assignments_url_path,
+                )
 
         typer.echo("\nSync results:")
         for item in results:
@@ -301,41 +305,49 @@ def register_sync_canvas_quizzes_command(canvas_app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> int:
-        state = AppState.from_typer(ctx)
-        repo_root = state.repo_root
-        canvas_config = CanvasConfig.get(state.config)
-        resolved_base_url = base_url or (
-            canvas_config.base_url if canvas_config is not None else DEFAULT_CANVAS_BASE_URL
-        )
-        resolved_course_id = course_id or (
-            canvas_config.course_id if canvas_config is not None else None
-        )
-        files = normalize_input_paths(quiz_files or default_quiz_files(state), repo_root=repo_root)
-        if not files:
-            raise click.ClickException(
-                "No quiz files found. Add files to the configured quizzes_dir or pass paths."
+        with click_error_boundary():
+            state = AppState.from_typer(ctx)
+            repo_root = state.repo_root
+            canvas_config = CanvasConfig.get(state.config)
+            resolved_base_url = base_url or (
+                canvas_config.base_url if canvas_config is not None else DEFAULT_CANVAS_BASE_URL
             )
-        require_paths_exist(files, label="Quiz")
-
-        specs = load_quiz_specs(files)
-        _print_quiz_plan(specs)
-
-        token, resolved_course_id = require_canvas_credentials(
-            resolved_course_id,
-            plan_only=plan_only,
-        )
-        if plan_only:
-            return 0
-
-        with QuizCanvasClient(base_url=resolved_base_url, token=token, dry_run=dry_run) as client:
-            results = sync_quizzes_to_canvas(
-                client=client,
-                course_id=resolved_course_id,
-                specs=specs,
-                publish_override=publish,
-                skip_if_submissions=not force,
-                reporter=_print_canvas_sync_event,
+            resolved_course_id = course_id or (
+                canvas_config.course_id if canvas_config is not None else None
             )
+            files = normalize_input_paths(
+                quiz_files or default_quiz_files(state),
+                repo_root=repo_root,
+            )
+            if not files:
+                raise click.ClickException(
+                    "No quiz files found. Add files to the configured quizzes_dir or pass paths."
+                )
+            require_paths_exist(files, label="Quiz")
+
+            specs = load_quiz_specs(files)
+            _print_quiz_plan(specs)
+
+            token, resolved_course_id = require_canvas_credentials(
+                resolved_course_id,
+                plan_only=plan_only,
+            )
+            if plan_only:
+                return 0
+
+            with QuizCanvasClient(
+                base_url=resolved_base_url,
+                token=token,
+                dry_run=dry_run,
+            ) as client:
+                results = sync_quizzes_to_canvas(
+                    client=client,
+                    course_id=resolved_course_id,
+                    specs=specs,
+                    publish_override=publish,
+                    skip_if_submissions=not force,
+                    reporter=_print_canvas_sync_event,
+                )
 
         typer.echo("\nSync results:")
         for item in results:

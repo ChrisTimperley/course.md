@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from coursemd.core.exceptions import CoursemdValidationError
 from coursemd.core.utils import DEFAULT_TIMEZONE, get_timezone
 
 EASTERN = ZoneInfo(DEFAULT_TIMEZONE)
@@ -44,8 +45,9 @@ def require_date(value: Any, source_file: Path, field_name: str) -> date:
 
     parsed = parse_date(value)
     if parsed is None:
-        raise ValueError(
-            f"{source_file}: '{field_name}' must be a valid date or ISO-8601 timestamp."
+        raise CoursemdValidationError(
+            f"'{field_name}' must be a valid date or ISO-8601 timestamp.",
+            source_path=source_file,
         )
     return parsed
 
@@ -56,8 +58,9 @@ def normalize_due_at(value: Any, source_file: Path, context: str) -> str:
     if isinstance(value, datetime):
         due_at = value
     elif isinstance(value, date):
-        raise TypeError(
-            f"{source_file}: '{context}' due_at must include time + timezone (received date only)."
+        raise CoursemdValidationError(
+            f"'{context}' due_at must include time + timezone (received date only).",
+            source_path=source_file,
         )
     elif isinstance(value, str):
         candidate = value.strip()
@@ -66,19 +69,22 @@ def normalize_due_at(value: Any, source_file: Path, context: str) -> str:
         try:
             due_at = datetime.fromisoformat(candidate)
         except ValueError as exc:
-            raise ValueError(
-                f"{source_file}: '{context}' due_at must be ISO-8601 "
-                f"(example: 2026-03-13T23:59:00-04:00)."
+            raise CoursemdValidationError(
+                f"'{context}' due_at must be ISO-8601 "
+                f"(example: 2026-03-13T23:59:00-04:00).",
+                source_path=source_file,
             ) from exc
     else:
-        raise TypeError(
-            f"{source_file}: '{context}' due_at has unsupported type: {type(value).__name__}"
+        raise CoursemdValidationError(
+            f"'{context}' due_at has unsupported type: {type(value).__name__}",
+            source_path=source_file,
         )
 
     if due_at.tzinfo is None:
-        raise ValueError(
-            f"{source_file}: '{context}' due_at must include timezone offset "
-            f"(example: 2026-03-13T23:59:00-04:00)."
+        raise CoursemdValidationError(
+            f"'{context}' due_at must include timezone offset "
+            f"(example: 2026-03-13T23:59:00-04:00).",
+            source_path=source_file,
         )
     return due_at.isoformat()
 
@@ -124,7 +130,8 @@ def require_release_date(value: Any, source_file: Path, field_name: str = "relea
 
     normalized = normalize_release_date(value, source_file)
     if normalized is None:
-        raise ValueError(
-            f"{source_file}: '{field_name}' must be a valid date or ISO-8601 timestamp."
+        raise CoursemdValidationError(
+            f"'{field_name}' must be a valid date or ISO-8601 timestamp.",
+            source_path=source_file,
         )
     return normalized

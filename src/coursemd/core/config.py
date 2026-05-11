@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar, Self, TypeVar
 
-import click
 import yaml
 
+from coursemd.core.exceptions import CoursemdValidationError
 from coursemd.integrations import load_builtin_integration_configs
 
 from .config_helpers import (
@@ -57,7 +57,7 @@ class CourseConfig:
         if value is None:
             return None
         if not isinstance(value, config_type):
-            raise TypeError(
+            raise CoursemdValidationError(
                 f"Integration {name!r} is not of expected type {config_type.__name__}."
             )
         return value
@@ -73,7 +73,7 @@ class CourseConfig:
 
         for raw_name, raw_value in integrations_map.items():
             if not raw_name.strip():
-                raise click.ClickException(
+                raise CoursemdValidationError(
                     f"integrations keys must be non-empty strings in {CONFIG_FILENAME}."
                 )
             config_type = IntegrationConfig.get_type(raw_name)
@@ -81,12 +81,12 @@ class CourseConfig:
                 supported = ", ".join(
                     sorted(config_type.metavar for config_type in IntegrationConfig.iter_types())
                 )
-                raise click.ClickException(
+                raise CoursemdValidationError(
                     f"Unknown integration {raw_name!r} in {CONFIG_FILENAME}. "
                     f"Supported integrations: {supported}."
                 )
             if config_type.metavar in raw_integrations:
-                raise click.ClickException(
+                raise CoursemdValidationError(
                     f"Integration {config_type.metavar!r} is configured more than once in "
                     f"{CONFIG_FILENAME}."
                 )
@@ -97,7 +97,7 @@ class CourseConfig:
             raw_value = raw_integrations.get(config_type.metavar)
             if raw_value is None:
                 if config_type.required:
-                    raise click.ClickException(
+                    raise CoursemdValidationError(
                         f"integrations.{config_type.metavar} is required in {CONFIG_FILENAME}."
                     )
                 continue
@@ -112,7 +112,7 @@ class CourseConfig:
             config_path = directory / CONFIG_FILENAME
             if config_path.is_file():
                 return config_path
-        raise click.ClickException(
+        raise CoursemdValidationError(
             f"Could not find {CONFIG_FILENAME} in {current_dir} or any parent directory."
         )
 
@@ -126,7 +126,7 @@ class CourseConfig:
             with config_path.open("r", encoding="utf-8") as handle:
                 loaded_config = yaml.safe_load(handle)
         except yaml.YAMLError as exc:
-            raise click.ClickException(f"{config_path}: invalid YAML: {exc}") from exc
+            raise CoursemdValidationError(f"invalid YAML: {exc}", source_path=config_path) from exc
 
         raw_config: Any = {} if loaded_config is None else loaded_config
 
@@ -136,7 +136,7 @@ class CourseConfig:
 
         env_file = paths_map.get("env_file", ".env")
         if env_file is not None and (not isinstance(env_file, str) or not env_file.strip()):
-            raise click.ClickException(
+            raise CoursemdValidationError(
                 f"paths.env_file must be a non-empty string in {CONFIG_FILENAME}."
             )
 

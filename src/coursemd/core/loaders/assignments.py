@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from coursemd.core.exceptions import wrap_validation_errors
 from coursemd.core.loaders.dates import normalize_due_at, require_date, require_release_date
 from coursemd.core.loaders.markdown import load_markdown_metadata
 from coursemd.core.models.assignment import AssignmentSpec
@@ -64,6 +65,7 @@ def _optional_mapping(value: Any, source_file: Path, field_name: str) -> dict[st
     return value
 
 
+@wrap_validation_errors
 def validate_schedule_assignment_metadata(
     source_file: Path,
     metadata: dict[str, Any],
@@ -71,7 +73,6 @@ def validate_schedule_assignment_metadata(
     assignment_url_path: str = DEFAULT_ASSIGNMENTS_URL_PATH,
 ) -> AssignmentDict:
     """Validate and normalize assignment metadata used in the rendered schedule."""
-
     title = _require_non_empty_string(metadata.get("title"), source_file, "title")
     release_date = require_date(metadata.get("release_date"), source_file, "release_date")
     due_date = require_date(metadata.get("due_date"), source_file, "due_date")
@@ -137,6 +138,7 @@ def validate_schedule_assignment_metadata(
     return assignment
 
 
+@wrap_validation_errors
 def parse_assignment_specs_from_file(source_file: Path) -> list[AssignmentSpec]:
     metadata = load_markdown_metadata(source_file)
     validate_schedule_assignment_metadata(source_file, metadata)
@@ -165,9 +167,7 @@ def parse_assignment_specs_from_file(source_file: Path) -> list[AssignmentSpec]:
         integrations: dict[str, Any] = {}
         if integrations_raw is not None:
             if not isinstance(integrations_raw, dict):
-                raise TypeError(
-                    f"{source_file}: '{name}.integrations' must be an object/map."
-                )
+                raise TypeError(f"{source_file}: '{name}.integrations' must be an object/map.")
             integrations = integrations_raw
 
         submission_types_raw = item.get("submission_types", ["none"])
@@ -197,7 +197,11 @@ def parse_assignment_specs_from_file(source_file: Path) -> list[AssignmentSpec]:
             except (TypeError, ValueError) as exc:
                 raise ValueError(f"{source_file}: '{name}' position must be an integer.") from exc
 
-        unlock_at = require_release_date(metadata.get("release_date"), source_file, "release_date")
+        unlock_at = require_release_date(
+            metadata.get("release_date"),
+            source_file,
+            "release_date",
+        )
         group_assignment = bool(
             item.get("group_assignment", metadata.get("group_assignment", False))
         )

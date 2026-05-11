@@ -8,12 +8,21 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 import frontmatter  # type: ignore[import-untyped]
+import yaml
+
+from coursemd.core.exceptions import CoursemdValidationError
 
 
 def load_markdown_post(source_file: Path) -> frontmatter.Post:
     """Load a Markdown file with YAML frontmatter."""
 
-    return frontmatter.load(source_file)
+    try:
+        return frontmatter.load(source_file)
+    except yaml.YAMLError as exc:
+        raise CoursemdValidationError(
+            f"invalid Markdown frontmatter YAML: {exc}",
+            source_path=source_file,
+        ) from exc
 
 
 def load_markdown_metadata(source_file: Path) -> dict[str, Any]:

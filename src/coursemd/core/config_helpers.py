@@ -8,14 +8,14 @@ if TYPE_CHECKING:
     from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-import click
+from coursemd.core.exceptions import CoursemdValidationError
 
 CONFIG_FILENAME = ".coursemd.yml"
 
 
 def require_mapping(value: Any, *, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
-        raise click.ClickException(f"{label} must be a mapping in {CONFIG_FILENAME}.")
+        raise CoursemdValidationError(f"{label} must be a mapping in {CONFIG_FILENAME}.")
     return cast("dict[str, Any]", value)
 
 
@@ -27,18 +27,18 @@ def optional_mapping(value: Any, *, label: str) -> dict[str, Any]:
 
 def require_string(value: Any, *, label: str) -> str:
     if not isinstance(value, str) or not value.strip():
-        raise click.ClickException(f"{label} must be a non-empty string in {CONFIG_FILENAME}.")
+        raise CoursemdValidationError(f"{label} must be a non-empty string in {CONFIG_FILENAME}.")
     return value.strip()
 
 
 def require_text(value: Any, *, label: str) -> str:
     if value is None or isinstance(value, bool):
-        raise click.ClickException(
+        raise CoursemdValidationError(
             f"{label} must be a non-empty string or integer in {CONFIG_FILENAME}."
         )
     text = str(value).strip()
     if not text:
-        raise click.ClickException(
+        raise CoursemdValidationError(
             f"{label} must be a non-empty string or integer in {CONFIG_FILENAME}."
         )
     return text
@@ -50,7 +50,9 @@ def optional_int(value: Any, *, label: str) -> int | None:
     try:
         return int(value)
     except (TypeError, ValueError) as exc:
-        raise click.ClickException(f"{label} must be an integer in {CONFIG_FILENAME}.") from exc
+        raise CoursemdValidationError(
+            f"{label} must be an integer in {CONFIG_FILENAME}."
+        ) from exc
 
 
 def resolve_relative_path(repo_root: Path, raw_path: Any, *, label: str) -> Path:
@@ -61,7 +63,7 @@ def resolve_relative_path(repo_root: Path, raw_path: Any, *, label: str) -> Path
 def require_permission(value: Any, *, label: str) -> str:
     permission = require_string(value, label=label)
     if permission not in {"none", "read", "write", "admin"}:
-        raise click.ClickException(
+        raise CoursemdValidationError(
             f"{label} must be one of none, read, write, or admin in {CONFIG_FILENAME}."
         )
     return permission
@@ -70,7 +72,7 @@ def require_permission(value: Any, *, label: str) -> str:
 def require_url_path(value: Any, *, label: str) -> str:
     path = require_string(value, label=label).strip("/")
     if not path:
-        raise click.ClickException(f"{label} must not be empty in {CONFIG_FILENAME}.")
+        raise CoursemdValidationError(f"{label} must not be empty in {CONFIG_FILENAME}.")
     return path
 
 
@@ -79,7 +81,7 @@ def require_timezone(value: Any, *, label: str) -> str:
     try:
         ZoneInfo(timezone_name)
     except ZoneInfoNotFoundError as exc:
-        raise click.ClickException(
+        raise CoursemdValidationError(
             f"{label} must be a valid IANA timezone in {CONFIG_FILENAME} "
             "(example: America/New_York)."
         ) from exc

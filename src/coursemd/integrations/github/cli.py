@@ -8,7 +8,7 @@ from typing import Annotated
 import click
 import typer
 
-from coursemd.cli.shared import AppState
+from coursemd.cli.shared import AppState, click_error_boundary
 from coursemd.integrations.github.config import (
     DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION,
     DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG,
@@ -81,46 +81,47 @@ def register_github_commands(github_app: typer.Typer) -> None:
             typer.Option("--dry-run", help="Preview the changes without mutating GitHub state."),
         ] = False,
     ) -> int:
-        state = AppState.from_typer(ctx)
-        github_config = GitHubConfig.get(state.config)
-        organization = _resolve_github_value(
-            org,
-            github_config.organization if github_config is not None else None,
-            label="GitHub organization",
-        )
-        resolved_team_slug = _resolve_github_value(
-            instructors_team_slug,
-            github_config.instructors_team_slug
-            if github_config is not None
-            else DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG,
-            label="GitHub instructors team slug",
-        )
-        resolved_ruleset_name = _resolve_github_value(
-            ruleset_name,
-            github_config.ruleset_name
-            if github_config is not None
-            else DEFAULT_GITHUB_RULESET_NAME,
-            label="GitHub ruleset name",
-        )
-        resolved_default_permission = (
-            github_config.default_repository_permission
-            if github_config is not None
-            and default_repository_permission == DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION
-            else default_repository_permission
-        )
-
-        try:
-            result = run_github_setup(
-                organization=organization,
-                instructors_team_slug=resolved_team_slug,
-                ruleset_name=resolved_ruleset_name,
-                default_repository_permission=resolved_default_permission,
-                permissions_only=permissions_only,
-                rulesets_only=rulesets_only,
-                dry_run=dry_run,
+        with click_error_boundary():
+            state = AppState.from_typer(ctx)
+            github_config = GitHubConfig.get(state.config)
+            organization = _resolve_github_value(
+                org,
+                github_config.organization if github_config is not None else None,
+                label="GitHub organization",
             )
-        except GitHubSetupError as exc:
-            raise click.ClickException(str(exc)) from exc
+            resolved_team_slug = _resolve_github_value(
+                instructors_team_slug,
+                github_config.instructors_team_slug
+                if github_config is not None
+                else DEFAULT_GITHUB_INSTRUCTORS_TEAM_SLUG,
+                label="GitHub instructors team slug",
+            )
+            resolved_ruleset_name = _resolve_github_value(
+                ruleset_name,
+                github_config.ruleset_name
+                if github_config is not None
+                else DEFAULT_GITHUB_RULESET_NAME,
+                label="GitHub ruleset name",
+            )
+            resolved_default_permission = (
+                github_config.default_repository_permission
+                if github_config is not None
+                and default_repository_permission == DEFAULT_GITHUB_DEFAULT_REPOSITORY_PERMISSION
+                else default_repository_permission
+            )
+
+            try:
+                result = run_github_setup(
+                    organization=organization,
+                    instructors_team_slug=resolved_team_slug,
+                    ruleset_name=resolved_ruleset_name,
+                    default_repository_permission=resolved_default_permission,
+                    permissions_only=permissions_only,
+                    rulesets_only=rulesets_only,
+                    dry_run=dry_run,
+                )
+            except GitHubSetupError as exc:
+                raise click.ClickException(str(exc)) from exc
 
         typer.echo(
             f"Resolved team '{result.instructors_team_slug}' in org "

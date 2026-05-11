@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, Self, TypeVar
 
-import click
+from coursemd.core.exceptions import CoursemdValidationError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -87,7 +87,7 @@ class IntegrationConfig(ABC):
     def require(cls, config: CourseConfig) -> Self:
         integration_config = cls.get(config)
         if integration_config is None:
-            raise click.ClickException(cls.missing_config_message())
+            raise CoursemdValidationError(cls.missing_config_message())
         return integration_config
 
     @classmethod

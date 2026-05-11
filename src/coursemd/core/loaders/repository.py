@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, cast
 import yaml  # type: ignore[import-untyped]
 from dotenv import load_dotenv
 
+from coursemd.core.exceptions import CoursemdValidationError, wrap_validation_errors
 from coursemd.core.loaders.assignments import validate_schedule_assignment_metadata
 from coursemd.core.loaders.dates import require_date
 from coursemd.core.loaders.markdown import load_markdown_metadata
@@ -31,9 +32,9 @@ def _require_non_empty_string(value: Any, source_file: Path, field_name: str) ->
     return text
 
 
+@wrap_validation_errors
 def validate_schedule_data(source_file: Path, value: Any) -> dict[str, Any]:
     """Validate and normalize schedule.yaml content."""
-
     schedule = _require_mapping(value, source_file, "schedule")
     course_raw = _require_mapping(schedule.get("course"), source_file, "course")
     start_date = require_date(course_raw.get("start_date"), source_file, "course.start_date")
@@ -45,7 +46,9 @@ def validate_schedule_data(source_file: Path, value: Any) -> dict[str, Any]:
 
     course = dict(course_raw)
     course["title"] = _require_non_empty_string(
-        course_raw.get("title"), source_file, "course.title"
+        course_raw.get("title"),
+        source_file,
+        "course.title",
     )
     course["start_date"] = start_date
     course["end_date"] = end_date
@@ -56,7 +59,9 @@ def validate_schedule_data(source_file: Path, value: Any) -> dict[str, Any]:
     for index, event_raw in enumerate(events_raw):
         event = _require_mapping(event_raw, source_file, f"events[{index}]")
         kind = _require_non_empty_string(
-            event.get("kind"), source_file, f"events[{index}].kind"
+            event.get("kind"),
+            source_file,
+            f"events[{index}].kind",
         ).lower()
         event_date = require_date(event.get("date"), source_file, f"events[{index}].date")
 
@@ -128,12 +133,15 @@ def load_data_files(files: list[Path]) -> dict[str, Any]:
 
     loaded: dict[str, Any] = {}
     for path in files:
-        with path.open("r", encoding="utf-8") as handle:
-            document = yaml.safe_load(handle)
-            if path.stem == "schedule":
-                loaded[path.stem] = validate_schedule_data(path, document)
-            else:
-                loaded[path.stem] = document or {}
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                document = yaml.safe_load(handle)
+        except yaml.YAMLError as exc:
+            raise CoursemdValidationError(f"invalid YAML: {exc}", source_path=path) from exc
+        if path.stem == "schedule":
+            loaded[path.stem] = validate_schedule_data(path, document)
+        else:
+            loaded[path.stem] = document or {}
     return loaded
 
 

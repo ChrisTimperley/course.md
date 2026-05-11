@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
+from coursemd.core.exceptions import wrap_validation_errors
 from coursemd.core.loaders.dates import normalize_due_at, require_date, require_release_date
 from coursemd.core.loaders.markdown import load_markdown_post
 from coursemd.core.models.quiz import QuestionSpec, QuizSpec, ReadingSpec
@@ -70,12 +71,12 @@ def parse_readings(value: Any, source_file: Path, quiz_type: str) -> list[Readin
     return readings
 
 
+@wrap_validation_errors
 def validate_schedule_quiz_metadata(
     source_file: Path,
     metadata: dict[str, Any],
 ) -> QuizDict:
     """Validate and normalize quiz metadata used in the rendered schedule."""
-
     title = _require_non_empty_string(metadata.get("title"), source_file, "title")
     release_date = require_date(metadata.get("release_date"), source_file, "release_date")
     due_at = normalize_due_at(metadata.get("due_at"), source_file, title)
@@ -93,21 +94,25 @@ def validate_schedule_quiz_metadata(
     if link is not None:
         link_text = str(link).strip()
         if not link_text:
-            raise ValueError(f"{source_file}: 'link' must be a non-empty string when provided.")
+            raise ValueError(
+                f"{source_file}: 'link' must be a non-empty string when provided."
+            )
         quiz["link"] = link_text
 
     quiz_type = str(metadata.get("type", "")).strip().lower()
     readings = parse_readings(metadata.get("readings"), source_file, quiz_type)
     if readings:
-        quiz["readings"] = [{"title": reading.title, "url": reading.url} for reading in readings]
+        quiz["readings"] = [
+            {"title": reading.title, "url": reading.url} for reading in readings
+        ]
 
     return quiz
 
 
+@wrap_validation_errors
 def parse_quiz_file(source_file: Path) -> QuizSpec:
     post = load_markdown_post(source_file)
     meta = post.metadata
-
     title = _require_non_empty_string(meta.get("title"), source_file, "title")
 
     qtype = str(meta.get("type", "")).strip().lower()
@@ -218,7 +223,7 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
                 if not isinstance(answer.get("correct"), bool):
                     raise TypeError(
                         f"{source_file}: question {i + 1} answers[{answer_index}].correct "
-                        f"must be a boolean."
+                        "must be a boolean."
                     )
                 if answer["correct"]:
                     correct_answers += 1
@@ -244,7 +249,7 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
                 if not left or not right:
                     raise ValueError(
                         f"{source_file}: question {i + 1} matching answers must include "
-                        f"non-empty 'left' and 'right' fields."
+                        "non-empty 'left' and 'right' fields."
                     )
 
         if qtype_inner == "short_answer":

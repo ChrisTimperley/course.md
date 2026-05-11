@@ -9,7 +9,7 @@ from typing import Annotated
 import click
 import typer
 
-from coursemd.cli.shared import AppState
+from coursemd.cli.shared import AppState, click_error_boundary
 from coursemd.integrations.quarto.config import QuartoConfig
 
 CLI_NAME = "quarto"
@@ -71,22 +71,23 @@ def register_quarto_commands(quarto_app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> int:
-        state = AppState.from_typer(ctx)
-        quarto_config = QuartoConfig.require(state.config)
-        directory = _require_quarto_dir(quarto_config.directory)
+        with click_error_boundary():
+            state = AppState.from_typer(ctx)
+            quarto_config = QuartoConfig.require(state.config)
+            directory = _require_quarto_dir(quarto_config.directory)
 
-        resolved_output_dir = (
-            _default_output_dir(state.repo_root)
-            if output_dir is None
-            else output_dir
-            if output_dir.is_absolute()
-            else (state.repo_root / output_dir).resolve()
-        )
-        return _run_quarto(
-            slides_directory=directory,
-            quarto_command="render",
-            output_dir=resolved_output_dir,
-        )
+            resolved_output_dir = (
+                _default_output_dir(state.repo_root)
+                if output_dir is None
+                else output_dir
+                if output_dir.is_absolute()
+                else (state.repo_root / output_dir).resolve()
+            )
+            return _run_quarto(
+                slides_directory=directory,
+                quarto_command="render",
+                output_dir=resolved_output_dir,
+            )
 
     @quarto_app.command("preview")
     def preview_command(
@@ -102,21 +103,22 @@ def register_quarto_commands(quarto_app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> int:
-        state = AppState.from_typer(ctx)
-        quarto_config = QuartoConfig.require(state.config)
-        directory = _require_quarto_dir(quarto_config.directory)
-        resolved_output_dir = (
-            _default_output_dir(state.repo_root)
-            if output_dir is None
-            else output_dir
-            if output_dir.is_absolute()
-            else (state.repo_root / output_dir).resolve()
-        )
-        return _run_quarto(
-            slides_directory=directory,
-            quarto_command="preview",
-            output_dir=resolved_output_dir,
-        )
+        with click_error_boundary():
+            state = AppState.from_typer(ctx)
+            quarto_config = QuartoConfig.require(state.config)
+            directory = _require_quarto_dir(quarto_config.directory)
+            resolved_output_dir = (
+                _default_output_dir(state.repo_root)
+                if output_dir is None
+                else output_dir
+                if output_dir.is_absolute()
+                else (state.repo_root / output_dir).resolve()
+            )
+            return _run_quarto(
+                slides_directory=directory,
+                quarto_command="preview",
+                output_dir=resolved_output_dir,
+            )
 
 
 def register_quarto_cli(app: typer.Typer) -> None:

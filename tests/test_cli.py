@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 from textwrap import dedent
 
+import pytest
 import typer
 from mkdocs.commands.build import build as mkdocs_build
 from mkdocs.config import load_config
@@ -18,11 +19,17 @@ import coursemd.integrations.mkdocs.cli
 import coursemd.integrations.quarto.cli
 from coursemd import cli
 from coursemd.core.config import CourseConfig
+from coursemd.core.exceptions import CoursemdError, CoursemdValidationError
 from coursemd.core.loaders.dates import normalize_release_date
+from coursemd.core.models.repository import CourseRepository
 from coursemd.integrations.canvas.config import CanvasConfig
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
 
 runner = CliRunner()
+
+
+def test_validation_error_is_a_coursemd_error() -> None:
+    assert issubclass(CoursemdValidationError, CoursemdError)
 
 
 def _write_file(path: Path, contents: str) -> None:
@@ -267,7 +274,8 @@ assignments:
     result = runner.invoke(cli.app, ["validate"])
 
     assert result.exit_code == 1
-    assert "checkpoints[0].date must fall between 'release_date' and 'due_date'" in result.output
+    assert "checkpoints[0].date must fall between 'release_date' and" in result.output
+    assert "'due_date'." in result.output
 
 
 def test_validate_fails_for_quiz_missing_release_date(tmp_path: Path, monkeypatch) -> None:
@@ -513,6 +521,44 @@ def test_config_rejects_invalid_timezone(tmp_path: Path, monkeypatch) -> None:
 
     assert result.exit_code == 1
     assert "timezone must be a valid IANA timezone" in result.output
+
+
+def test_config_load_raises_core_validation_error_for_invalid_timezone(tmp_path: Path) -> None:
+    _build_repo_fixture(tmp_path)
+    config_path = tmp_path / ".coursemd.yml"
+    config_path.write_text(
+        "timezone: Not/A_Timezone\n" + config_path.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(CoursemdValidationError, match="timezone must be a valid IANA timezone"):
+        CourseConfig.load(start_dir=tmp_path)
+
+
+def test_repository_build_raises_core_validation_error_for_invalid_assignment(
+    tmp_path: Path,
+) -> None:
+    _build_repo_fixture(tmp_path)
+    _write_file(
+        tmp_path / "assignments" / "hw1.md",
+        """\
+---
+title: Homework 1
+kind: homework
+due_date: 2026-01-16
+assignments:
+  - name: Homework 1
+    due_at: "2026-01-16T23:59:00-05:00"
+    points: 100
+---
+
+# Homework 1
+""",
+    )
+    config = CourseConfig.load(start_dir=tmp_path)
+
+    with pytest.raises(CoursemdValidationError, match="'release_date' must be a valid date"):
+        CourseRepository.build(config)
 
 
 def test_release_date_normalization_uses_configured_timezone_dst(
