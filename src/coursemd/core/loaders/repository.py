@@ -49,18 +49,6 @@ def validate_schedule_data(source_file: Path, value: Any) -> dict[str, Any]:
     )
     course["start_date"] = start_date
     course["end_date"] = end_date
-    if "canvas_course_id" in course_raw:
-        canvas_course_id = course_raw.get("canvas_course_id")
-        if (
-            canvas_course_id is None
-            or isinstance(canvas_course_id, bool)
-            or not str(canvas_course_id).strip()
-        ):
-            raise ValueError(
-                f"{source_file}: 'course.canvas_course_id' must be a non-empty "
-                "string or integer when provided."
-            )
-
     events_raw = schedule.get("events", [])
     if not isinstance(events_raw, list):
         raise TypeError(f"{source_file}: 'events' must be a list.")
@@ -172,25 +160,13 @@ def load_schedule_assignments(
     return sorted(assignments, key=lambda item: item["release_date"])
 
 
-def load_schedule_quizzes(
-    files: list[Path],
-    *,
-    canvas_base_url: str,
-    canvas_course_id: int | str | None,
-) -> list[QuizDict]:
+def load_schedule_quizzes(files: list[Path]) -> list[QuizDict]:
     """Load quiz metadata for schedule rendering."""
 
     quizzes: list[QuizDict] = []
     for path in files:
         metadata = load_markdown_metadata(path)
-        quizzes.append(
-            validate_schedule_quiz_metadata(
-                path,
-                metadata,
-                canvas_base_url=canvas_base_url,
-                canvas_course_id=canvas_course_id,
-            )
-        )
+        quizzes.append(validate_schedule_quiz_metadata(path, metadata))
 
     return sorted(quizzes, key=lambda item: item["release_date"])
 

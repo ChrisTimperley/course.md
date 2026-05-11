@@ -5,12 +5,27 @@ from __future__ import annotations
 import html
 from typing import TYPE_CHECKING, Any
 
-from coursemd.core.loaders.quizzes import QUESTION_TYPE_MAP
+from coursemd.integrations.canvas.models import canvas_quiz
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from coursemd.core.models.quiz import QuestionSpec, QuizSpec
+
+QUESTION_TYPE_MAP: dict[str, str] = {
+    "multiple_choice": "multiple_choice_question",
+    "true_false": "true_false_question",
+    "multiple_answers": "multiple_answers_question",
+    "short_answer": "short_answer_question",
+    "essay": "essay_question",
+    "matching": "matching_question",
+}
+
+QUIZ_TYPE_MAP: dict[str, str] = {
+    "reading": "assignment",
+    "reflection": "graded_survey",
+    "phase": "assignment",
+}
 
 
 def _ensure_html(text: str) -> str:
@@ -126,7 +141,7 @@ def form_for_quiz(
     publish_override: bool,
 ) -> dict[str, Any]:
     publish_value = publish_override or spec.published
-    canvas = spec.integrations.canvas
+    canvas = canvas_quiz(spec.integrations, spec.source_type, QUIZ_TYPE_MAP)
     form: dict[str, Any] = {
         "quiz[title]": spec.title,
         "quiz[quiz_type]": canvas.quiz_type or "assignment",

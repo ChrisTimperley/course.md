@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from coursemd.core.models.integrations import AssignmentIntegrations
-
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -15,7 +13,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class AssignmentSpec:
-    """Canonical assignment sync specification."""
+    """Canonical assignment specification."""
 
     source_file: Path
     name: str
@@ -31,4 +29,4 @@ class AssignmentSpec:
     doc_url: str | None = None
     doc_anchor: str | None = None
     notes: str | None = None
-    integrations: AssignmentIntegrations = field(default_factory=AssignmentIntegrations)
+    integrations: dict[str, Any] = field(default_factory=dict)

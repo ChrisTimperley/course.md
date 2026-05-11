@@ -26,6 +26,7 @@ from coursemd.core.loaders.repository import load_schedule_assignments, load_sch
 from coursemd.core.models.repository import CourseRepository
 from coursemd.core.utils import current_date, set_course_timezone
 from coursemd.integrations.canvas.config import CanvasConfig
+from coursemd.integrations.canvas.schedule import inject_quiz_links
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
 from coursemd.integrations.mkdocs.macros import define_env
 
@@ -177,11 +178,12 @@ class CoursemdPlugin(BasePlugin):
                 assignment_files,
                 assignment_url_path=self.mkdocs_integration.assignments_url_path,
             )
-            schedule_data["quizzes"] = load_schedule_quizzes(
-                quiz_files,
-                canvas_base_url=canvas_cfg.base_url if canvas_cfg is not None else "",
-                canvas_course_id=canvas_course_id,
-            )
+            quizzes = load_schedule_quizzes(quiz_files)
+            if canvas_cfg is not None and canvas_course_id is not None:
+                quizzes = inject_quiz_links(
+                    quizzes, quiz_files, canvas_cfg.base_url, canvas_course_id
+                )
+            schedule_data["quizzes"] = quizzes
             course_data["schedule"] = schedule_data
         return course_data
 

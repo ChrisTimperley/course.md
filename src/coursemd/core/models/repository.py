@@ -60,7 +60,6 @@ class CourseRepository:
         data_files: list[Path] | None = None,
         assignment_files: list[Path] | None = None,
         quiz_files: list[Path] | None = None,
-        require_canvas_fields: bool = False,
     ) -> CourseRepository:
         """Build a repository from a config, discovering files from configured paths."""
         resolved_data_files = data_files if data_files is not None else _default_data_files(config)
@@ -74,12 +73,6 @@ class CourseRepository:
         return cls(
             repo_root=config.repo_root,
             data=load_data_files(resolved_data_files),
-            assignments=load_assignment_specs(
-                resolved_assignment_files,
-                require_canvas_fields=require_canvas_fields,
-            ),
-            quizzes=load_quiz_specs(
-                resolved_quiz_files,
-                require_canvas_fields=require_canvas_fields,
-            ),
+            assignments=load_assignment_specs(resolved_assignment_files),
+            quizzes=load_quiz_specs(resolved_quiz_files),
         )

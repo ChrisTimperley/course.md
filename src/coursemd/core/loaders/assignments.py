@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 from coursemd.core.loaders.dates import normalize_due_at, require_date, require_release_date
 from coursemd.core.loaders.markdown import load_markdown_metadata
 from coursemd.core.models.assignment import AssignmentSpec
-from coursemd.core.models.integrations import AssignmentIntegrations, CanvasAssignmentIntegration
 from coursemd.core.rubric import select_rubric_criteria
 
 if TYPE_CHECKING:
@@ -138,27 +137,16 @@ def validate_schedule_assignment_metadata(
     return assignment
 
 
-def parse_assignment_specs_from_file(
-    source_file: Path,
-    *,
-    require_canvas_fields: bool = True,
-) -> list[AssignmentSpec]:
+def parse_assignment_specs_from_file(source_file: Path) -> list[AssignmentSpec]:
     metadata = load_markdown_metadata(source_file)
-    schedule_metadata = validate_schedule_assignment_metadata(source_file, metadata)
+    validate_schedule_assignment_metadata(source_file, metadata)
 
     assignments = metadata.get("assignments")
-    if assignments is None:
-        if not require_canvas_fields:
-            return []
-        raise ValueError(f"{source_file}: missing 'assignments' frontmatter list.")
+    if assignments is None or assignments == []:
+        return []
     if not isinstance(assignments, list):
         raise TypeError(f"{source_file}: 'assignments' must be a list.")
-    if not assignments:
-        if not require_canvas_fields:
-            return []
-        raise ValueError(f"{source_file}: 'assignments' must contain at least one item.")
 
-    phase_title = schedule_metadata["title"]
     specs: list[AssignmentSpec] = []
     seen_names: set[str] = set()
 
@@ -168,26 +156,19 @@ def parse_assignment_specs_from_file(
 
         name = _require_non_empty_string(item.get("name"), source_file, "assignments[].name")
         if name in seen_names:
-            raise ValueError(f"{source_file}: duplicate canvas assignment name '{name}'.")
+            raise ValueError(f"{source_file}: duplicate assignment name '{name}'.")
         seen_names.add(name)
 
         due_at = normalize_due_at(item.get("due_at"), source_file, name)
-        integrations = _optional_mapping(
-            item.get("integrations"),
-            source_file,
-            f"{name}.integrations",
-        )
-        canvas_integration_map = _optional_mapping(
-            integrations.get("canvas"),
-            source_file,
-            f"{name}.integrations.canvas",
-        )
-        group_name = str(canvas_integration_map.get("assignment_group") or phase_title).strip()
-        if not group_name:
-            raise ValueError(
-                f"{source_file}: '{name}' integrations.canvas.assignment_group must be a "
-                "non-empty string."
-            )
+
+        integrations_raw = item.get("integrations")
+        integrations: dict[str, Any] = {}
+        if integrations_raw is not None:
+            if not isinstance(integrations_raw, dict):
+                raise TypeError(
+                    f"{source_file}: '{name}.integrations' must be an object/map."
+                )
+            integrations = integrations_raw
 
         submission_types_raw = item.get("submission_types", ["none"])
         if isinstance(submission_types_raw, str):
@@ -220,14 +201,6 @@ def parse_assignment_specs_from_file(
         group_assignment = bool(
             item.get("group_assignment", metadata.get("group_assignment", False))
         )
-        canvas_id = canvas_integration_map.get("id")
-        if canvas_id is not None:
-            try:
-                canvas_id = int(canvas_id)
-            except (TypeError, ValueError) as exc:
-                raise ValueError(
-                    f"{source_file}: '{name}' integrations.canvas.id must be an integer."
-                ) from exc
 
         submission_form = _parse_submission_form(item.get("submission_form"), source_file, name)
 
@@ -261,12 +234,7 @@ def parse_assignment_specs_from_file(
                 doc_url=doc_url,
                 doc_anchor=doc_anchor,
                 notes=notes,
-                integrations=AssignmentIntegrations(
-                    canvas=CanvasAssignmentIntegration(
-                        id=canvas_id,
-                        assignment_group=group_name,
-                    )
-                ),
+                integrations=integrations,
             )
         )
     return specs
@@ -277,14 +245,8 @@ def default_assignment_files(repo_root: Path) -> list[Path]:
     return sorted(path for path in docs_dir.glob("*.md") if path.name != "index.md")
 
 
-def load_assignment_specs(
-    files: list[Path],
-    *,
-    require_canvas_fields: bool = True,
-) -> list[AssignmentSpec]:
+def load_assignment_specs(files: list[Path]) -> list[AssignmentSpec]:
     specs: list[AssignmentSpec] = []
     for path in files:
-        specs.extend(
-            parse_assignment_specs_from_file(path, require_canvas_fields=require_canvas_fields)
-        )
+        specs.extend(parse_assignment_specs_from_file(path))
     return specs

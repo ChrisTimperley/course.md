@@ -8,8 +8,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from pathlib import Path
 
-from coursemd.core.models.integrations import QuizIntegrations
-
 
 @dataclass(frozen=True)
 class QuestionSpec:
@@ -33,7 +31,7 @@ class ReadingSpec:
 
 @dataclass(frozen=True)
 class QuizSpec:
-    """Canonical quiz sync specification."""
+    """Canonical quiz specification."""
 
     source_file: Path
     title: str
@@ -45,4 +43,4 @@ class QuizSpec:
     description: str | None
     readings: list[ReadingSpec] = field(default_factory=list)
     questions: list[QuestionSpec] = field(default_factory=list)
-    integrations: QuizIntegrations = field(default_factory=QuizIntegrations)
+    integrations: dict[str, Any] = field(default_factory=dict)

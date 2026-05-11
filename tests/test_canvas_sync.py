@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any
 
 from coursemd.core.models.assignment import AssignmentSpec
-from coursemd.core.models.integrations import AssignmentIntegrations, CanvasAssignmentIntegration
 from coursemd.integrations.canvas.sync import CanvasSyncEvent, sync_assignments_to_canvas
 
 
@@ -32,9 +31,7 @@ def test_assignment_sync_reports_events_without_printing(capsys) -> None:
         group_assignment=False,
         submission_form=[],
         rubric_criteria=[],
-        integrations=AssignmentIntegrations(
-            canvas=CanvasAssignmentIntegration(assignment_group="Homework")
-        ),
+        integrations={"canvas": {"assignment_group": "Homework"}},
     )
     events: list[CanvasSyncEvent] = []
 

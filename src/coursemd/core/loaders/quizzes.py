@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 
 from coursemd.core.loaders.dates import normalize_due_at, require_date, require_release_date
 from coursemd.core.loaders.markdown import load_markdown_post
-from coursemd.core.models.integrations import CanvasQuizIntegration, QuizIntegrations
 from coursemd.core.models.quiz import QuestionSpec, QuizSpec, ReadingSpec
 
 if TYPE_CHECKING:
@@ -15,20 +14,16 @@ if TYPE_CHECKING:
 
     from coursemd.core.types import QuizDict
 
-QUESTION_TYPE_MAP = {
-    "multiple_choice": "multiple_choice_question",
-    "true_false": "true_false_question",
-    "multiple_answers": "multiple_answers_question",
-    "short_answer": "short_answer_question",
-    "essay": "essay_question",
-    "matching": "matching_question",
-}
+VALID_QUESTION_TYPES: frozenset[str] = frozenset({
+    "multiple_choice",
+    "true_false",
+    "multiple_answers",
+    "short_answer",
+    "essay",
+    "matching",
+})
 
-QUIZ_TYPE_MAP = {
-    "reading": "assignment",
-    "reflection": "graded_survey",
-    "phase": "assignment",
-}
+VALID_QUIZ_TYPES: frozenset[str] = frozenset({"reading", "reflection", "phase"})
 
 
 def _require_non_empty_string(value: Any, source_file: Path, field_name: str) -> str:
@@ -78,9 +73,6 @@ def parse_readings(value: Any, source_file: Path, quiz_type: str) -> list[Readin
 def validate_schedule_quiz_metadata(
     source_file: Path,
     metadata: dict[str, Any],
-    *,
-    canvas_base_url: str,
-    canvas_course_id: int | str | None,
 ) -> QuizDict:
     """Validate and normalize quiz metadata used in the rendered schedule."""
 
@@ -103,18 +95,6 @@ def validate_schedule_quiz_metadata(
         if not link_text:
             raise ValueError(f"{source_file}: 'link' must be a non-empty string when provided.")
         quiz["link"] = link_text
-    else:
-        integrations = _optional_mapping(metadata.get("integrations"), source_file, "integrations")
-        canvas_integration = _optional_mapping(
-            integrations.get("canvas"),
-            source_file,
-            "integrations.canvas",
-        )
-        canvas_id = canvas_integration.get("id")
-        if canvas_course_id and canvas_id is not None:
-            quiz["link"] = (
-                f"{canvas_base_url.rstrip('/')}/courses/{canvas_course_id}/quizzes/{canvas_id}"
-            )
 
     quiz_type = str(metadata.get("type", "")).strip().lower()
     readings = parse_readings(metadata.get("readings"), source_file, quiz_type)
@@ -131,24 +111,20 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
     title = _require_non_empty_string(meta.get("title"), source_file, "title")
 
     qtype = str(meta.get("type", "")).strip().lower()
-    if qtype not in QUIZ_TYPE_MAP:
+    if qtype not in VALID_QUIZ_TYPES:
         raise ValueError(
-            f"{source_file}: 'type' must be one of: {', '.join(QUIZ_TYPE_MAP)}. Got '{qtype}'."
+            f"{source_file}: 'type' must be one of: {', '.join(sorted(VALID_QUIZ_TYPES))}. "
+            f"Got '{qtype}'."
         )
 
-    integrations = _optional_mapping(meta.get("integrations"), source_file, "integrations")
-    canvas_integration_map = _optional_mapping(
-        integrations.get("canvas"),
-        source_file,
-        "integrations.canvas",
-    )
-    quiz_type_override = canvas_integration_map.get("quiz_type")
-    canvas_quiz_type = str(quiz_type_override) if quiz_type_override else QUIZ_TYPE_MAP[qtype]
+    integrations_raw = meta.get("integrations")
+    integrations: dict[str, Any] = {}
+    if integrations_raw is not None:
+        if not isinstance(integrations_raw, dict):
+            raise TypeError(f"{source_file}: 'integrations' must be an object/map.")
+        integrations = dict(integrations_raw)
 
     due_at = normalize_due_at(meta.get("due_at"), source_file, title)
-    assignment_group = str(
-        canvas_integration_map.get("assignment_group") or f"{qtype.title()} Quizzes"
-    )
     points = meta.get("points")
     if points is not None:
         try:
@@ -159,14 +135,6 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
     unlock_at = require_release_date(meta.get("release_date"), source_file, "release_date")
     description = str(meta.get("description", "")).strip() or None
     readings = parse_readings(meta.get("readings"), source_file, qtype)
-    canvas_id = canvas_integration_map.get("id")
-    if canvas_id is not None:
-        try:
-            canvas_id = int(canvas_id)
-        except (TypeError, ValueError) as exc:
-            raise ValueError(
-                f"{source_file}: 'integrations.canvas.id' must be an integer."
-            ) from exc
 
     questions_raw = meta.get("questions")
     if questions_raw is None:
@@ -182,10 +150,10 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
         if not isinstance(question, dict):
             raise TypeError(f"{source_file}: each question must be an object.")
         qtype_inner = str(question.get("question_type", "")).strip().lower()
-        if qtype_inner not in QUESTION_TYPE_MAP:
+        if qtype_inner not in VALID_QUESTION_TYPES:
             raise ValueError(
                 f"{source_file}: question {i + 1} has invalid question_type '{qtype_inner}'. "
-                f"Must be one of: {', '.join(QUESTION_TYPE_MAP)}."
+                f"Must be one of: {', '.join(sorted(VALID_QUESTION_TYPES))}."
             )
         qtext = question.get("question_text", "")
         if not str(qtext).strip():
@@ -321,13 +289,7 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
         description=description,
         readings=readings,
         questions=question_specs,
-        integrations=QuizIntegrations(
-            canvas=CanvasQuizIntegration(
-                id=canvas_id,
-                assignment_group=assignment_group,
-                quiz_type=canvas_quiz_type,
-            )
-        ),
+        integrations=integrations,
     )
 
 
@@ -338,17 +300,12 @@ def default_quiz_files(repo_root: Path) -> list[Path]:
     return sorted(path for path in quizzes_dir.glob("*.md") if path.name != "index.md")
 
 
-def load_quiz_specs(
-    files: list[Path],
-    *,
-    require_canvas_fields: bool = True,
-) -> list[QuizSpec]:
+def load_quiz_specs(files: list[Path]) -> list[QuizSpec]:
     specs: list[QuizSpec] = []
     for path in files:
-        if not require_canvas_fields:
-            metadata = load_markdown_post(path).metadata
-            questions = metadata.get("questions")
-            if questions is None or questions == []:
-                continue
+        metadata = load_markdown_post(path).metadata
+        questions = metadata.get("questions")
+        if questions is None or questions == []:
+            continue
         specs.append(parse_quiz_file(path))
     return specs

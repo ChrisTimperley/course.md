@@ -7,7 +7,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
 from coursemd.integrations.canvas.assignments import form_for_assignment
-from coursemd.integrations.canvas.quizzes import form_for_quiz, question_payload_for_canvas
+from coursemd.integrations.canvas.models import canvas_assignment, canvas_quiz
+from coursemd.integrations.canvas.quizzes import (
+    QUIZ_TYPE_MAP,
+    form_for_quiz,
+    question_payload_for_canvas,
+)
 from coursemd.integrations.canvas.rubrics import form_for_rubric
 
 if TYPE_CHECKING:
@@ -96,7 +101,8 @@ def sync_assignments_to_canvas(
 
     results: list[dict[str, Any]] = []
     for spec in specs:
-        assignment_group = spec.integrations.canvas.assignment_group or spec.name
+        canvas_data = canvas_assignment(spec.integrations)
+        assignment_group = canvas_data.assignment_group or spec.name
         group = groups_by_name.get(assignment_group)
         if group is None:
             _emit(
@@ -124,8 +130,8 @@ def sync_assignments_to_canvas(
             assignment_url_path=assignment_url_path,
         )
         existing: dict[str, Any] | None = None
-        if spec.integrations.canvas.id is not None:
-            existing = assignments_by_id.get(spec.integrations.canvas.id)
+        if canvas_data.id is not None:
+            existing = assignments_by_id.get(canvas_data.id)
         if existing is None:
             existing = assignments_by_name.get(spec.name)
 
@@ -290,7 +296,8 @@ def sync_quizzes_to_canvas(
 
     results: list[dict[str, Any]] = []
     for spec in specs:
-        assignment_group = spec.integrations.canvas.assignment_group or spec.title
+        canvas_data = canvas_quiz(spec.integrations, spec.source_type, QUIZ_TYPE_MAP)
+        assignment_group = canvas_data.assignment_group or spec.title
         group = groups_by_name.get(assignment_group)
         if group is None:
             _emit(
@@ -312,8 +319,8 @@ def sync_quizzes_to_canvas(
         form = form_for_quiz(spec, group_id, publish_override)
 
         existing: dict[str, Any] | None = None
-        if spec.integrations.canvas.id is not None:
-            existing = quizzes_by_id.get(spec.integrations.canvas.id)
+        if canvas_data.id is not None:
+            existing = quizzes_by_id.get(canvas_data.id)
         if existing is None:
             existing = quizzes_by_title.get(spec.title)
 
