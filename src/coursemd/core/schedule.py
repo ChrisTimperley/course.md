@@ -21,7 +21,7 @@ class ScheduleEntry:
     quiz_due: QuizDict | None
 
 
-@dataclass
+@dataclass(frozen=True)
 class Schedule:
     """Represents a complete course schedule."""
 
