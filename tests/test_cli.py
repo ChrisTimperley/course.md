@@ -561,6 +561,22 @@ assignments:
         CourseRepository.build(config)
 
 
+def test_repository_build_retains_loaded_config(tmp_path: Path) -> None:
+    _build_repo_fixture(tmp_path)
+    config = CourseConfig.load(start_dir=tmp_path)
+
+    repository = CourseRepository.build(config)
+    mkdocs_config = MkdocsIntegrationConfig.require(config)
+
+    assert repository.config is config
+    assert repository.repo_root == config.repo_root
+    assert repository.timezone == config.timezone
+    assert repository.paths == config.paths
+    assert repository.get_integration("mkdocs", MkdocsIntegrationConfig) == mkdocs_config
+    assert MkdocsIntegrationConfig.get(repository) == mkdocs_config
+    assert MkdocsIntegrationConfig.require(repository) == mkdocs_config
+
+
 def test_release_date_normalization_uses_configured_timezone_dst(
     tmp_path: Path,
     monkeypatch,

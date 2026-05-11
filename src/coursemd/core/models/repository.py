@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from coursemd.core.loaders.assignments import load_assignment_specs
 from coursemd.core.loaders.quizzes import load_quiz_specs
@@ -12,9 +12,12 @@ from coursemd.core.loaders.repository import load_data_files
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from coursemd.core.config import CourseConfig
+    from coursemd.core.config import CourseConfig, CoursePathsConfig
+    from coursemd.core.integration_config import IntegrationConfig
     from coursemd.core.models.assignment import AssignmentSpec
     from coursemd.core.models.quiz import QuizSpec
+
+T = TypeVar("T", bound="IntegrationConfig")
 
 
 def _default_data_files(config: CourseConfig) -> list[Path]:
@@ -47,10 +50,25 @@ def _default_quiz_files(config: CourseConfig) -> list[Path]:
 class CourseRepository:
     """A loaded course repository as a coherent object graph."""
 
-    repo_root: Path
+    config: CourseConfig
     data: dict[str, Any] = field(default_factory=dict)
     assignments: list[AssignmentSpec] = field(default_factory=list)
     quizzes: list[QuizSpec] = field(default_factory=list)
+
+    @property
+    def repo_root(self) -> Path:
+        return self.config.repo_root
+
+    @property
+    def timezone(self) -> str:
+        return self.config.timezone
+
+    @property
+    def paths(self) -> CoursePathsConfig:
+        return self.config.paths
+
+    def get_integration(self, name: str, config_type: type[T]) -> T | None:
+        return self.config.get_integration(name, config_type)
 
     @classmethod
     def build(
@@ -71,7 +89,7 @@ class CourseRepository:
         )
 
         return cls(
-            repo_root=config.repo_root,
+            config=config,
             data=load_data_files(resolved_data_files),
             assignments=load_assignment_specs(resolved_assignment_files),
             quizzes=load_quiz_specs(resolved_quiz_files),

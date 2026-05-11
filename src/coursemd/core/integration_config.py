@@ -10,7 +10,7 @@ __all__ = [
 import inspect
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, ClassVar, Self, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, Self, TypeVar
 
 from coursemd.core.exceptions import CoursemdValidationError
 
@@ -19,9 +19,15 @@ if TYPE_CHECKING:
 
     import typer
 
-    from coursemd.core.config import CourseConfig
-
 TIntegrationConfig = TypeVar("TIntegrationConfig", bound="IntegrationConfig")
+
+
+class IntegrationLookup(Protocol):
+    def get_integration(
+        self,
+        name: str,
+        config_type: type[TIntegrationConfig],
+    ) -> TIntegrationConfig | None: ...
 
 _INTEGRATION_CONFIGS: dict[str, type[IntegrationConfig]] = {}
 _INTEGRATION_ALIASES: dict[str, str] = {}
@@ -80,12 +86,12 @@ class IntegrationConfig(ABC):
         del app
 
     @classmethod
-    def get(cls, config: CourseConfig) -> Self | None:
-        return config.get_integration(cls.metavar, cls)
+    def get(cls, source: IntegrationLookup) -> Self | None:
+        return source.get_integration(cls.metavar, cls)
 
     @classmethod
-    def require(cls, config: CourseConfig) -> Self:
-        integration_config = cls.get(config)
+    def require(cls, source: IntegrationLookup) -> Self:
+        integration_config = cls.get(source)
         if integration_config is None:
             raise CoursemdValidationError(cls.missing_config_message())
         return integration_config

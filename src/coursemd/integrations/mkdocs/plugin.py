@@ -74,6 +74,7 @@ class CoursemdPlugin(BasePlugin):
         self.mkdocs_integration = MkdocsIntegrationConfig.require(self.course_config)
         set_course_timezone(self.course_config.timezone)
         self.course_repository = self._load_course_repository()
+        self.course_config = self.course_repository.config
         self.course_data = self._build_course_data()
         self.in_preview = getattr(self, "in_preview", False) or self._env_truthy("COURSEMD_PREVIEW")
         self.current_date = current_date()
@@ -85,10 +86,10 @@ class CoursemdPlugin(BasePlugin):
             .get("course", {})
             .get("canvas_course_id"),
         }
-        canvas_config = CanvasConfig.get(self.course_config)
+        canvas_config = self.course_repository.get_integration("canvas", CanvasConfig)
         if canvas_config is not None:
             extra["canvas_base_url"] = canvas_config.base_url
-        extra["course_timezone"] = self.course_config.timezone
+        extra["course_timezone"] = self.course_repository.timezone
         config["extra"] = extra
 
         self._configure_watch(config)
@@ -152,25 +153,25 @@ class CoursemdPlugin(BasePlugin):
         schedule = course_data.get("schedule")
         if isinstance(schedule, dict):
             schedule_data = dict(schedule)
-            canvas_cfg = CanvasConfig.get(self.course_config)
+            canvas_cfg = self.course_repository.get_integration("canvas", CanvasConfig)
             canvas_course_id = schedule_data.get("course", {}).get("canvas_course_id")
 
             assignment_files = (
                 sorted(
                     path
-                    for path in self.course_config.paths.assignments_dir.glob("*.md")
+                    for path in self.course_repository.paths.assignments_dir.glob("*.md")
                     if path.name != "index.md"
                 )
-                if self.course_config.paths.assignments_dir.is_dir()
+                if self.course_repository.paths.assignments_dir.is_dir()
                 else []
             )
             quiz_files = (
                 sorted(
                     path
-                    for path in self.course_config.paths.quizzes_dir.glob("*.md")
+                    for path in self.course_repository.paths.quizzes_dir.glob("*.md")
                     if path.name != "index.md"
                 )
-                if self.course_config.paths.quizzes_dir.is_dir()
+                if self.course_repository.paths.quizzes_dir.is_dir()
                 else []
             )
 
@@ -190,9 +191,9 @@ class CoursemdPlugin(BasePlugin):
     def _configure_watch(self, config: MkDocsConfig) -> None:
         watched = list(config.get("watch") or [])
         for path in (
-            self.course_config.paths.data_dir,
-            self.course_config.paths.assignments_dir,
-            self.course_config.paths.quizzes_dir,
+            self.course_repository.paths.data_dir,
+            self.course_repository.paths.assignments_dir,
+            self.course_repository.paths.quizzes_dir,
         ):
             text = str(path)
             if text not in watched:
@@ -201,7 +202,7 @@ class CoursemdPlugin(BasePlugin):
 
     def _generated_nav(self, nav: list[Any]) -> list[Any]:
         assignment_nav = self._nav_items_for_markdown_dir(
-            self.course_config.paths.assignments_dir,
+            self.course_repository.paths.assignments_dir,
             base_uri=self.mkdocs_integration.assignments_url_path,
             include_index=True,
         )
@@ -247,7 +248,7 @@ class CoursemdPlugin(BasePlugin):
     def _add_generated_pages(self, files: Files, config: MkDocsConfig) -> None:
         for directory, base_uri, include_index in (
             (
-                self.course_config.paths.assignments_dir,
+                self.course_repository.paths.assignments_dir,
                 self.mkdocs_integration.assignments_url_path,
                 True,
             ),
