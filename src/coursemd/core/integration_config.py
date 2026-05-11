@@ -17,6 +17,8 @@ import click
 if TYPE_CHECKING:
     from pathlib import Path
 
+    import typer
+
     from coursemd.core.config import CourseConfig
 
 TIntegrationConfig = TypeVar("TIntegrationConfig", bound="IntegrationConfig")
@@ -72,6 +74,10 @@ class IntegrationConfig(ABC):
     @staticmethod
     def iter_types() -> tuple[type[IntegrationConfig], ...]:
         return tuple(_INTEGRATION_CONFIGS.values())
+
+    @classmethod
+    def register_cli(cls, app: typer.Typer) -> None:
+        del app
 
     @classmethod
     def get(cls, config: CourseConfig) -> Self | None:

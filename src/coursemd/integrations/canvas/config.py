@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
+
+if TYPE_CHECKING:
+    import typer
 
 from coursemd.core.config_helpers import (
     optional_int,
@@ -51,6 +54,13 @@ class CanvasConfig(IntegrationConfig):
                 label=f"integrations.{cls.metavar}.group_category_id",
             ),
         )
+
+    @classmethod
+    def register_cli(cls, app: typer.Typer) -> None:
+        del cls
+        from coursemd.integrations.canvas.cli import register_canvas_cli  # noqa: PLC0415
+
+        register_canvas_cli(app)
 
 
 __all__ = [

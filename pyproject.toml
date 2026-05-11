@@ -76,6 +76,12 @@ coursemd = "coursemd.cli:main"
 coursemd = "coursemd.integrations.mkdocs.plugin:CoursemdPlugin"
 coursemd-drafts = "coursemd.integrations.mkdocs.drafts:DraftsPlugin"
 
+[project.entry-points."coursemd.integrations"]
+canvas = "coursemd.integrations.canvas.config"
+github = "coursemd.integrations.github.config"
+mkdocs = "coursemd.integrations.mkdocs.config"
+quarto = "coursemd.integrations.quarto.config"
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

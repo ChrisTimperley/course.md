@@ -10,6 +10,7 @@ from mkdocs.commands.build import build as mkdocs_build
 from mkdocs.config import load_config
 from typer.testing import CliRunner
 
+import coursemd.integrations
 import coursemd.integrations.canvas.cli
 import coursemd.integrations.github.client
 import coursemd.integrations.github.setup
@@ -410,6 +411,80 @@ def test_optional_canvas_commands_report_missing_canvas_dependency(monkeypatch) 
 
     assert result.exit_code == 1
     assert "coursemd[canvas]" in result.output
+
+
+def test_entry_point_integrations_can_register_config_and_cli(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _build_repo_fixture(tmp_path)
+    package_dir = tmp_path / "coursemd_demo_plugin"
+    _write_file(
+        package_dir / "__init__.py",
+        "",
+    )
+    _write_file(
+        package_dir / "config.py",
+        """
+        from __future__ import annotations
+
+        import typer
+
+        from coursemd.core.integration_config import IntegrationConfig, IntegrationConfigContext
+
+
+        class DemoIntegrationConfig(IntegrationConfig):
+            metavar = "demo"
+
+            @classmethod
+            def parse(cls, raw_value, *, context: IntegrationConfigContext):
+                del raw_value
+                del context
+                return cls()
+
+            @classmethod
+            def register_cli(cls, app: typer.Typer) -> None:
+                del cls
+                demo_app = typer.Typer(no_args_is_help=True)
+                app.add_typer(demo_app, name="demo")
+
+                @demo_app.command("ping")
+                def ping() -> int:
+                    typer.echo("demo ok")
+                    return 0
+        """,
+    )
+    config_path = tmp_path / ".coursemd.yml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            "paths:\n",
+            "    demo: {}\npaths:\n",
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_entry_points(*, group: str) -> list[object]:
+        if group != "coursemd.integrations":
+            return []
+        return [type("EntryPoint", (), {"value": "coursemd_demo_plugin.config"})()]
+
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(coursemd.integrations, "_builtin_integrations_loaded", False)
+    monkeypatch.setattr(coursemd.integrations, "entry_points", fake_entry_points)
+
+    config = CourseConfig.load(start_dir=tmp_path)
+
+    assert "demo" in config.integrations
+    assert config.integrations["demo"].__class__.metavar == "demo"
+
+    local_app = typer.Typer(no_args_is_help=True)
+    coursemd.integrations.register_integration_clis(local_app)
+
+    result = runner.invoke(local_app, ["demo", "ping"])
+
+    assert result.exit_code == 0
+    assert "demo ok" in result.stdout
 
 
 def test_config_reads_course_timezone(tmp_path: Path) -> None:

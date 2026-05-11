@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 if TYPE_CHECKING:
     from pathlib import Path
 
+    import typer
+
 from coursemd.core.config_helpers import (
     optional_version,
     require_mapping,
@@ -41,5 +43,12 @@ class QuartoConfig(IntegrationConfig):
                 label=f"integrations.{cls.metavar}.dir",
             ),
         )
+
+    @classmethod
+    def register_cli(cls, app: typer.Typer) -> None:
+        del cls
+        from coursemd.integrations.quarto.cli import register_quarto_cli  # noqa: PLC0415
+
+        register_quarto_cli(app)
 
 __all__ = ("QuartoConfig",)

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
+
+if TYPE_CHECKING:
+    import typer
 
 from coursemd.core.config_helpers import (
     optional_version,
@@ -62,6 +65,13 @@ class GitHubConfig(IntegrationConfig):
                 label=f"integrations.{cls.metavar}.default_repository_permission",
             ),
         )
+
+    @classmethod
+    def register_cli(cls, app: typer.Typer) -> None:
+        del cls
+        from coursemd.integrations.github.cli import register_github_cli  # noqa: PLC0415
+
+        register_github_cli(app)
 
 
 __all__ = [

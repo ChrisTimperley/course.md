@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 if TYPE_CHECKING:
     from pathlib import Path
 
+    import typer
+
 from coursemd.core.config_helpers import (
     optional_version,
     require_mapping,
@@ -64,6 +66,13 @@ class MkdocsIntegrationConfig(IntegrationConfig):
                 label=f"integrations.{cls.metavar}.assignments_url_path",
             ),
         )
+
+    @classmethod
+    def register_cli(cls, app: typer.Typer) -> None:
+        del cls
+        from coursemd.integrations.mkdocs.cli import register_site_cli  # noqa: PLC0415
+
+        register_site_cli(app)
 
 
 __all__ = [
