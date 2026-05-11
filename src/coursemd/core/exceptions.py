@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from functools import wraps
 from inspect import Signature, signature
 from pathlib import Path
 from typing import TYPE_CHECKING, ParamSpec, TypeVar
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -48,12 +49,21 @@ def _source_path_for_call(
         if isinstance(value, Path):
             return value
 
-    for name in ("validate", "validation"):
-        value = bound_arguments.arguments.get(name)
-        source_path = getattr(value, "source_path", None)
-        if isinstance(source_path, Path):
-            return source_path
     return None
+
+
+@contextmanager
+def validation_error_boundary(source_path: Path | None) -> Iterator[None]:
+    """Attach a source path to validation errors raised within a block."""
+
+    try:
+        yield
+    except CoursemdValidationError as exc:
+        if source_path is not None and exc.source_path is None:
+            raise CoursemdValidationError(exc.message, source_path=source_path) from exc
+        raise
+    except (TypeError, ValueError) as exc:
+        raise CoursemdValidationError(str(exc), source_path=source_path) from exc
 
 
 def wrap_validation_errors(func: Callable[P, T]) -> Callable[P, T]:
@@ -64,13 +74,7 @@ def wrap_validation_errors(func: Callable[P, T]) -> Callable[P, T]:
     @wraps(func)
     def wrapped(*args: P.args, **kwargs: P.kwargs) -> T:
         source_path = _source_path_for_call(func_signature, args, kwargs)
-        try:
+        with validation_error_boundary(source_path):
             return func(*args, **kwargs)
-        except CoursemdValidationError as exc:
-            if source_path is not None and exc.source_path is None:
-                raise CoursemdValidationError(exc.message, source_path=source_path) from exc
-            raise
-        except (TypeError, ValueError) as exc:
-            raise CoursemdValidationError(str(exc), source_path=source_path) from exc
 
     return wrapped

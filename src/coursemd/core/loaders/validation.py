@@ -40,6 +40,9 @@ class BoundValidation:
     def require_date(self, value: Any, field_name: str) -> date:
         return self._call(require_date, value, field_name)
 
+    def require_due_at(self, value: Any, context: str) -> datetime:
+        return self._call(require_due_at, value, context)
+
     def normalize_due_at(self, value: Any, context: str) -> str:
         return self._call(normalize_due_at, value, context)
 
@@ -82,8 +85,8 @@ def require_date(value: Any, field_name: str) -> date:
     return parsed
 
 
-def normalize_due_at(value: Any, context: str) -> str:
-    """Normalize a due timestamp and require an explicit timezone."""
+def require_due_at(value: Any, context: str) -> datetime:
+    """Parse a due timestamp and require an explicit timezone."""
 
     if isinstance(value, datetime):
         due_at = value
@@ -112,6 +115,13 @@ def normalize_due_at(value: Any, context: str) -> str:
             f"'{context}' due_at must include timezone offset "
             f"(example: 2026-03-13T23:59:00-04:00)."
         )
+    return due_at
+
+
+def normalize_due_at(value: Any, context: str) -> str:
+    """Normalize a due timestamp and require an explicit timezone."""
+
+    due_at = require_due_at(value, context)
     return due_at.isoformat()
 
 

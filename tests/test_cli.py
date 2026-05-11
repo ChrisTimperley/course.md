@@ -197,7 +197,7 @@ def test_assignment_load_uses_canonical_loader(tmp_path: Path) -> None:
     assert assignment.description == "# Homework 1"
 
 
-def test_assignment_checkpoint_from_dict_loads_checkpoint(tmp_path: Path) -> None:
+def test_assignment_checkpoint_from_dict_loads_checkpoint() -> None:
     checkpoint = AssignmentCheckpoint.from_dict(
         {
             "date": "2026-01-14",
@@ -206,17 +206,14 @@ def test_assignment_checkpoint_from_dict_loads_checkpoint(tmp_path: Path) -> Non
             "due_at": "2026-01-14T23:59:00-05:00",
             "doc_anchor": "draft-due",
         },
-        source_file=tmp_path / "assignments" / "hw1.md",
         index=0,
-        release_date=dt.date(2026, 1, 12),
-        due_date=dt.date(2026, 1, 16),
     )
 
     assert checkpoint == AssignmentCheckpoint(
         date=dt.date(2026, 1, 14),
         title="Draft Due",
+        due_at=dt.datetime.fromisoformat("2026-01-14T23:59:00-05:00"),
         description="Share a draft.",
-        due_at="2026-01-14T23:59:00-05:00",
         doc_anchor="draft-due",
     )
 
@@ -282,6 +279,42 @@ def test_validate_fails_for_assignment_checkpoint_outside_assignment_window(
     _build_repo_fixture(tmp_path)
     _write_file(
         tmp_path / "assignments" / "hw1.md",
+        "\n".join(
+            [
+                "---",
+                "title: Homework 1",
+                "kind: homework",
+                "release_date: 2026-01-12",
+                "due_date: 2026-01-16",
+                "checkpoints:",
+                "  - date: 2026-01-20",
+                "    title: Late checkpoint",
+                '    due_at: "2026-01-20T23:59:00-05:00"',
+                'due_at: "2026-01-16T23:59:00-05:00"',
+                "points: 100",
+                "---",
+                "",
+                "# Homework 1",
+                "",
+            ]
+        ),
+    )
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(cli.app, ["validate"])
+
+    assert result.exit_code == 1
+    assert "checkpoints[0].date must fall between 'release_date' and" in result.output
+    assert "'due_date'." in result.output
+
+
+def test_validate_fails_for_assignment_checkpoint_missing_due_at(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _build_repo_fixture(tmp_path)
+    _write_file(
+        tmp_path / "assignments" / "hw1.md",
         """\
 ---
 title: Homework 1
@@ -289,8 +322,8 @@ kind: homework
 release_date: 2026-01-12
 due_date: 2026-01-16
 checkpoints:
-  - date: 2026-01-20
-    title: Late checkpoint
+  - date: 2026-01-14
+    title: Draft checkpoint
 due_at: "2026-01-16T23:59:00-05:00"
 points: 100
 ---
@@ -303,8 +336,39 @@ points: 100
     result = runner.invoke(cli.app, ["validate"])
 
     assert result.exit_code == 1
-    assert "checkpoints[0].date must fall between 'release_date' and" in result.output
-    assert "'due_date'." in result.output
+    assert "'checkpoints[0].due_at' is required." in result.output
+
+
+def test_validate_fails_for_assignment_checkpoint_due_at_on_wrong_date(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _build_repo_fixture(tmp_path)
+    _write_file(
+        tmp_path / "assignments" / "hw1.md",
+        """\
+---
+title: Homework 1
+kind: homework
+release_date: 2026-01-12
+due_date: 2026-01-16
+checkpoints:
+  - date: 2026-01-14
+    title: Draft checkpoint
+    due_at: "2026-01-15T23:59:00-05:00"
+due_at: "2026-01-16T23:59:00-05:00"
+points: 100
+---
+
+# Homework 1
+""",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(cli.app, ["validate"])
+
+    assert result.exit_code == 1
+    assert "checkpoints[0].due_at must fall on the same calendar date" in result.output
 
 
 def test_validate_fails_for_quiz_missing_release_date(tmp_path: Path, monkeypatch) -> None:
