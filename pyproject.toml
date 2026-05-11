@@ -81,7 +81,38 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP"]
+select = [
+    "E", "F", "I", "N", "W", "UP",
+    "ARG",   # flake8-unused-arguments
+    "B",     # flake8-bugbear
+    "BLE",   # flake8-blind-except
+    "C4",    # flake8-comprehensions
+    "DTZ",   # flake8-datetimez
+    "FURB",  # refurb
+    "PERF",  # perflint
+    "PIE",   # flake8-pie
+    "PLC",   # pylint convention
+    "PLE",   # pylint error
+    "PLR",   # pylint refactor
+    "PLW",   # pylint warning
+    "PYI",   # flake8-pyi
+    "RET",   # flake8-return
+    "RUF",   # ruff-specific
+    "S",     # flake8-bandit
+    "SIM",   # flake8-simplify
+    "TC",    # flake8-type-checking
+    "TID",   # flake8-tidy-imports
+    "TRY",   # flake8-try-except-usage
+]
+ignore = [
+    "PLR0911",  # too many return statements
+    "PLR0912",  # too many branches
+    "PLR0913",  # too many arguments
+    "PLR0915",  # too many statements
+    "S101",     # assert detected
+    "S603",     # subprocess call
+    "TRY003",   # long messages outside exception class
+]
 
 [tool.mypy]
 python_version = "3.11"

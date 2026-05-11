@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 
 DEFAULT_TIMEZONE = "America/New_York"
 TIMEZONE_ENV_VAR = "TZ"
+_SATURDAY = 5  # Monday=0, Friday=4, Saturday=5, Sunday=6
 
 
 def get_timezone() -> ZoneInfo:
@@ -32,7 +33,7 @@ def current_date() -> dt.date:
     # Allow overriding the current date for testing via environment variable
     if override_date := os.environ.get("CURRENT_DATE_OVERRIDE"):
         try:
-            return dt.datetime.strptime(override_date, "%Y-%m-%d").date()
+            return dt.datetime.strptime(override_date, "%Y-%m-%d").date()  # noqa: DTZ007
         except ValueError:
             # If the format is invalid, fall back to the actual current date
             pass
@@ -61,7 +62,7 @@ def working_days(start_date: dt.date, end_date: dt.date) -> t.Iterator[dt.date]:
 
     current = start_date
     while current <= end_date:
-        if current.weekday() < 5:  # Monday = 0, Friday = 4
+        if current.weekday() < _SATURDAY:  # Monday = 0, Friday = 4
             yield current
         current += dt.timedelta(days=1)
 
@@ -81,7 +82,7 @@ def working_days_between(start: dt.date, end: dt.date) -> int:
     num_working_days = 0
     current = start
     while current <= end:
-        if current.weekday() < 5:
+        if current.weekday() < _SATURDAY:
             num_working_days += 1
         current += dt.timedelta(days=1)
     return num_working_days

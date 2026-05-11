@@ -9,6 +9,9 @@ from coursemd.core.utils import current_date
 from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL
 from coursemd.integrations.mkdocs.schedule import render_schedule
 
+_TH_EXCEPTION_MIN = 11  # 11th, 12th, 13th are exceptions to ordinal suffix rules
+_TH_EXCEPTION_MAX = 13
+
 
 def _configured_canvas_base_url(env: t.Any) -> str:
     raw_value = env.conf.get("extra", {}).get("canvas_base_url") or DEFAULT_CANVAS_BASE_URL
@@ -190,8 +193,10 @@ def define_env(env: t.Any) -> None:
             "|:--:|:--:|",
         ]
 
-        for boundary in grading_data["scale"]:
-            out.append(f"| **{boundary['letter']}** | **{boundary['min']}** |")
+        out.extend(
+            f"| **{boundary['letter']}** | **{boundary['min']}** |"
+            for boundary in grading_data["scale"]
+        )
 
         out.append(f"| **R** | < {grading_data['scale'][-1]['min']} |")
 
@@ -287,7 +292,7 @@ def define_env(env: t.Any) -> None:
             staff: List of staff dicts loaded from data/staff.yaml.
 
         Returns:
-            Markdown string for the TA–team mapping table.
+            Markdown string for the TA-team mapping table.
         """
         rows = [
             "| TA | Teams |",
@@ -342,7 +347,9 @@ def define_env(env: t.Any) -> None:
                 month_name = due_date.strftime("%B")
                 day = due_date.day
                 suffix = (
-                    "th" if 11 <= day <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+                    "th"
+                    if _TH_EXCEPTION_MIN <= day <= _TH_EXCEPTION_MAX
+                    else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
                 )
                 date_str = f"{day_name}, {month_name} {day}{suffix}"
                 due_str = f"due {date_str} at 11:59 pm ET"

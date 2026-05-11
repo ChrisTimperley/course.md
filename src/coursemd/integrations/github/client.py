@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-from collections.abc import Callable, Sequence
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
 
 _ACCEPT_HEADER = "Accept: application/vnd.github+json"
 _API_VERSION_HEADER = "X-GitHub-Api-Version: 2022-11-28"

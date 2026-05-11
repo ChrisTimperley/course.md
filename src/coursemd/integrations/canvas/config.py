@@ -54,6 +54,6 @@ class CanvasConfig(IntegrationConfig):
 
 
 __all__ = [
-    "CanvasConfig",
     "DEFAULT_CANVAS_BASE_URL",
+    "CanvasConfig",
 ]

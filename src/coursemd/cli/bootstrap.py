@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Sequence
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 import typer
 
-from coursemd.cli.shared import AppState as AppState
+from coursemd.cli.shared import AppState
 from coursemd.cli.validate import register_validate_command
 from coursemd.integrations import register_integration_clis
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from pathlib import Path
 
 app = typer.Typer(
     add_completion=False,
@@ -23,7 +26,7 @@ register_integration_clis(app)
 
 
 @app.callback()
-def main_callback(ctx: typer.Context) -> None:
+def main_callback(ctx: typer.Context) -> None:  # noqa: ARG001
     return None
 
 
@@ -46,7 +49,7 @@ def main(
     except click.Abort:
         typer.echo("Aborted.", err=True)
         return 1
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         typer.echo(f"Error: {exc}", err=True)
         return 1
 

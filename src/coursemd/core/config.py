@@ -14,7 +14,8 @@ from typing import Any, ClassVar, Self, TypeVar
 import click
 import yaml
 
-from ..integrations import load_builtin_integration_configs
+from coursemd.integrations import load_builtin_integration_configs
+
 from .config_helpers import (
     CONFIG_FILENAME,
     require_mapping,

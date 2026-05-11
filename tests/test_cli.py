@@ -355,7 +355,7 @@ def test_github_setup_uses_repository_defaults_in_dry_run(
     monkeypatch.setattr(
         coursemd.integrations.github.client.shutil,
         "which",
-        lambda program: "/usr/bin/gh",
+        lambda _program: "/usr/bin/gh",
     )
 
     result = local_runner.invoke(cli.app, ["github", "setup", "--dry-run"], catch_exceptions=False)
@@ -399,7 +399,7 @@ def test_optional_canvas_commands_report_missing_canvas_dependency(monkeypatch) 
     monkeypatch.setattr(
         coursemd.integrations.canvas.cli,
         "register_sync_canvas_assignments_command",
-        lambda app: (_ for _ in ()).throw(
+        lambda _app: (_ for _ in ()).throw(
             ModuleNotFoundError("No module named 'requests'", name="requests")
         ),
     )
@@ -621,7 +621,7 @@ def test_site_preview_sets_current_date_override(tmp_path: Path, monkeypatch) ->
         livereload: bool = True,
         build_type: str | None = None,
         watch_theme: bool = False,
-        watch: list[str] = [],
+        watch: list[str] | None = None,
         open_in_browser: bool = False,
         **kwargs: object,
     ) -> None:
@@ -650,7 +650,7 @@ def test_site_preview_sets_current_date_override(tmp_path: Path, monkeypatch) ->
         "livereload": True,
         "build_type": "dirty",
         "watch_theme": False,
-        "watch": [],
+        "watch": None,
         "open_in_browser": False,
         "kwargs": {"dev_addr": "127.0.0.1:9000"},
         "cwd": str(tmp_path / "website"),

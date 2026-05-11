@@ -15,7 +15,7 @@ __all__ = ["AppState", "app", "main"]
 
 def main(*args: Any, **kwargs: Any) -> int:
     module = import_module("coursemd.cli.bootstrap")
-    bootstrap_main = getattr(module, "main")
+    bootstrap_main = module.main
     return int(bootstrap_main(*args, **kwargs))
 
 

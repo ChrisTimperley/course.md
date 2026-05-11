@@ -10,12 +10,13 @@ __all__ = [
 import inspect
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Self, TypeVar
 
 import click
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from coursemd.core.config import CourseConfig
 
 TIntegrationConfig = TypeVar("TIntegrationConfig", bound="IntegrationConfig")
@@ -73,11 +74,11 @@ class IntegrationConfig(ABC):
         return tuple(_INTEGRATION_CONFIGS.values())
 
     @classmethod
-    def get(cls: type[TIntegrationConfig], config: CourseConfig) -> TIntegrationConfig | None:
+    def get(cls, config: CourseConfig) -> Self | None:
         return config.get_integration(cls.metavar, cls)
 
     @classmethod
-    def require(cls: type[TIntegrationConfig], config: CourseConfig) -> TIntegrationConfig:
+    def require(cls, config: CourseConfig) -> Self:
         integration_config = cls.get(config)
         if integration_config is None:
             raise click.ClickException(cls.missing_config_message())

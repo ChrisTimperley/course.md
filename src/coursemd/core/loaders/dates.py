@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from coursemd.core.utils import DEFAULT_TIMEZONE, get_timezone
@@ -27,11 +29,11 @@ def parse_date(value: Any) -> date | None:
             return None
         if "T" in candidate or " " in candidate:
             try:
-                return datetime.fromisoformat(candidate.replace("Z", "+00:00")).date()
+                return datetime.fromisoformat(candidate).date()
             except ValueError:
                 return None
         try:
-            return datetime.strptime(candidate, "%Y-%m-%d").date()
+            return datetime.strptime(candidate, "%Y-%m-%d").date()  # noqa: DTZ007
         except ValueError:
             return None
     return None
@@ -54,7 +56,7 @@ def normalize_due_at(value: Any, source_file: Path, context: str) -> str:
     if isinstance(value, datetime):
         due_at = value
     elif isinstance(value, date):
-        raise ValueError(
+        raise TypeError(
             f"{source_file}: '{context}' due_at must include time + timezone (received date only)."
         )
     elif isinstance(value, str):
@@ -69,7 +71,7 @@ def normalize_due_at(value: Any, source_file: Path, context: str) -> str:
                 f"(example: 2026-03-13T23:59:00-04:00)."
             ) from exc
     else:
-        raise ValueError(
+        raise TypeError(
             f"{source_file}: '{context}' due_at has unsupported type: {type(value).__name__}"
         )
 
@@ -81,7 +83,7 @@ def normalize_due_at(value: Any, source_file: Path, context: str) -> str:
     return due_at.isoformat()
 
 
-def normalize_release_date(value: Any, source_file: Path) -> str | None:
+def normalize_release_date(value: Any, _source_file: Path) -> str | None:
     """Normalize a release date into an ISO timestamp."""
 
     course_timezone = get_timezone()
@@ -97,12 +99,12 @@ def normalize_release_date(value: Any, source_file: Path) -> str | None:
             return None
         if "T" in candidate or " " in candidate:
             try:
-                release_at = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+                release_at = datetime.fromisoformat(candidate)
             except ValueError:
                 return None
         else:
             try:
-                parsed_date = datetime.strptime(candidate, "%Y-%m-%d").date()
+                parsed_date = datetime.strptime(candidate, "%Y-%m-%d").date()  # noqa: DTZ007
                 release_at = datetime.combine(
                     parsed_date,
                     datetime.min.time(),

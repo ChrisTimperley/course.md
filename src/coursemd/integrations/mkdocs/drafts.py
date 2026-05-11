@@ -28,7 +28,7 @@ class DraftsPlugin(BasePlugin):
     in_preview: bool
     removed_files: set[str]
 
-    def on_startup(self, command: str, *args: t.Any, **kwargs: t.Any) -> None:
+    def on_startup(self, command: str, *args: t.Any, **kwargs: t.Any) -> None:  # noqa: ARG002
         """Initialize plugin state when MkDocs starts."""
         self.in_preview = command == "serve"
         self.removed_files = set()
@@ -39,7 +39,7 @@ class DraftsPlugin(BasePlugin):
         """Check if we're in production mode (not preview)."""
         return not self.in_preview
 
-    def should_remove_file(self, file: t.Any, metadata: dict[str, t.Any]) -> bool:
+    def should_remove_file(self, file: t.Any, metadata: dict[str, t.Any]) -> bool:  # noqa: ARG002
         """
         Determine if a file should be removed from the build.
 
@@ -55,12 +55,9 @@ class DraftsPlugin(BasePlugin):
 
         # Prefer reveal date over release date for determining visibility
         check_date = _parse_date(metadata.get("reveal_date") or metadata.get("release_date"))
-        if check_date and check_date > self.current_date:
-            return True
+        return bool(check_date and check_date > self.current_date)
 
-        return False
-
-    def on_files(self, files: MkDocsFiles, *args: t.Any, **kwargs: t.Any) -> MkDocsFiles:
+    def on_files(self, files: MkDocsFiles, *args: t.Any, **kwargs: t.Any) -> MkDocsFiles:  # noqa: ARG002
         """
         Filter files based on draft status and release dates.
 
@@ -76,7 +73,7 @@ class DraftsPlugin(BasePlugin):
 
         return files
 
-    def on_nav(self, nav: MkDocsNavigation, *args: t.Any, **kwargs: t.Any) -> MkDocsNavigation:
+    def on_nav(self, nav: MkDocsNavigation, *args: t.Any, **kwargs: t.Any) -> MkDocsNavigation:  # noqa: ARG002
         """
         Filter navigation items that point to removed files.
 

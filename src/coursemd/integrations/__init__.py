@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import importlib
+from typing import TYPE_CHECKING
 
-import typer
+if TYPE_CHECKING:
+    import typer
 
 _BUILTIN_INTEGRATION_CONFIG_MODULES = (
     "coursemd.integrations.mkdocs.config",
@@ -16,7 +18,7 @@ _builtin_integrations_loaded = False
 
 
 def load_builtin_integration_configs() -> None:
-    global _builtin_integrations_loaded
+    global _builtin_integrations_loaded  # noqa: PLW0603
 
     if _builtin_integrations_loaded:
         return
@@ -27,10 +29,10 @@ def load_builtin_integration_configs() -> None:
 
 
 def register_integration_clis(app: typer.Typer) -> None:
-    from coursemd.integrations.canvas.cli import register_canvas_cli
-    from coursemd.integrations.github.cli import register_github_cli
-    from coursemd.integrations.mkdocs.cli import register_site_cli
-    from coursemd.integrations.quarto.cli import register_quarto_cli
+    from coursemd.integrations.canvas.cli import register_canvas_cli  # noqa: PLC0415
+    from coursemd.integrations.github.cli import register_github_cli  # noqa: PLC0415
+    from coursemd.integrations.mkdocs.cli import register_site_cli  # noqa: PLC0415
+    from coursemd.integrations.quarto.cli import register_quarto_cli  # noqa: PLC0415
 
     register_canvas_cli(app)
     register_site_cli(app)

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import html
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from coursemd.core.loaders.quizzes import QUESTION_TYPE_MAP
-from coursemd.core.models.quiz import QuestionSpec, QuizSpec
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from coursemd.core.models.quiz import QuestionSpec, QuizSpec
 
 
 def _ensure_html(text: str) -> str:

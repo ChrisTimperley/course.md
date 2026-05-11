@@ -2,20 +2,23 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import frontmatter
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from mkdocs.config import config_options
-from mkdocs.config.defaults import MkDocsConfig
 from mkdocs.plugins import BasePlugin
 from mkdocs.structure.files import File, Files
-from mkdocs.structure.nav import Navigation
+
+if TYPE_CHECKING:
+    import datetime as dt
+
+    from mkdocs.config.defaults import MkDocsConfig
+    from mkdocs.structure.nav import Navigation
 
 from coursemd.core.config import CourseConfig
 from coursemd.core.loaders.dates import parse_date
@@ -59,7 +62,7 @@ class CoursemdPlugin(BasePlugin):
     removed_files: set[str]
     macro_registry: _MacroRegistry
 
-    def on_startup(self, command: str, *args: Any, **kwargs: Any) -> None:
+    def on_startup(self, command: str, *args: Any, **kwargs: Any) -> None:  # noqa: ARG002
         self.in_preview = command == "serve"
         self.current_date = current_date()
         self.removed_files = set()
@@ -92,7 +95,7 @@ class CoursemdPlugin(BasePlugin):
             config["nav"] = self._generated_nav(config.get("nav") or [])
         return config
 
-    def on_files(self, files: Files, *, config: MkDocsConfig, **kwargs: Any) -> Files:
+    def on_files(self, files: Files, *, config: MkDocsConfig, **kwargs: Any) -> Files:  # noqa: ARG002
         self._add_generated_pages(files, config)
         if not self.in_preview:
             for file in list(files.documentation_pages()):
@@ -103,7 +106,7 @@ class CoursemdPlugin(BasePlugin):
                     files.remove(file)
         return files
 
-    def on_nav(self, nav: Navigation, **kwargs: Any) -> Navigation:
+    def on_nav(self, nav: Navigation, **kwargs: Any) -> Navigation:  # noqa: ARG002
         if not self.in_preview and self.removed_files:
             nav.items = list(self._filter_nav_items(nav.items))
         return nav
@@ -114,19 +117,19 @@ class CoursemdPlugin(BasePlugin):
         *,
         page: Any,
         config: MkDocsConfig,
-        files: Files,
+        files: Files,  # noqa: ARG002
     ) -> str:
         markdown = self._normalize_generated_frontmatter(markdown, page)
         registry = self._macro_registry(config=config, page=page)
         template_env = Environment(
             loader=FileSystemLoader(str(config.docs_dir)),
-            autoescape=False,
+            autoescape=select_autoescape(),
         )
         template_env.globals.update(registry.variables)
         template_env.globals.update(registry.macros)
         return template_env.from_string(markdown).render()
 
-    def on_env(self, env: Any, *, config: MkDocsConfig, files: Files) -> Any:
+    def on_env(self, env: Any, *, config: MkDocsConfig, files: Files) -> Any:  # noqa: ARG002
         registry = self._macro_registry(config=config, page=None)
         env.globals.update(registry.variables)
         env.globals.update(registry.macros)
@@ -281,8 +284,8 @@ class CoursemdPlugin(BasePlugin):
 
     def _load_markdown_metadata(self, path: Path) -> dict[str, Any]:
         try:
-            return cast(dict[str, Any], frontmatter.load(path).metadata)
-        except Exception:
+            return cast("dict[str, Any]", frontmatter.load(path).metadata)
+        except Exception:  # noqa: BLE001
             return {}
 
     def _normalize_generated_frontmatter(self, markdown: str, page: Any) -> str:
@@ -290,11 +293,11 @@ class CoursemdPlugin(BasePlugin):
             return markdown
         try:
             post = frontmatter.loads(markdown)
-        except Exception:
+        except Exception:  # noqa: BLE001
             return markdown
         if post.metadata:
             page.meta.update(post.metadata)
-        return cast(str, post.content)
+        return cast("str", post.content)
 
     def _should_remove_file(self, metadata: dict[str, Any]) -> bool:
         if metadata.get("draft"):
@@ -317,7 +320,7 @@ class CoursemdPlugin(BasePlugin):
 
     def _nav_key(self, item: Any) -> str | None:
         if isinstance(item, dict) and len(item) == 1:
-            return cast(str, next(iter(item)))
+            return cast("str", next(iter(item)))
         return None
 
     def _env_truthy(self, name: str) -> bool:

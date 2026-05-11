@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from coursemd.core.loaders.dates import normalize_due_at, require_date, require_release_date
 from coursemd.core.loaders.markdown import load_markdown_post
 from coursemd.core.models.integrations import CanvasQuizIntegration, QuizIntegrations
 from coursemd.core.models.quiz import QuestionSpec, QuizSpec, ReadingSpec
-from coursemd.core.types import QuizDict
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from coursemd.core.types import QuizDict
 
 QUESTION_TYPE_MAP = {
     "multiple_choice": "multiple_choice_question",
@@ -39,7 +42,7 @@ def _optional_mapping(value: Any, source_file: Path, field_name: str) -> dict[st
     if value is None:
         return {}
     if not isinstance(value, dict):
-        raise ValueError(f"{source_file}: '{field_name}' must be an object/map.")
+        raise TypeError(f"{source_file}: '{field_name}' must be an object/map.")
     return value
 
 
@@ -47,7 +50,7 @@ def parse_readings(value: Any, source_file: Path, quiz_type: str) -> list[Readin
     if value is None:
         return []
     if not isinstance(value, list):
-        raise ValueError(f"{source_file}: 'readings' must be a list.")
+        raise TypeError(f"{source_file}: 'readings' must be a list.")
     if quiz_type != "reading" and value:
         raise ValueError(
             f"{source_file}: 'readings' is only supported for quizzes with type='reading'."
@@ -56,7 +59,7 @@ def parse_readings(value: Any, source_file: Path, quiz_type: str) -> list[Readin
     readings: list[ReadingSpec] = []
     for i, item in enumerate(value):
         if not isinstance(item, dict):
-            raise ValueError(
+            raise TypeError(
                 f"{source_file}: readings[{i}] must be an object with 'title' and 'url'."
             )
         title = str(item.get("title", "")).strip()
@@ -169,7 +172,7 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
     if questions_raw is None:
         raise ValueError(f"{source_file}: 'questions' is required.")
     if not isinstance(questions_raw, list):
-        raise ValueError(f"{source_file}: 'questions' must be a list.")
+        raise TypeError(f"{source_file}: 'questions' must be a list.")
     if not questions_raw:
         raise ValueError(f"{source_file}: 'questions' must contain at least one item.")
 
@@ -177,7 +180,7 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
     seen_positions: set[int] = set()
     for i, question in enumerate(questions_raw):
         if not isinstance(question, dict):
-            raise ValueError(f"{source_file}: each question must be an object.")
+            raise TypeError(f"{source_file}: each question must be an object.")
         qtype_inner = str(question.get("question_type", "")).strip().lower()
         if qtype_inner not in QUESTION_TYPE_MAP:
             raise ValueError(
@@ -206,14 +209,14 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
         seen_positions.add(pos)
         answers_raw = question.get("answers", [])
         if not isinstance(answers_raw, list):
-            raise ValueError(f"{source_file}: question {i + 1} answers must be a list.")
+            raise TypeError(f"{source_file}: question {i + 1} answers must be a list.")
         distractors = question.get("distractors")
         if isinstance(distractors, list):
             distractors = [str(d) for d in distractors]
         elif distractors is None:
             distractors = None
         else:
-            raise ValueError(f"{source_file}: question {i + 1} distractors must be a list.")
+            raise TypeError(f"{source_file}: question {i + 1} distractors must be a list.")
 
         answer_required_types = (
             "multiple_choice",
@@ -222,17 +225,20 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
             "matching",
             "short_answer",
         )
-        if qtype_inner in answer_required_types:
-            if not answers_raw and qtype_inner != "short_answer":
-                raise ValueError(
-                    f"{source_file}: question {i + 1} ({qtype_inner}) must have answers."
-                )
+        if (
+            qtype_inner in answer_required_types
+            and not answers_raw
+            and qtype_inner != "short_answer"
+        ):
+            raise ValueError(
+                f"{source_file}: question {i + 1} ({qtype_inner}) must have answers."
+            )
 
         if qtype_inner in {"multiple_choice", "true_false", "multiple_answers"}:
             correct_answers = 0
             for answer_index, answer in enumerate(answers_raw):
                 if not isinstance(answer, dict):
-                    raise ValueError(
+                    raise TypeError(
                         f"{source_file}: question {i + 1} answers[{answer_index}] "
                         "must be an object."
                     )
@@ -242,7 +248,7 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
                         f"{source_file}: question {i + 1} answers[{answer_index}].text is required."
                     )
                 if not isinstance(answer.get("correct"), bool):
-                    raise ValueError(
+                    raise TypeError(
                         f"{source_file}: question {i + 1} answers[{answer_index}].correct "
                         f"must be a boolean."
                     )
@@ -261,7 +267,7 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
         if qtype_inner == "matching":
             for answer_index, answer in enumerate(answers_raw):
                 if not isinstance(answer, dict):
-                    raise ValueError(
+                    raise TypeError(
                         f"{source_file}: question {i + 1} answers[{answer_index}] "
                         "must be an object."
                     )
@@ -283,7 +289,7 @@ def parse_quiz_file(source_file: Path) -> QuizSpec:
                         )
                     continue
                 if not isinstance(answer, dict):
-                    raise ValueError(
+                    raise TypeError(
                         f"{source_file}: question {i + 1} answers[{answer_index}] "
                         "must be a string or object."
                     )

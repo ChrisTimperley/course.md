@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import typing as t
+from typing import TYPE_CHECKING
 
 from coursemd.core.models.rubric import RubricCriterion, RubricSection, RubricTier
+
+if TYPE_CHECKING:
+    import datetime as dt
 
 
 class EventDict(t.TypedDict, total=False):

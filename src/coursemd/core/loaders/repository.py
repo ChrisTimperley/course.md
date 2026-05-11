@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import yaml  # type: ignore[import-untyped]
 from dotenv import load_dotenv
@@ -12,12 +11,16 @@ from coursemd.core.loaders.assignments import validate_schedule_assignment_metad
 from coursemd.core.loaders.dates import require_date
 from coursemd.core.loaders.markdown import load_markdown_metadata
 from coursemd.core.loaders.quizzes import validate_schedule_quiz_metadata
-from coursemd.core.types import AssignmentDict, BreakDict, EventDict, QuizDict
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from coursemd.core.types import AssignmentDict, BreakDict, EventDict, QuizDict
 
 
 def _require_mapping(value: Any, source_file: Path, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
-        raise ValueError(f"{source_file}: '{label}' must be an object/map.")
+        raise TypeError(f"{source_file}: '{label}' must be an object/map.")
     return value
 
 
@@ -60,7 +63,7 @@ def validate_schedule_data(source_file: Path, value: Any) -> dict[str, Any]:
 
     events_raw = schedule.get("events", [])
     if not isinstance(events_raw, list):
-        raise ValueError(f"{source_file}: 'events' must be a list.")
+        raise TypeError(f"{source_file}: 'events' must be a list.")
     events: list[EventDict] = []
     for index, event_raw in enumerate(events_raw):
         event = _require_mapping(event_raw, source_file, f"events[{index}]")
@@ -87,7 +90,7 @@ def validate_schedule_data(source_file: Path, value: Any) -> dict[str, Any]:
 
     breaks_raw = schedule.get("breaks", [])
     if not isinstance(breaks_raw, list):
-        raise ValueError(f"{source_file}: 'breaks' must be a list.")
+        raise TypeError(f"{source_file}: 'breaks' must be a list.")
     breaks: list[BreakDict] = []
     for index, break_raw in enumerate(breaks_raw):
         break_map = _require_mapping(break_raw, source_file, f"breaks[{index}]")

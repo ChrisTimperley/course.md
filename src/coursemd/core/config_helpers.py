@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import click
@@ -14,12 +16,12 @@ CONFIG_FILENAME = ".coursemd.yml"
 def require_mapping(value: Any, *, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise click.ClickException(f"{label} must be a mapping in {CONFIG_FILENAME}.")
-    return cast(dict[str, Any], value)
+    return cast("dict[str, Any]", value)
 
 
 def optional_mapping(value: Any, *, label: str) -> dict[str, Any]:
     if value is None:
-        return cast(dict[str, Any], {})
+        return cast("dict[str, Any]", {})
     return require_mapping(value, label=label)
 
 

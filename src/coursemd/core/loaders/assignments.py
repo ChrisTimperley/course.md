@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from coursemd.core.loaders.dates import normalize_due_at, require_date, require_release_date
 from coursemd.core.loaders.markdown import load_markdown_metadata
 from coursemd.core.models.assignment import AssignmentSpec
 from coursemd.core.models.integrations import AssignmentIntegrations, CanvasAssignmentIntegration
 from coursemd.core.rubric import select_rubric_criteria
-from coursemd.core.types import AssignmentDict, CheckpointDict
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from coursemd.core.types import AssignmentDict, CheckpointDict
 
 DEFAULT_ASSIGNMENTS_URL_PATH = "assignments"
 
@@ -30,14 +33,14 @@ def _parse_submission_form(
     if value is None:
         return []
     if not isinstance(value, list):
-        raise ValueError(
+        raise TypeError(
             f"{source_file}: '{assignment_name}' submission_form must be a list of objects."
         )
 
     parsed: list[dict[str, Any]] = []
     for index, item in enumerate(value):
         if not isinstance(item, dict):
-            raise ValueError(
+            raise TypeError(
                 f"{source_file}: '{assignment_name}' submission_form[{index}] must be an object."
             )
         label = _require_non_empty_string(
@@ -58,7 +61,7 @@ def _optional_mapping(value: Any, source_file: Path, field_name: str) -> dict[st
     if value is None:
         return {}
     if not isinstance(value, dict):
-        raise ValueError(f"{source_file}: '{field_name}' must be an object/map.")
+        raise TypeError(f"{source_file}: '{field_name}' must be an object/map.")
     return value
 
 
@@ -99,7 +102,7 @@ def validate_schedule_assignment_metadata(
         previous_date = None
         for index, checkpoint_raw in enumerate(checkpoints_raw):
             if not isinstance(checkpoint_raw, dict):
-                raise ValueError(f"{source_file}: checkpoints[{index}] must be an object.")
+                raise TypeError(f"{source_file}: checkpoints[{index}] must be an object.")
             checkpoint_date = require_date(
                 checkpoint_raw.get("date"),
                 source_file,
@@ -149,7 +152,7 @@ def parse_assignment_specs_from_file(
             return []
         raise ValueError(f"{source_file}: missing 'assignments' frontmatter list.")
     if not isinstance(assignments, list):
-        raise ValueError(f"{source_file}: 'assignments' must be a list.")
+        raise TypeError(f"{source_file}: 'assignments' must be a list.")
     if not assignments:
         if not require_canvas_fields:
             return []
@@ -161,7 +164,7 @@ def parse_assignment_specs_from_file(
 
     for item in assignments:
         if not isinstance(item, dict):
-            raise ValueError(f"{source_file}: each item in assignments must be an object/map.")
+            raise TypeError(f"{source_file}: each item in assignments must be an object/map.")
 
         name = _require_non_empty_string(item.get("name"), source_file, "assignments[].name")
         if name in seen_names:

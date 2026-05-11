@@ -39,7 +39,7 @@ def _run_quarto(
     output_dir.mkdir(parents=True, exist_ok=True)
     try:
         completed = subprocess.run(
-            [
+            [  # noqa: S607
                 "quarto",
                 quarto_command,
                 ".",

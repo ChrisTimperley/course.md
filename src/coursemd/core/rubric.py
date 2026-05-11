@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
-from coursemd.core.models.rubric import RubricCriterion, RubricSection
+if TYPE_CHECKING:
+    from coursemd.core.models.rubric import RubricCriterion, RubricSection
 
 
 def load_rubric_sections(metadata: dict[str, Any]) -> list[RubricSection]:
@@ -13,7 +14,7 @@ def load_rubric_sections(metadata: dict[str, Any]) -> list[RubricSection]:
     if not isinstance(rubric, list):
         return []
     return [
-        cast(RubricSection, section)
+        cast("RubricSection", section)
         for section in rubric
         if isinstance(section, dict)
     ]
@@ -37,7 +38,7 @@ def select_rubric_criteria(
             return []
 
         filtered = [
-            cast(RubricCriterion, criterion)
+            cast("RubricCriterion", criterion)
             for criterion in criteria
             if isinstance(criterion, dict)
         ]
@@ -68,7 +69,7 @@ def flatten_rubric_criteria(
             if not isinstance(criterion, dict):
                 continue
             if prepend_section_name and section_name and criterion.get("name"):
-                entry = cast(RubricCriterion, dict(criterion))
+                entry = cast("RubricCriterion", dict(criterion))
                 entry["name"] = f"{section_name} -- {criterion['name']}"
                 flattened.append(entry)
             else:

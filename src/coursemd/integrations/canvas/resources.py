@@ -15,7 +15,7 @@ def _published_item_is_released(data: dict[str, Any]) -> bool:
     unlock_at_str = data.get("unlock_at")
     if unlock_at_str:
         try:
-            unlock_at_dt = datetime.fromisoformat(str(unlock_at_str).replace("Z", "+00:00"))
+            unlock_at_dt = datetime.fromisoformat(str(unlock_at_str))
             if unlock_at_dt > datetime.now(UTC):
                 return False
         except ValueError:

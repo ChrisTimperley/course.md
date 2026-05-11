@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from html import escape
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from coursemd.core.loaders.assignments import DEFAULT_ASSIGNMENTS_URL_PATH
-from coursemd.core.models.assignment import AssignmentSpec
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from coursemd.core.models.assignment import AssignmentSpec
 
 
 def _default_docs_url(

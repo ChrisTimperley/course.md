@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from typing import Annotated, Any
+from pathlib import Path  # noqa: TC003
+from typing import TYPE_CHECKING, Annotated, Any
 
 import click
 import typer
@@ -19,9 +19,11 @@ from coursemd.cli.shared import (
 )
 from coursemd.core.loaders.assignments import load_assignment_specs
 from coursemd.core.loaders.quizzes import load_quiz_specs
-from coursemd.core.models.assignment import AssignmentSpec
-from coursemd.core.models.quiz import QuizSpec
 from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL, CanvasConfig
+
+if TYPE_CHECKING:
+    from coursemd.core.models.assignment import AssignmentSpec
+    from coursemd.core.models.quiz import QuizSpec
 from coursemd.integrations.canvas.frontmatter import (
     update_assignment_frontmatter_with_ids,
     update_quiz_frontmatter_with_canvas_id,

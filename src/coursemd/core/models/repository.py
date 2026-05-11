@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from coursemd.core.loaders.assignments import load_assignment_specs
 from coursemd.core.loaders.quizzes import load_quiz_specs
 from coursemd.core.loaders.repository import load_data_files
-from coursemd.core.models.assignment import AssignmentSpec
-from coursemd.core.models.quiz import QuizSpec
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from coursemd.core.config import CourseConfig
+    from coursemd.core.models.assignment import AssignmentSpec
+    from coursemd.core.models.quiz import QuizSpec
 
 
 def _default_data_files(config: CourseConfig) -> list[Path]:

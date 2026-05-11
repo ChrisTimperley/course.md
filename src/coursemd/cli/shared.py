@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from pathlib import Path
 
 import click
 import typer
@@ -47,10 +49,7 @@ def require_paths_exist(paths: Sequence[Path], *, label: str) -> None:
 
 
 def normalize_input_paths(paths: Sequence[Path], *, repo_root: Path) -> list[Path]:
-    normalized: list[Path] = []
-    for path in paths:
-        normalized.append(path if path.is_absolute() else (repo_root / path).resolve())
-    return normalized
+    return [path if path.is_absolute() else (repo_root / path).resolve() for path in paths]
 
 
 def default_data_files(state: AppState) -> list[Path]:

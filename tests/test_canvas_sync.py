@@ -13,8 +13,8 @@ class DryRunAssignmentClient:
 
     def get_paginated(
         self,
-        path: str,
-        params: dict[str, Any] | None = None,
+        path: str,  # noqa: ARG002
+        params: dict[str, Any] | None = None,  # noqa: ARG002
     ) -> list[dict[str, Any]]:
         return []
 

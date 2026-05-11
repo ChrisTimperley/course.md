@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 import click
 import typer
@@ -34,7 +36,7 @@ except ModuleNotFoundError as exc:
         raise
     _MKDOCS_IMPORT_ERROR = exc
 
-    def _missing_mkdocs_dependency(*args: object, **kwargs: object) -> object:
+    def _missing_mkdocs_dependency(*_args: object, **_kwargs: object) -> object:
         assert _MKDOCS_IMPORT_ERROR is not None
         raise _MKDOCS_IMPORT_ERROR  # pragma: no cover
 
@@ -100,7 +102,7 @@ def _preview_url(dev_addr: str | None) -> str:
     if not sep:
         host = bind
         port = "8000"
-    if host in {"0.0.0.0", "::"}:
+    if host in {"0.0.0.0", "::"}:  # noqa: S104
         host = "127.0.0.1"
     return f"http://{host}:{port}/"
 

@@ -4,14 +4,16 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-from coursemd.core.models.assignment import AssignmentSpec
-from coursemd.core.models.quiz import QuizSpec
 from coursemd.integrations.canvas.assignments import form_for_assignment
 from coursemd.integrations.canvas.quizzes import form_for_quiz, question_payload_for_canvas
-from coursemd.integrations.canvas.resources import AssignmentCanvasClient, QuizCanvasClient
 from coursemd.integrations.canvas.rubrics import form_for_rubric
+
+if TYPE_CHECKING:
+    from coursemd.core.models.assignment import AssignmentSpec
+    from coursemd.core.models.quiz import QuizSpec
+    from coursemd.integrations.canvas.resources import AssignmentCanvasClient, QuizCanvasClient
 
 CanvasSyncAction = Literal["create", "delete", "skip", "sync", "update"]
 CanvasSyncTarget = Literal["assignment", "assignment_group", "quiz", "quiz_question", "rubric"]
