@@ -264,3 +264,14 @@ class Quiz:
             questions=QuizQuestion.from_list(cast("list[Any]", questions_raw)),
             integrations=integrations,
         )
+
+    @classmethod
+    def load_all(cls, files: list[Path]) -> list[Quiz]:
+        quizzes: list[Quiz] = []
+        for path in files:
+            try:
+                quiz = cls.load(path)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{path}: {exc}") from exc
+            quizzes.append(quiz)
+        return quizzes

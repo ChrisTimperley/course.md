@@ -741,7 +741,10 @@ paths:
     assert "Validation passed." in result.stdout
 
 
-def test_repository_load_allows_non_canvas_content(tmp_path: Path, monkeypatch) -> None:
+def test_repository_load_rejects_non_quiz_content_in_quizzes_dir(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     _build_repo_fixture(tmp_path)
     _write_file(
         tmp_path / ".coursemd.yml",
@@ -786,9 +789,9 @@ def test_repository_load_allows_non_canvas_content(tmp_path: Path, monkeypatch) 
 
     result = runner.invoke(cli.app, ["validate"])
 
-    assert result.exit_code == 0
-    assert "Validated 1 data file(s), 1 assignment spec(s), and 0 quiz spec(s)." in result.stdout
-    assert "Validation passed." in result.stdout
+    assert result.exit_code == 1
+    assert result.exception is not None
+    assert "'questions' is required." in str(result.exception)
 
 
 def test_config_reads_site_url_paths(tmp_path: Path) -> None:
@@ -1150,6 +1153,14 @@ def test_coursemd_mkdocs_plugin_builds_non_canvas_course(
         release_date: 2026-01-12
         due_at: "2026-01-16T23:59:00-05:00"
         link: https://example.edu/quiz
+        questions:
+          - question_type: multiple_choice
+            question_text: What is quality?
+            answers:
+              - text: Fitness for purpose
+                correct: true
+              - text: Just test coverage
+                correct: false
         ---
 
         # Quiz

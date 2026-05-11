@@ -18,14 +18,13 @@ from coursemd.cli.shared import (
     require_paths_exist,
     write_json_output,
 )
-from coursemd.core.loaders.quizzes import load_quizzes
 from coursemd.core.loaders.specs import load_assignments
+from coursemd.core.models.quiz import Quiz
 from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL, CanvasConfig
 from coursemd.integrations.canvas.models import canvas_assignment_submissions, canvas_quiz
 
 if TYPE_CHECKING:
     from coursemd.core.models.assignment import Assignment
-    from coursemd.core.models.quiz import Quiz
 from coursemd.integrations.canvas.frontmatter import (
     update_assignment_frontmatter_with_ids,
     update_quiz_frontmatter_with_canvas_id,
@@ -332,7 +331,7 @@ def register_sync_canvas_quizzes_command(canvas_app: typer.Typer) -> None:
                 )
             require_paths_exist(files, label="Quiz")
 
-            specs = load_quizzes(files)
+            specs = Quiz.load_all(files)
             _print_quiz_plan(specs)
 
             token, resolved_course_id = require_canvas_credentials(

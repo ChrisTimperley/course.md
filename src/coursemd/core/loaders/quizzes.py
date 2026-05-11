@@ -5,9 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from coursemd.core.exceptions import wrap_validation_errors
-from coursemd.core.loaders.markdown import load_markdown_post
 from coursemd.core.loaders.validation import bind_validation
-from coursemd.core.models.quiz import Quiz, Reading
+from coursemd.core.models.quiz import Reading
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -57,15 +56,3 @@ def default_quiz_files(repo_root: Path) -> list[Path]:
     if not quizzes_dir.exists():
         return []
     return sorted(path for path in quizzes_dir.glob("*.md") if path.name != "index.md")
-
-
-def load_quizzes(files: list[Path]) -> list[Quiz]:
-    quizzes: list[Quiz] = []
-    for path in files:
-        metadata = load_markdown_post(path).metadata
-        questions = metadata.get("questions")
-        if questions is None or questions == []:
-            continue
-        quiz = Quiz.load(path)
-        quizzes.append(quiz)
-    return quizzes

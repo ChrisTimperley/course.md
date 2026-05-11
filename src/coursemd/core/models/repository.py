@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from coursemd.core.loaders.quizzes import load_quizzes
 from coursemd.core.loaders.repository import load_data_files
 from coursemd.core.loaders.specs import load_assignments
+from coursemd.core.models.quiz import Quiz
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from coursemd.core.config import CourseConfig, CoursePathsConfig
     from coursemd.core.integration_config import IntegrationConfig
     from coursemd.core.models.assignment import Assignment
-    from coursemd.core.models.quiz import Quiz
 
 T = TypeVar("T", bound="IntegrationConfig")
 
@@ -92,5 +91,5 @@ class CourseRepository:
             config=config,
             data=load_data_files(resolved_data_files),
             assignments=load_assignments(resolved_assignment_files),
-            quizzes=load_quizzes(resolved_quiz_files),
+            quizzes=Quiz.load_all(resolved_quiz_files),
         )
