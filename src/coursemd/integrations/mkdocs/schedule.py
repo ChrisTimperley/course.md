@@ -86,23 +86,23 @@ def _render_assignment(entry: ScheduleEntry) -> str:
 
 def _render_quiz(entry: ScheduleEntry) -> str:
     if quiz := entry.quiz_released:
-        num_working_days = working_days_between(quiz["release_date"], quiz["due_date"])
-        due_text = quiz["due_date"].strftime("%A, %B %d")
+        num_working_days = working_days_between(quiz.release_date, quiz.due_date)
+        due_text = quiz.due_date.strftime("%A, %B %d")
 
         out = (
-            f"<b>{html.escape(quiz['title'])}</b><br>"
+            f"<b>{html.escape(quiz.title)}</b><br>"
             f'<span class="quiz-due">Due {due_text} @ 11:59pm</span>'
         )
 
-        if readings := quiz.get("readings"):
+        if readings := quiz.readings:
             out += (
                 '<div class="quiz-readings-wrap">'
                 '<span class="quiz-readings-label">Readings</span>'
                 '<ul class="quiz-readings">'
             )
             for r in readings:
-                title_esc = html.escape(r["title"])
-                url_esc = html.escape(r["url"], quote=True)
+                title_esc = html.escape(r.title)
+                url_esc = html.escape(r.url, quote=True)
                 out += (
                     '<li><span class="reading-badge">📖</span>'
                     f'<a href="{url_esc}" target="_blank"'
@@ -110,7 +110,7 @@ def _render_quiz(entry: ScheduleEntry) -> str:
                 )
             out += "</ul></div>"
 
-        attributes = {"class": "label label-purple", "href": quiz.get("link", "")}
+        attributes = {"class": "label label-purple", "href": quiz.link or ""}
         html_attributes = " ".join(f'{k}="{v}"' for k, v in attributes.items())
         out += f"<br><a {html_attributes}>Take Quiz</a>"
 
@@ -148,7 +148,7 @@ def render_schedule(schedule: Schedule) -> str:
 
         if entry.quiz_released:
             quiz_span_remaining = working_days_between(
-                entry.quiz_released["release_date"], entry.quiz_released["due_date"]
+                entry.quiz_released.release_date, entry.quiz_released.due_date
             )
         if entry.assignment_released:
             assignment_span_remaining = working_days_between(

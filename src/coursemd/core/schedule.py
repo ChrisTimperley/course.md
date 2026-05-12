@@ -5,7 +5,8 @@ import typing as t
 from dataclasses import dataclass
 
 from coursemd.core.models.assignment import Assignment
-from coursemd.core.types import BreakDict, EventDict, QuizDict
+from coursemd.core.models.quiz import Quiz
+from coursemd.core.types import BreakDict, EventDict
 from coursemd.core.utils import current_date, working_days
 
 
@@ -18,8 +19,8 @@ class ScheduleEntry:
     break_: BreakDict | None
     assignment_released: Assignment | None
     assignment_due: Assignment | None
-    quiz_released: QuizDict | None
-    quiz_due: QuizDict | None
+    quiz_released: Quiz | None
+    quiz_due: Quiz | None
 
 
 @dataclass(frozen=True)
@@ -36,7 +37,7 @@ class Schedule:
         events: list[EventDict],
         breaks: list[BreakDict],
         assignments: list[Assignment],
-        quizzes: list[QuizDict],
+        quizzes: list[Quiz],
     ) -> t.Self:
         """
         Build a schedule from course data.
@@ -96,10 +97,10 @@ class Schedule:
 
         # Build quiz dictionaries
         date_to_quiz_release = {
-            quiz["release_date"]: quiz for quiz in quizzes if quiz["release_date"] <= now
+            quiz.release_date: quiz for quiz in quizzes if quiz.release_date <= now
         }
         date_to_quiz_due = {
-            quiz["due_date"]: quiz for quiz in quizzes if quiz["release_date"] <= now
+            quiz.due_date: quiz for quiz in quizzes if quiz.release_date <= now
         }
 
         # Build schedule entries

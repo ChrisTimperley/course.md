@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 
 from coursemd.core.config import CourseConfig
 from coursemd.core.loaders.dates import parse_date
-from coursemd.core.loaders.repository import load_schedule_quizzes
 from coursemd.core.models.repository import CourseRepository
 from coursemd.core.utils import current_date, set_course_timezone
 from coursemd.integrations.canvas.config import CanvasConfig
@@ -156,25 +155,13 @@ class CoursemdPlugin(BasePlugin):
             canvas_cfg = self.course_repository.get_integration("canvas", CanvasConfig)
             canvas_course_id = schedule_data.get("course", {}).get("canvas_course_id")
 
-            quiz_files = (
-                sorted(
-                    path
-                    for path in self.course_repository.paths.quizzes_dir.glob("*.md")
-                    if path.name != "index.md"
-                )
-                if self.course_repository.paths.quizzes_dir.is_dir()
-                else []
-            )
-
             schedule_data["assignments"] = [
                 assignment.with_assignment_url_path(self.mkdocs_integration.assignments_url_path)
                 for assignment in self.course_repository.assignments
             ]
-            quizzes = load_schedule_quizzes(quiz_files)
+            quizzes = self.course_repository.quizzes
             if canvas_cfg is not None and canvas_course_id is not None:
-                quizzes = inject_quiz_links(
-                    quizzes, quiz_files, canvas_cfg.base_url, canvas_course_id
-                )
+                quizzes = inject_quiz_links(quizzes, canvas_cfg.base_url, canvas_course_id)
             schedule_data["quizzes"] = quizzes
             course_data["schedule"] = schedule_data
         return course_data

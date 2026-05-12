@@ -8,8 +8,6 @@ import yaml  # type: ignore[import-untyped]
 from dotenv import load_dotenv
 
 from coursemd.core.exceptions import CoursemdValidationError, wrap_validation_errors
-from coursemd.core.loaders.markdown import load_markdown_metadata
-from coursemd.core.loaders.quizzes import validate_schedule_quiz_metadata
 from coursemd.core.loaders.specs import load_assignments
 from coursemd.core.loaders.validation import bind_validation
 
@@ -17,7 +15,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from coursemd.core.models.assignment import Assignment
-    from coursemd.core.types import BreakDict, EventDict, QuizDict
+    from coursemd.core.types import BreakDict, EventDict
 
 
 @wrap_validation_errors
@@ -130,15 +128,5 @@ def load_schedule_assignments(
 
     return load_assignments(files, assignment_url_path=assignment_url_path)
 
-
-def load_schedule_quizzes(files: list[Path]) -> list[QuizDict]:
-    """Load quiz metadata for schedule rendering."""
-
-    quizzes: list[QuizDict] = []
-    for path in files:
-        metadata = load_markdown_metadata(path)
-        quizzes.append(validate_schedule_quiz_metadata(path, metadata))
-
-    return sorted(quizzes, key=lambda item: item["release_date"])
 
 

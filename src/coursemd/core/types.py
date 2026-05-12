@@ -28,28 +28,9 @@ class BreakDict(t.TypedDict):
     end: dt.date
 
 
-class ReadingDict(t.TypedDict):
-    """Represents a reading linked to a quiz."""
-
-    title: str
-    url: str
-
-
-class QuizDict(t.TypedDict, total=False):
-    """Represents a course quiz for schedule rendering."""
-
-    title: str
-    release_date: dt.date
-    due_date: dt.date
-    link: str | None
-    readings: list[ReadingDict]
-
-
 __all__ = [
     "BreakDict",
     "EventDict",
-    "QuizDict",
-    "ReadingDict",
     "RubricCriterion",
     "RubricSection",
     "RubricTier",

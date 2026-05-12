@@ -14,7 +14,6 @@ from coursemd.core.schedule import Schedule, ScheduleEntry
 from coursemd.core.types import (
     BreakDict,
     EventDict,
-    QuizDict,
     RubricCriterion,
     RubricSection,
     RubricTier,
@@ -27,7 +26,6 @@ __all__ = [
     "CourseRepository",
     "EventDict",
     "Quiz",
-    "QuizDict",
     "QuizQuestion",
     "Reading",
     "Rubric",

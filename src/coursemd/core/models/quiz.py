@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 from urllib.parse import urlparse
 
@@ -214,9 +215,23 @@ class Quiz:
     published: bool
     unlock_at: str | None
     description: str | None
+    link: str | None = None
     readings: list[Reading] = field(default_factory=list)
     questions: list[QuizQuestion] = field(default_factory=list)
     integrations: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def release_date(self) -> date:
+        if self.unlock_at is None:
+            raise ValueError(f"{self.source_file}: release_date is required.")
+        return datetime.fromisoformat(self.unlock_at).date()
+
+    @property
+    def due_date(self) -> date:
+        return datetime.fromisoformat(self.due_at).date()
+
+    def with_link(self, link: str) -> Quiz:
+        return replace(self, link=link)
 
     @classmethod
     def load(cls, path: Path) -> Quiz:
@@ -241,7 +256,10 @@ class Quiz:
                 raise ValueError("'points' must be numeric.") from exc
         published = bool(meta.get("published", False))
         unlock_at = validate.require_release_date(meta.get("release_date"), "release_date")
+        if datetime.fromisoformat(due_at).date() < datetime.fromisoformat(unlock_at).date():
+            raise ValueError("'due_at' must not fall before 'release_date'.")
         description = optional_string(meta.get("description"))
+        link = optional_string(meta.get("link"))
         readings = Reading.load(meta.get("readings"))
 
         questions_raw = meta.get("questions")
@@ -260,6 +278,7 @@ class Quiz:
             published=published,
             unlock_at=unlock_at,
             description=description,
+            link=link,
             readings=readings,
             questions=QuizQuestion.from_list(cast("list[Any]", questions_raw)),
             integrations=integrations,
