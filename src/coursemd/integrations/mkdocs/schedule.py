@@ -44,7 +44,7 @@ def _render_what(entry: ScheduleEntry) -> str:
             rendered_events.append(f"<a {html_attributes}>{title}</a>")
         output = "<br>".join(rendered_events)
     elif entry.break_:
-        output = f'<a class="label label-break">Break: {html.escape(entry.break_["name"])}</a>'
+        output = f'<a class="label label-break">Break: {html.escape(entry.break_.name)}</a>'
 
     return f'<td class="what">{output}</td>'
 

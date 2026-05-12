@@ -19,10 +19,11 @@ import coursemd.integrations.github.setup
 import coursemd.integrations.mkdocs.cli
 import coursemd.integrations.quarto.cli
 from coursemd import cli
-from coursemd.core.config import CourseConfig
+from coursemd.core.config import CourseConfig, ScheduleConfig
 from coursemd.core.exceptions import CoursemdError, CoursemdValidationError
 from coursemd.core.loaders.validation import normalize_release_date
 from coursemd.core.models.assignment import Assignment, AssignmentCheckpoint
+from coursemd.core.models.course_break import CourseBreak
 from coursemd.core.models.repository import CourseRepository
 from coursemd.integrations.canvas.config import CanvasConfig
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
@@ -694,6 +695,75 @@ def test_repository_build_retains_loaded_config(tmp_path: Path) -> None:
     assert repository.get_integration("mkdocs", MkdocsIntegrationConfig) == mkdocs_config
     assert MkdocsIntegrationConfig.get(repository) == mkdocs_config
     assert MkdocsIntegrationConfig.require(repository) == mkdocs_config
+
+
+def test_config_load_parses_schedule_config(tmp_path: Path) -> None:
+    _build_repo_fixture(tmp_path)
+    config_path = tmp_path / ".coursemd.yml"
+    config_path.write_text(
+        "schedule:\n"
+        "  start_date: 2026-01-12\n"
+        "  end_date: 2026-01-16\n"
+        "  breaks:\n"
+        "    - name: No Class\n"
+        "      start: 2026-01-14\n"
+        "      end: 2026-01-14\n" + config_path.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    config = CourseConfig.load(start_dir=tmp_path)
+
+    assert config.schedule == ScheduleConfig(
+        start_date=dt.date(2026, 1, 12),
+        end_date=dt.date(2026, 1, 16),
+        breaks=[
+            CourseBreak(
+                name="No Class",
+                start=dt.date(2026, 1, 14),
+                end=dt.date(2026, 1, 14),
+            )
+        ],
+    )
+
+
+def test_schedule_config_builds_full_schedule_from_repository(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _build_repo_fixture(tmp_path)
+    config_path = tmp_path / ".coursemd.yml"
+    config_path.write_text(
+        "schedule:\n"
+        "  start_date: 2026-01-12\n"
+        "  end_date: 2026-01-16\n"
+        "  breaks:\n"
+        "    - name: No Class\n"
+        "      start: 2026-01-14\n"
+        "      end: 2026-01-14\n" + config_path.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("CURRENT_DATE_OVERRIDE", "2026-01-13")
+    config = CourseConfig.load(start_dir=tmp_path)
+    repository = CourseRepository.build(config)
+
+    assert config.schedule is not None
+    schedule = config.schedule.build(repository)
+
+    by_date = {entry.date: entry for entry in schedule.entries}
+    assert by_date[dt.date(2026, 1, 12)].events == [
+        {
+            "kind": "lecture",
+            "date": dt.date(2026, 1, 12),
+            "title": "Course Introduction",
+        }
+    ]
+    assert by_date[dt.date(2026, 1, 12)].assignment_released is repository.assignments[0]
+    assert by_date[dt.date(2026, 1, 14)].break_ == CourseBreak(
+        name="No Class",
+        start=dt.date(2026, 1, 14),
+        end=dt.date(2026, 1, 14),
+    )
+    assert by_date[dt.date(2026, 1, 16)].quiz_due is repository.quizzes[0]
 
 
 def test_release_date_normalization_uses_configured_timezone_dst(

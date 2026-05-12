@@ -5,8 +5,9 @@ import typing as t
 from dataclasses import dataclass
 
 from coursemd.core.models.assignment import Assignment
+from coursemd.core.models.course_break import CourseBreak
 from coursemd.core.models.quiz import Quiz
-from coursemd.core.types import BreakDict, EventDict
+from coursemd.core.types import EventDict
 from coursemd.core.utils import current_date, working_days
 
 
@@ -16,7 +17,7 @@ class ScheduleEntry:
 
     date: dt.date
     events: list[EventDict]
-    break_: BreakDict | None
+    break_: CourseBreak | None
     assignment_released: Assignment | None
     assignment_due: Assignment | None
     quiz_released: Quiz | None
@@ -35,7 +36,7 @@ class Schedule:
         earliest_date: dt.date,
         latest_date: dt.date,
         events: list[EventDict],
-        breaks: list[BreakDict],
+        breaks: list[CourseBreak],
         assignments: list[Assignment],
         quizzes: list[Quiz],
     ) -> t.Self:
@@ -55,10 +56,10 @@ class Schedule:
         """
         now = current_date()
 
-        def break_at_date(d: dt.date) -> BreakDict | None:
+        def break_at_date(d: dt.date) -> CourseBreak | None:
             """Find if there's a break on the given date."""
             for break_ in breaks:
-                if break_["start"] <= d <= break_["end"]:
+                if break_.contains(d):
                     return break_
             return None
 
@@ -99,9 +100,7 @@ class Schedule:
         date_to_quiz_release = {
             quiz.release_date: quiz for quiz in quizzes if quiz.release_date <= now
         }
-        date_to_quiz_due = {
-            quiz.due_date: quiz for quiz in quizzes if quiz.release_date <= now
-        }
+        date_to_quiz_due = {quiz.due_date: quiz for quiz in quizzes if quiz.release_date <= now}
 
         # Build schedule entries
         entries: list[ScheduleEntry] = []

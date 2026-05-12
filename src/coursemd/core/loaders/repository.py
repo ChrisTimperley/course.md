@@ -10,12 +10,13 @@ from dotenv import load_dotenv
 from coursemd.core.exceptions import CoursemdValidationError, wrap_validation_errors
 from coursemd.core.loaders.specs import load_assignments
 from coursemd.core.loaders.validation import bind_validation
+from coursemd.core.models.course_break import CourseBreak
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from coursemd.core.models.assignment import Assignment
-    from coursemd.core.types import BreakDict, EventDict
+    from coursemd.core.types import EventDict
 
 
 @wrap_validation_errors
@@ -60,7 +61,7 @@ def validate_schedule_data(source_file: Path, value: Any) -> dict[str, Any]:
     breaks_raw = schedule.get("breaks", [])
     if not isinstance(breaks_raw, list):
         raise TypeError("'breaks' must be a list.")
-    breaks: list[BreakDict] = []
+    breaks: list[CourseBreak] = []
     for index, break_raw in enumerate(breaks_raw):
         break_map = validate.require_mapping(break_raw, f"breaks[{index}]")
         start = validate.require_date(break_map.get("start"), f"breaks[{index}].start")
@@ -68,21 +69,21 @@ def validate_schedule_data(source_file: Path, value: Any) -> dict[str, Any]:
         if end < start:
             raise ValueError(f"breaks[{index}].end must not be earlier than breaks[{index}].start.")
         breaks.append(
-            {
-                "name": validate.require_non_empty_string(
+            CourseBreak(
+                name=validate.require_non_empty_string(
                     break_map.get("name"),
                     f"breaks[{index}].name",
                 ),
-                "start": start,
-                "end": end,
-            }
+                start=start,
+                end=end,
+            )
         )
 
-    sorted_breaks = sorted(enumerate(breaks), key=lambda item: item[1]["start"])
+    sorted_breaks = sorted(enumerate(breaks), key=lambda item: item[1].start)
     previous_index: int | None = None
-    previous_break: BreakDict | None = None
+    previous_break: CourseBreak | None = None
     for index, break_ in sorted_breaks:
-        if previous_break is not None and break_["start"] <= previous_break["end"]:
+        if previous_break is not None and break_.start <= previous_break.end:
             raise ValueError(f"breaks[{index}] overlaps breaks[{previous_index}].")
         previous_index = index
         previous_break = break_
@@ -127,6 +128,3 @@ def load_schedule_assignments(
     """Load assignment metadata for schedule rendering."""
 
     return load_assignments(files, assignment_url_path=assignment_url_path)
-
-
-
