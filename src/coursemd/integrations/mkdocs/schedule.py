@@ -17,11 +17,11 @@ def _render_what(entry: ScheduleEntry) -> str:
     if entry.events:
         rendered_events: list[str] = []
         for event in entry.events:
-            title = html.escape(str(event["title"]))
-            kind = str(event.get("kind", "")).strip().lower()
+            title = html.escape(event.title)
+            kind = event.kind.strip().lower()
             attributes = {"class": "label"}
-            if link := event.get("link"):
-                attributes["href"] = html.escape(str(link), quote=True)
+            if event.link:
+                attributes["href"] = html.escape(event.link, quote=True)
 
             if kind == "lecture":
                 title = f"Lecture: {title}"

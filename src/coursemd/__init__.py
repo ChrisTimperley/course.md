@@ -6,6 +6,7 @@ from coursemd.core.config import ScheduleConfig
 from coursemd.core.models import (
     Assignment,
     CourseBreak,
+    CourseEvent,
     CourseRepository,
     Quiz,
     QuizQuestion,
@@ -14,7 +15,6 @@ from coursemd.core.models import (
 )
 from coursemd.core.schedule import Schedule, ScheduleEntry
 from coursemd.core.types import (
-    EventDict,
     RubricCriterion,
     RubricSection,
     RubricTier,
@@ -24,8 +24,8 @@ from coursemd.core.utils import current_date, working_days
 __all__ = [
     "Assignment",
     "CourseBreak",
+    "CourseEvent",
     "CourseRepository",
-    "EventDict",
     "Quiz",
     "QuizQuestion",
     "Reading",

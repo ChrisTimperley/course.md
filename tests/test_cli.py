@@ -24,6 +24,7 @@ from coursemd.core.exceptions import CoursemdError, CoursemdValidationError
 from coursemd.core.loaders.validation import normalize_release_date
 from coursemd.core.models.assignment import Assignment, AssignmentCheckpoint
 from coursemd.core.models.course_break import CourseBreak
+from coursemd.core.models.course_event import CourseEvent
 from coursemd.core.models.repository import CourseRepository
 from coursemd.integrations.canvas.config import CanvasConfig
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
@@ -45,6 +46,17 @@ def _build_repo_fixture(repo_root: Path) -> None:
     _write_file(
         repo_root / ".coursemd.yml",
         """
+                schedule:
+                    start_date: 2026-01-12
+                    end_date: 2026-01-16
+                    events:
+                        - kind: lecture
+                          date: 2026-01-12
+                          title: Course Introduction
+                    breaks:
+                        - name: No Class
+                          start: 2026-01-14
+                          end: 2026-01-14
                 integrations:
                     mkdocs:
                         base_url: https://example.edu/course
@@ -71,10 +83,6 @@ def _build_repo_fixture(repo_root: Path) -> None:
           end_date: 2026-01-16
           title: Test Course
           canvas_course_id: 12345
-        events:
-          - kind: lecture
-            date: 2026-01-12
-            title: Course Introduction
         """,
     )
     _write_file(
@@ -248,24 +256,62 @@ def test_assignment_checkpoint_from_dict_loads_checkpoint() -> None:
     )
 
 
+def test_course_event_constructors_parse_event_data() -> None:
+    event = CourseEvent.from_dict(
+        {
+            "kind": "Lecture",
+            "date": "2026-01-12",
+            "title": " Course Introduction ",
+            "link": " /slides/intro.pdf ",
+            "speakers": [" Instructor One ", "Instructor Two"],
+        }
+    )
+
+    assert event == CourseEvent(
+        kind="lecture",
+        date=dt.date(2026, 1, 12),
+        title="Course Introduction",
+        link="/slides/intro.pdf",
+        speakers=("Instructor One", "Instructor Two"),
+    )
+    assert CourseEvent.parse(event) is event
+    assert CourseEvent.from_list([{"kind": "workshop", "date": "2026-01-13", "title": "Lab"}]) == [
+        CourseEvent(kind="workshop", date=dt.date(2026, 1, 13), title="Lab")
+    ]
+
+
 def test_validate_allows_multiple_schedule_events_on_same_date(tmp_path: Path, monkeypatch) -> None:
     _build_repo_fixture(tmp_path)
     _write_file(
-        tmp_path / "data" / "schedule.yaml",
+        tmp_path / ".coursemd.yml",
         "\n".join(
             [
-                "course:",
+                "schedule:",
                 "  start_date: 2026-01-12",
                 "  end_date: 2026-01-16",
-                "  title: Test Course",
-                "  canvas_course_id: 12345",
-                "events:",
-                "  - kind: lecture",
-                "    date: 2026-01-12",
-                "    title: Course Introduction",
-                "  - kind: workshop",
-                "    date: 2026-01-12",
-                "    title: Duplicate Slot",
+                "  events:",
+                "    - kind: lecture",
+                "      date: 2026-01-12",
+                "      title: Course Introduction",
+                "    - kind: workshop",
+                "      date: 2026-01-12",
+                "      title: Duplicate Slot",
+                "integrations:",
+                "  mkdocs:",
+                "    base_url: https://example.edu/course",
+                "    project_dir: website",
+                "  quarto:",
+                "    dir: slides",
+                "  github:",
+                "    organization: example-course-org",
+                "    instructors_team_slug: instructors",
+                "  canvas:",
+                "    base_url: https://canvas.example.edu",
+                "    course_id: 12345",
+                "paths:",
+                "  data_dir: data",
+                "  assignments_dir: assignments",
+                "  quizzes_dir: quizzes",
                 "",
             ]
         ),
@@ -276,6 +322,32 @@ def test_validate_allows_multiple_schedule_events_on_same_date(tmp_path: Path, m
 
     assert result.exit_code == 0
     assert "Validation passed." in result.stdout
+
+
+def test_validate_rejects_legacy_schedule_events_in_data_file(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _build_repo_fixture(tmp_path)
+    _write_file(
+        tmp_path / "data" / "schedule.yaml",
+        """
+        course:
+          start_date: 2026-01-12
+          end_date: 2026-01-16
+          title: Test Course
+        events:
+          - kind: lecture
+            date: 2026-01-12
+            title: Course Introduction
+        """,
+    )
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(cli.app, ["validate"])
+
+    assert result.exit_code == 1
+    assert "'events' must be configured in .coursemd.yml under schedule.events." in result.output
 
 
 def test_validate_fails_for_assignment_missing_release_date(tmp_path: Path, monkeypatch) -> None:
@@ -699,23 +771,19 @@ def test_repository_build_retains_loaded_config(tmp_path: Path) -> None:
 
 def test_config_load_parses_schedule_config(tmp_path: Path) -> None:
     _build_repo_fixture(tmp_path)
-    config_path = tmp_path / ".coursemd.yml"
-    config_path.write_text(
-        "schedule:\n"
-        "  start_date: 2026-01-12\n"
-        "  end_date: 2026-01-16\n"
-        "  breaks:\n"
-        "    - name: No Class\n"
-        "      start: 2026-01-14\n"
-        "      end: 2026-01-14\n" + config_path.read_text(encoding="utf-8"),
-        encoding="utf-8",
-    )
 
     config = CourseConfig.load(start_dir=tmp_path)
 
     assert config.schedule == ScheduleConfig(
         start_date=dt.date(2026, 1, 12),
         end_date=dt.date(2026, 1, 16),
+        events=[
+            CourseEvent(
+                kind="lecture",
+                date=dt.date(2026, 1, 12),
+                title="Course Introduction",
+            )
+        ],
         breaks=[
             CourseBreak(
                 name="No Class",
@@ -731,17 +799,6 @@ def test_schedule_config_builds_full_schedule_from_repository(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _build_repo_fixture(tmp_path)
-    config_path = tmp_path / ".coursemd.yml"
-    config_path.write_text(
-        "schedule:\n"
-        "  start_date: 2026-01-12\n"
-        "  end_date: 2026-01-16\n"
-        "  breaks:\n"
-        "    - name: No Class\n"
-        "      start: 2026-01-14\n"
-        "      end: 2026-01-14\n" + config_path.read_text(encoding="utf-8"),
-        encoding="utf-8",
-    )
     monkeypatch.setenv("CURRENT_DATE_OVERRIDE", "2026-01-13")
     config = CourseConfig.load(start_dir=tmp_path)
     repository = CourseRepository.build(config)
@@ -751,11 +808,11 @@ def test_schedule_config_builds_full_schedule_from_repository(
 
     by_date = {entry.date: entry for entry in schedule.entries}
     assert by_date[dt.date(2026, 1, 12)].events == [
-        {
-            "kind": "lecture",
-            "date": dt.date(2026, 1, 12),
-            "title": "Course Introduction",
-        }
+        CourseEvent(
+            kind="lecture",
+            date=dt.date(2026, 1, 12),
+            title="Course Introduction",
+        )
     ]
     assert by_date[dt.date(2026, 1, 12)].assignment_released is repository.assignments[0]
     assert by_date[dt.date(2026, 1, 14)].break_ == CourseBreak(
@@ -1097,6 +1154,13 @@ def test_slides_preview_uses_configured_directory(tmp_path: Path, monkeypatch) -
     _write_file(
         tmp_path / ".coursemd.yml",
         """
+                schedule:
+                    start_date: 2026-01-12
+                    end_date: 2026-01-16
+                    events:
+                        - kind: lecture
+                          date: 2026-01-12
+                          title: Course Introduction
                 integrations:
                     mkdocs:
                         base_url: https://example.edu/course
@@ -1179,6 +1243,13 @@ def test_coursemd_mkdocs_plugin_builds_non_canvas_course(
     _write_file(
         tmp_path / ".coursemd.yml",
         """
+                schedule:
+                    start_date: 2026-01-12
+                    end_date: 2026-01-16
+                    events:
+                        - kind: lecture
+                          date: 2026-01-12
+                          title: Course Introduction
                 integrations:
                     mkdocs:
                         base_url: https://example.edu/course
@@ -1196,10 +1267,6 @@ def test_coursemd_mkdocs_plugin_builds_non_canvas_course(
           start_date: 2026-01-12
           end_date: 2026-01-16
           title: Test Course
-        events:
-          - kind: lecture
-            date: 2026-01-12
-            title: Course Introduction
         """,
     )
     _write_file(

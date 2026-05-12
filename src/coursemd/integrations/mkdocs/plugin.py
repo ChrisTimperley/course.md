@@ -149,9 +149,16 @@ class CoursemdPlugin(BasePlugin):
 
     def _build_course_data(self) -> dict[str, Any]:
         course_data = dict(self.course_repository.data)
-        schedule = course_data.get("schedule")
-        if isinstance(schedule, dict):
-            schedule_data = dict(schedule)
+        schedule_config = self.course_repository.config.schedule
+        if schedule_config is not None:
+            schedule = course_data.get("schedule")
+            schedule_data = dict(schedule) if isinstance(schedule, dict) else {}
+            course = dict(schedule_data.get("course", {}))
+            course["start_date"] = schedule_config.start_date
+            course["end_date"] = schedule_config.end_date
+            schedule_data["course"] = course
+            schedule_data["events"] = schedule_config.events
+            schedule_data["breaks"] = schedule_config.breaks
             canvas_cfg = self.course_repository.get_integration("canvas", CanvasConfig)
             canvas_course_id = schedule_data.get("course", {}).get("canvas_course_id")
 
@@ -164,6 +171,8 @@ class CoursemdPlugin(BasePlugin):
                 quizzes = inject_quiz_links(quizzes, canvas_cfg.base_url, canvas_course_id)
             schedule_data["quizzes"] = quizzes
             course_data["schedule"] = schedule_data
+        else:
+            course_data.pop("schedule", None)
         return course_data
 
     def _configure_watch(self, config: MkDocsConfig) -> None:

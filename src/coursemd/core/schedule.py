@@ -6,8 +6,8 @@ from dataclasses import dataclass
 
 from coursemd.core.models.assignment import Assignment
 from coursemd.core.models.course_break import CourseBreak
+from coursemd.core.models.course_event import CourseEvent
 from coursemd.core.models.quiz import Quiz
-from coursemd.core.types import EventDict
 from coursemd.core.utils import current_date, working_days
 
 
@@ -16,7 +16,7 @@ class ScheduleEntry:
     """Stores information for a single day in the course schedule."""
 
     date: dt.date
-    events: list[EventDict]
+    events: list[CourseEvent]
     break_: CourseBreak | None
     assignment_released: Assignment | None
     assignment_due: Assignment | None
@@ -35,7 +35,7 @@ class Schedule:
         cls,
         earliest_date: dt.date,
         latest_date: dt.date,
-        events: list[EventDict],
+        events: list[CourseEvent],
         breaks: list[CourseBreak],
         assignments: list[Assignment],
         quizzes: list[Quiz],
@@ -64,10 +64,10 @@ class Schedule:
             return None
 
         def preview_next(
-            events_by_date: dict[dt.date, list[EventDict]],
-        ) -> dict[dt.date, list[EventDict]]:
+            events_by_date: dict[dt.date, list[CourseEvent]],
+        ) -> dict[dt.date, list[CourseEvent]]:
             """Keep all previous events and the next upcoming event, hide future ones."""
-            filtered: dict[dt.date, list[EventDict]] = {}
+            filtered: dict[dt.date, list[CourseEvent]] = {}
 
             # We keep all previous events as well as the next upcoming event
             # We ignore all other future events
@@ -79,9 +79,9 @@ class Schedule:
             return filtered
 
         # Build event dictionaries
-        events_by_date: dict[dt.date, list[EventDict]] = {}
+        events_by_date: dict[dt.date, list[CourseEvent]] = {}
         for event in events:
-            events_by_date.setdefault(event["date"], []).append(event)
+            events_by_date.setdefault(event.date, []).append(event)
         date_to_events = preview_next(events_by_date)
 
         # Build assignment dictionaries

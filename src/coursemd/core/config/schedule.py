@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import typing as t
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
 
@@ -10,13 +9,13 @@ from coursemd.core.config_helpers import CONFIG_FILENAME, require_mapping
 from coursemd.core.exceptions import CoursemdValidationError
 from coursemd.core.loaders.dates import parse_date
 from coursemd.core.models.course_break import CourseBreak
+from coursemd.core.models.course_event import CourseEvent
 from coursemd.core.schedule import Schedule
 
 if TYPE_CHECKING:
     import datetime as dt
 
     from coursemd.core.models.repository import CourseRepository
-    from coursemd.core.types import EventDict
 
 
 def _require_date(value: Any, *, label: str) -> dt.date:
@@ -32,6 +31,7 @@ def _require_date(value: Any, *, label: str) -> dt.date:
 class ScheduleConfig:
     start_date: dt.date
     end_date: dt.date
+    events: list[CourseEvent]
     breaks: list[CourseBreak]
 
     @classmethod
@@ -44,6 +44,8 @@ class ScheduleConfig:
                 f"schedule.end_date must not be earlier than schedule.start_date in "
                 f"{CONFIG_FILENAME}."
             )
+
+        events = CourseEvent.from_list(schedule_map.get("events", []))
 
         breaks_raw = schedule_map.get("breaks", [])
         if not isinstance(breaks_raw, list):
@@ -85,18 +87,13 @@ class ScheduleConfig:
             previous_index = index
             previous_break = break_
 
-        return cls(start_date=start_date, end_date=end_date, breaks=breaks)
+        return cls(start_date=start_date, end_date=end_date, events=events, breaks=breaks)
 
     def build(self, repository: CourseRepository) -> Schedule:
-        schedule_data = repository.data.get("schedule", {})
-        if not isinstance(schedule_data, dict):
-            schedule_data = {}
-
-        events = t.cast("list[EventDict]", schedule_data.get("events", []))
         return Schedule.build(
             earliest_date=self.start_date,
             latest_date=self.end_date,
-            events=events,
+            events=self.events,
             breaks=self.breaks,
             assignments=repository.assignments,
             quizzes=repository.quizzes,

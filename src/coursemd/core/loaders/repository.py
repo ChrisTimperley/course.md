@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import yaml  # type: ignore[import-untyped]
 from dotenv import load_dotenv
@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from coursemd.core.models.assignment import Assignment
-    from coursemd.core.types import EventDict
 
 
 @wrap_validation_errors
@@ -35,28 +34,8 @@ def validate_schedule_data(source_file: Path, value: Any) -> dict[str, Any]:
     course["title"] = validate.require_non_empty_string(course_raw.get("title"), "course.title")
     course["start_date"] = start_date
     course["end_date"] = end_date
-    events_raw = schedule.get("events", [])
-    if not isinstance(events_raw, list):
-        raise TypeError("'events' must be a list.")
-    events: list[EventDict] = []
-    for index, event_raw in enumerate(events_raw):
-        event = validate.require_mapping(event_raw, f"events[{index}]")
-        kind = validate.require_non_empty_string(event.get("kind"), f"events[{index}].kind").lower()
-        event_date = validate.require_date(event.get("date"), f"events[{index}].date")
-
-        normalized_event = dict(event)
-        normalized_event["kind"] = kind
-        normalized_event["date"] = event_date
-        normalized_event["title"] = validate.require_non_empty_string(
-            event.get("title"),
-            f"events[{index}].title",
-        )
-        if "link" in event and event.get("link") is not None:
-            normalized_event["link"] = validate.require_non_empty_string(
-                event.get("link"),
-                f"events[{index}].link",
-            )
-        events.append(cast("EventDict", normalized_event))
+    if "events" in schedule:
+        raise ValueError("'events' must be configured in .coursemd.yml under schedule.events.")
 
     breaks_raw = schedule.get("breaks", [])
     if not isinstance(breaks_raw, list):
@@ -90,7 +69,6 @@ def validate_schedule_data(source_file: Path, value: Any) -> dict[str, Any]:
 
     normalized = dict(schedule)
     normalized["course"] = course
-    normalized["events"] = events
     normalized["breaks"] = breaks
     return normalized
 
