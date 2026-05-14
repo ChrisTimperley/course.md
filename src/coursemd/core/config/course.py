@@ -14,7 +14,6 @@ from coursemd.core.config_helpers import (
     CONFIG_FILENAME,
     require_mapping,
     require_timezone,
-    resolve_relative_path,
 )
 from coursemd.core.exceptions import CoursemdValidationError
 from coursemd.core.integration_config import IntegrationConfig, IntegrationConfigContext
@@ -27,9 +26,9 @@ T = TypeVar("T", bound=IntegrationConfig)
 
 @dataclass(frozen=True)
 class CourseConfig:
-    DEFAULT_DATA_DIR: ClassVar[str] = "data"
-    DEFAULT_ASSIGNMENTS_DIR: ClassVar[str] = "assignments"
-    DEFAULT_QUIZZES_DIR: ClassVar[str] = "quizzes"
+    DEFAULT_DATA_DIR: ClassVar[str] = CoursePathsConfig.DEFAULT_DATA_DIR
+    DEFAULT_ASSIGNMENTS_DIR: ClassVar[str] = CoursePathsConfig.DEFAULT_ASSIGNMENTS_DIR
+    DEFAULT_QUIZZES_DIR: ClassVar[str] = CoursePathsConfig.DEFAULT_QUIZZES_DIR
     DEFAULT_TIMEZONE: ClassVar[str] = COURSE_DEFAULT_TIMEZONE
 
     config_path: Path
@@ -120,16 +119,9 @@ class CourseConfig:
 
         config_map = require_mapping(raw_config, label="Top-level config")
         integrations_map = require_mapping(config_map.get("integrations"), label="integrations")
-        paths_map = require_mapping(config_map.get("paths"), label="paths")
         schedule = (
             ScheduleConfig.parse(config_map["schedule"]) if "schedule" in config_map else None
         )
-
-        env_file = paths_map.get("env_file", ".env")
-        if env_file is not None and (not isinstance(env_file, str) or not env_file.strip()):
-            raise CoursemdValidationError(
-                f"paths.env_file must be a non-empty string in {CONFIG_FILENAME}."
-            )
 
         return cls(
             config_path=config_path,
@@ -139,24 +131,7 @@ class CourseConfig:
                 label="timezone",
             ),
             integrations=cls._load_integrations(integrations_map, repo_root=repo_root),
-            paths=CoursePathsConfig(
-                data_dir=resolve_relative_path(
-                    repo_root,
-                    paths_map.get("data_dir"),
-                    label="paths.data_dir",
-                ),
-                assignments_dir=resolve_relative_path(
-                    repo_root,
-                    paths_map.get("assignments_dir"),
-                    label="paths.assignments_dir",
-                ),
-                quizzes_dir=resolve_relative_path(
-                    repo_root,
-                    paths_map.get("quizzes_dir"),
-                    label="paths.quizzes_dir",
-                ),
-                env_file=env_file.strip() if isinstance(env_file, str) else ".env",
-            ),
+            paths=CoursePathsConfig.parse(config_map.get("paths"), repo_root=repo_root),
             staff=StaffMember.from_list(config_map.get("staff")),
             schedule=schedule,
         )

@@ -19,7 +19,7 @@ import coursemd.integrations.github.setup
 import coursemd.integrations.mkdocs.cli
 import coursemd.integrations.quarto.cli
 from coursemd import cli
-from coursemd.core.config import CourseConfig, ScheduleConfig
+from coursemd.core.config import CourseConfig, CoursePathsConfig, ScheduleConfig
 from coursemd.core.exceptions import CoursemdError, CoursemdValidationError
 from coursemd.core.loaders.validation import normalize_release_date
 from coursemd.core.models.assignment import Assignment, AssignmentCheckpoint
@@ -701,6 +701,45 @@ def test_config_reads_course_timezone(tmp_path: Path) -> None:
     config = CourseConfig.load(start_dir=tmp_path / "website")
 
     assert config.timezone == "America/Los_Angeles"
+
+
+def test_course_paths_config_defaults_all_paths(tmp_path: Path) -> None:
+    paths = CoursePathsConfig.default(repo_root=tmp_path)
+
+    assert paths.data_dir == (tmp_path / "data").resolve()
+    assert paths.assignments_dir == (tmp_path / "assignments").resolve()
+    assert paths.quizzes_dir == (tmp_path / "quizzes").resolve()
+    assert paths.env_file == ".env"
+
+
+def test_course_paths_config_from_dict_defaults_missing_fields(tmp_path: Path) -> None:
+    paths = CoursePathsConfig.from_dict({"data_dir": "course-data"}, repo_root=tmp_path)
+
+    assert paths.data_dir == (tmp_path / "course-data").resolve()
+    assert paths.assignments_dir == (tmp_path / "assignments").resolve()
+    assert paths.quizzes_dir == (tmp_path / "quizzes").resolve()
+    assert paths.env_file == ".env"
+
+
+def test_config_load_defaults_paths_for_repository_without_quizzes(tmp_path: Path) -> None:
+    _write_file(
+        tmp_path / ".coursemd.yml",
+        """
+        integrations:
+          mkdocs:
+            base_url: https://example.edu/course
+            project_dir: website
+        paths:
+          data_dir: data
+          assignments_dir: assignments
+        """,
+    )
+
+    config = CourseConfig.load(start_dir=tmp_path)
+    repository = CourseRepository.build(config)
+
+    assert config.paths.quizzes_dir == (tmp_path / "quizzes").resolve()
+    assert repository.quizzes == []
 
 
 def test_config_reads_staff_members(tmp_path: Path) -> None:
