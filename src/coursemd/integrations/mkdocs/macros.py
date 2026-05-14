@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import typing as t
 
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+
 from coursemd.core.loaders.dates import parse_date as _parse_date
 from coursemd.core.schedule import Schedule
 from coursemd.core.utils import current_date
@@ -16,11 +18,86 @@ if t.TYPE_CHECKING:
 
 _TH_EXCEPTION_MIN = 11  # 11th, 12th, 13th are exceptions to ordinal suffix rules
 _TH_EXCEPTION_MAX = 13
+_DEFAULT_STAFF_PHOTO_BASE_PATH = "/assets/images"
+_DEFAULT_STAFFER_TEMPLATE = """
+{%- macro render_staffer(person) -%}
+<div class="staffer card">
+    <div class="container">
+        {% if person.photo %}
+        <img class="staffer-image" src="{{ photo_base_path }}/{{ person.photo }}" alt="">
+        {% else %}
+        <div class="staffer-image-placeholder"></div>
+        {% endif %}
+        <div>
+            <h3 class="staffer-name">
+                {{ person.name }}
+            </h3>
+            <div class="staffer-links">
+                {% if person.email %}
+                <a href="mailto:{{ person.email }}"><span class="material-symbols-outlined">
+                    mail
+                </span></a>
+                {% endif %}
+                {% if person.website %}
+                <a href="{{ person.website }}" target="_blank">
+                    <span class="material-symbols-outlined">
+                    public
+                    </span>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{%- endmacro -%}
+""".strip()
 
 
 def _configured_canvas_base_url(env: t.Any) -> str:
     raw_value = env.conf.get("extra", {}).get("canvas_base_url") or DEFAULT_CANVAS_BASE_URL
     return str(raw_value).rstrip("/")
+
+
+def _template_environment(env: t.Any) -> Environment:
+    docs_dir = env.conf.get("docs_dir")
+    template_env = Environment(
+        loader=FileSystemLoader(str(docs_dir)) if docs_dir else None,
+        autoescape=select_autoescape(),
+    )
+    template_env.globals.update(getattr(env, "variables", {}))
+    template_env.globals.update(getattr(env, "macros", {}))
+    return template_env
+
+
+def _staffer_template(
+    env: t.Any,
+    *,
+    template_path: str | None,
+    photo_base_path: str,
+) -> t.Any:
+    template_env = _template_environment(env)
+    template_env.globals["photo_base_path"] = photo_base_path.rstrip("/")
+    return (
+        template_env.get_template(template_path)
+        if template_path
+        else template_env.from_string(_DEFAULT_STAFFER_TEMPLATE)
+    )
+
+
+def _render_staffer(
+    env: t.Any,
+    *,
+    person: StaffMember,
+    template_path: str | None,
+    photo_base_path: str,
+) -> str:
+    template = _staffer_template(
+        env,
+        template_path=template_path,
+        photo_base_path=photo_base_path,
+    )
+    module = template.make_module({"photo_base_path": photo_base_path.rstrip("/")})
+    return t.cast("str", module.render_staffer(person))
 
 
 def define_env(env: t.Any) -> None:
@@ -285,6 +362,30 @@ def define_env(env: t.Any) -> None:
             html_parts.append("</div>")
 
         return "\n".join(html_parts)
+
+    @env.macro
+    def render_staffer(
+        person: StaffMember,
+        template_path: str | None = None,
+        photo_base_path: str = _DEFAULT_STAFF_PHOTO_BASE_PATH,
+    ) -> str:
+        """
+        Render a single staff member using the built-in staffer template.
+
+        Args:
+            person: Staff member loaded from .coursemd.yml.
+            template_path: Optional template path relative to the MkDocs docs directory.
+            photo_base_path: URL path prefix for staff photos.
+
+        Returns:
+            HTML string for the staff member card.
+        """
+        return _render_staffer(
+            env,
+            person=person,
+            template_path=template_path,
+            photo_base_path=photo_base_path,
+        )
 
     @env.macro
     def ta_team_table(staff: list[StaffMember]) -> str:

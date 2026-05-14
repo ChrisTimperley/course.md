@@ -1643,11 +1643,14 @@ def test_coursemd_mkdocs_plugin_exposes_configured_staff(
         dedent(
             """
         staff:
+          - name: Grace Hopper
+            role: instructor
+            email: grace@example.edu
+            website: https://example.edu/grace
+            photo: grace.png
           - name: Ada Lovelace
             role: teaching-assistant
             email: ada@example.edu
-            teams:
-              - Team A
         """
         )
         + config_path.read_text(encoding="utf-8"),
@@ -1658,9 +1661,29 @@ def test_coursemd_mkdocs_plugin_exposes_configured_staff(
         """
         # Staff
 
-        {{ staff[0].name }}
+        ## Staff
 
-        {{ ta_team_table(staff) }}
+        ### Instructors
+
+        <div id="course-instructors">
+        {%- set instructors = staff | selectattr("role", "==", "instructor") | list -%}
+        {% for instructor in instructors %}
+        {{ render_staffer(instructor) }}
+        {% endfor %}
+        </div>
+
+        {%- set assistants = staff | selectattr("role", "==", "teaching-assistant") | list -%}
+
+        {% if assistants %}
+
+        ### Teaching Assistants
+
+        <div id="course-assistants">
+        {% for assistant in assistants %}
+        {{ render_staffer(assistant) }}
+        {% endfor %}
+        </div>
+        {% endif %}
         """,
     )
     monkeypatch.setenv("CURRENT_DATE_OVERRIDE", "2026-01-13")
@@ -1676,9 +1699,15 @@ def test_coursemd_mkdocs_plugin_exposes_configured_staff(
         config.plugins.on_shutdown()
 
     index_html = (tmp_path / "site" / "index.html").read_text(encoding="utf-8")
+    assert 'id="course-instructors"' in index_html
+    assert 'id="course-assistants"' in index_html
+    assert "Grace Hopper" in index_html
     assert "Ada Lovelace" in index_html
-    assert "Team A" in index_html
+    assert 'src="/assets/images/grace.png"' in index_html
+    assert "mailto:grace@example.edu" in index_html
     assert "mailto:ada@example.edu" in index_html
+    assert "https://example.edu/grace" in index_html
+    assert "staffer-image-placeholder" in index_html
 
 
 def test_grade_boundaries_table_without_grading_data_returns_empty(
