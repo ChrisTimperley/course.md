@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar, Self, TypeVar
 
@@ -18,6 +18,7 @@ from coursemd.core.config_helpers import (
 )
 from coursemd.core.exceptions import CoursemdValidationError
 from coursemd.core.integration_config import IntegrationConfig, IntegrationConfigContext
+from coursemd.core.models.staff import StaffMember
 from coursemd.core.utils import DEFAULT_TIMEZONE as COURSE_DEFAULT_TIMEZONE
 from coursemd.integrations import load_builtin_integration_configs
 
@@ -36,6 +37,7 @@ class CourseConfig:
     timezone: str
     integrations: dict[str, IntegrationConfig]
     paths: CoursePathsConfig
+    staff: list[StaffMember] = field(default_factory=list)
     schedule: ScheduleConfig | None = None
 
     def get_integration(self, name: str, config_type: type[T]) -> T | None:
@@ -155,5 +157,6 @@ class CourseConfig:
                 ),
                 env_file=env_file.strip() if isinstance(env_file, str) else ".env",
             ),
+            staff=StaffMember.from_list(config_map.get("staff")),
             schedule=schedule,
         )

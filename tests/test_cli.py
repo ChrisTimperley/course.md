@@ -26,6 +26,7 @@ from coursemd.core.models.assignment import Assignment, AssignmentCheckpoint
 from coursemd.core.models.course_break import CourseBreak
 from coursemd.core.models.course_event import CourseEvent
 from coursemd.core.models.repository import CourseRepository
+from coursemd.core.models.staff import StaffMember
 from coursemd.integrations.canvas.config import CanvasConfig
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
 
@@ -700,6 +701,63 @@ def test_config_reads_course_timezone(tmp_path: Path) -> None:
     config = CourseConfig.load(start_dir=tmp_path / "website")
 
     assert config.timezone == "America/Los_Angeles"
+
+
+def test_config_reads_staff_members(tmp_path: Path) -> None:
+    _build_repo_fixture(tmp_path)
+    config_path = tmp_path / ".coursemd.yml"
+    config_path.write_text(
+        dedent(
+            """
+        staff:
+          - name: Ada Lovelace
+            role: Teaching-Assistant
+            email: ada@example.edu
+            website: https://example.edu/ada
+            photo: ada.png
+            github: ada
+            teams:
+              - 1
+              - Team B
+        """
+        )
+        + config_path.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    config = CourseConfig.load(start_dir=tmp_path / "website")
+    repository = CourseRepository.build(config)
+
+    assert config.staff == [
+        StaffMember(
+            name="Ada Lovelace",
+            role="teaching-assistant",
+            email="ada@example.edu",
+            website="https://example.edu/ada",
+            photo="ada.png",
+            github="ada",
+            teams=("1", "Team B"),
+        )
+    ]
+    assert repository.staff == config.staff
+
+
+def test_config_rejects_invalid_staff_member(tmp_path: Path) -> None:
+    _build_repo_fixture(tmp_path)
+    config_path = tmp_path / ".coursemd.yml"
+    config_path.write_text(
+        dedent(
+            """
+        staff:
+          - role: instructor
+        """
+        )
+        + config_path.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(CoursemdValidationError, match=r"staff\[0\].name"):
+        CourseConfig.load(start_dir=tmp_path)
 
 
 def test_config_rejects_invalid_timezone(tmp_path: Path, monkeypatch) -> None:
@@ -1573,6 +1631,54 @@ def test_coursemd_mkdocs_plugin_loads_all_yaml_data_files(
 
     index_html = (tmp_path / "site" / "index.html").read_text(encoding="utf-8")
     assert "Extra data works" in index_html
+
+
+def test_coursemd_mkdocs_plugin_exposes_configured_staff(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _build_repo_fixture(tmp_path)
+    config_path = tmp_path / ".coursemd.yml"
+    config_path.write_text(
+        dedent(
+            """
+        staff:
+          - name: Ada Lovelace
+            role: teaching-assistant
+            email: ada@example.edu
+            teams:
+              - Team A
+        """
+        )
+        + config_path.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    _write_file(
+        tmp_path / "website" / "docs" / "index.md",
+        """
+        # Staff
+
+        {{ staff[0].name }}
+
+        {{ ta_team_table(staff) }}
+        """,
+    )
+    monkeypatch.setenv("CURRENT_DATE_OVERRIDE", "2026-01-13")
+    monkeypatch.chdir(tmp_path / "website")
+
+    config = load_config(config_file="mkdocs.yml", site_dir=str(tmp_path / "site"))
+    config.plugins.on_startup(command="build", dirty=False)
+    try:
+        mkdocs_build(config, dirty=False)
+        plugin = config.plugins["coursemd"]
+        assert isinstance(plugin.course_data["staff"][0], StaffMember)
+    finally:
+        config.plugins.on_shutdown()
+
+    index_html = (tmp_path / "site" / "index.html").read_text(encoding="utf-8")
+    assert "Ada Lovelace" in index_html
+    assert "Team A" in index_html
+    assert "mailto:ada@example.edu" in index_html
 
 
 def test_grade_boundaries_table_without_grading_data_returns_empty(

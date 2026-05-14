@@ -149,6 +149,8 @@ class CoursemdPlugin(BasePlugin):
 
     def _build_course_data(self) -> dict[str, Any]:
         course_data = dict(self.course_repository.data)
+        if self.course_repository.staff:
+            course_data["staff"] = self.course_repository.staff
         schedule_config = self.course_repository.config.schedule
         if schedule_config is not None:
             schedule = course_data.get("schedule")

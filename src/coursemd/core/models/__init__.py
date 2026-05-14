@@ -7,6 +7,7 @@ from coursemd.core.models.course_event import CourseEvent
 from coursemd.core.models.quiz import Quiz, QuizQuestion, Reading
 from coursemd.core.models.repository import CourseRepository
 from coursemd.core.models.rubric import Rubric, RubricCriterion, RubricSection, RubricTier
+from coursemd.core.models.staff import StaffMember
 
 __all__ = (
     "Assignment",
@@ -21,4 +22,5 @@ __all__ = (
     "RubricCriterion",
     "RubricSection",
     "RubricTier",
+    "StaffMember",
 )

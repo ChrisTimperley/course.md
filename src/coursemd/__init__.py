@@ -12,6 +12,7 @@ from coursemd.core.models import (
     QuizQuestion,
     Reading,
     Rubric,
+    StaffMember,
 )
 from coursemd.core.schedule import Schedule, ScheduleEntry
 from coursemd.core.types import (
@@ -36,6 +37,7 @@ __all__ = [
     "Schedule",
     "ScheduleConfig",
     "ScheduleEntry",
+    "StaffMember",
     "current_date",
     "working_days",
 ]

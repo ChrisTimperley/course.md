@@ -1,13 +1,18 @@
 """MkDocs macros for course websites."""
 
+from __future__ import annotations
+
 import typing as t
 
 from coursemd.core.loaders.dates import parse_date as _parse_date
-from coursemd.core.models.assignment import Assignment
 from coursemd.core.schedule import Schedule
 from coursemd.core.utils import current_date
 from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL
 from coursemd.integrations.mkdocs.schedule import render_schedule
+
+if t.TYPE_CHECKING:
+    from coursemd.core.models.assignment import Assignment
+    from coursemd.core.models.staff import StaffMember
 
 _TH_EXCEPTION_MIN = 11  # 11th, 12th, 13th are exceptions to ordinal suffix rules
 _TH_EXCEPTION_MAX = 13
@@ -282,14 +287,14 @@ def define_env(env: t.Any) -> None:
         return "\n".join(html_parts)
 
     @env.macro
-    def ta_team_table(staff: list[dict[str, t.Any]]) -> str:
+    def ta_team_table(staff: list[StaffMember]) -> str:
         """
         Render a Markdown table mapping TAs to their assigned teams.
 
-        Only teaching assistants with a 'teams' list in staff.yaml are included.
+        Only teaching assistants with assigned teams are included.
 
         Args:
-            staff: List of staff dicts loaded from data/staff.yaml.
+            staff: List of staff members loaded from .coursemd.yml.
 
         Returns:
             Markdown string for the TA-team mapping table.
@@ -299,15 +304,12 @@ def define_env(env: t.Any) -> None:
             "| --- | --- |",
         ]
         for person in staff:
-            if person.get("role") != "teaching-assistant":
+            if person.role != "teaching-assistant":
                 continue
-            teams: list[t.Any] = person.get("teams", [])
-            if not teams:
+            if not person.teams or person.email is None:
                 continue
-            name = person["name"]
-            email = person["email"]
-            teams_str = ", ".join(str(team) for team in teams)
-            rows.append(f"| [{name}](mailto:{email}) | {teams_str} |")
+            teams_str = ", ".join(person.teams)
+            rows.append(f"| [{person.name}](mailto:{person.email}) | {teams_str} |")
         return "\n".join(rows)
 
     @env.macro
