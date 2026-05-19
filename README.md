@@ -1,44 +1,64 @@
 # course.md
 
-`course.md` is a reusable Python package for data-driven course repositories.
-It provides a typed repository loader, a MkDocs adapter, and a single
-`coursemd` CLI for validation, website builds, slide workflows, and optional
-Canvas and GitHub operations.
+`course.md` is a work-in-progress toolkit for building data-driven course repositories:
+It keeps course facts, assignments, quizzes, schedules, and integration settings in one repository model, then lets integrations use that model to build or sync the pieces they own.
 
-The package is structured so course content lives in repository data files and
-Markdown frontmatter, while adapters and sync commands consume one shared model
-instead of reparsing source files independently.
+The current shape is intentionally small:
 
-Naming note: `course.md` is the distribution and project name. The Python
-package, CLI command, and MkDocs plugin entry point remain `coursemd`.
+- keep canonical course data in YAML and Markdown files
+- validate that data before publishing or syncing
+- build course websites with MkDocs
+- sync assignments and quizzes to Canvas
+- build slide decks with Quarto
+- run optional GitHub organization setup workflows
 
-## What It Owns
+APIs, config, and integration behavior may change while the project settles.
 
-`course.md` currently supports:
+## Example
 
-- loading repository data from `data/*.yaml`, `assignments/*.md`, and `quizzes/*.md`
-- validating repository content before build or sync steps run
-- building and previewing MkDocs course websites
-- generating assignment pages and assignment navigation for MkDocs
-- rendering schedule and grading macros from preloaded repository data
-- syncing assignments and quizzes to Canvas when the Canvas extra is installed
-- running opt-in GitHub organization setup workflows
-- building and previewing slide decks through the package CLI
+A course repository usually has a `.coursemd.yml` at the root:
 
-Important current constraints:
+```yaml
+timezone: America/New_York
 
-- MkDocs is the only supported website integration in this release.
-- Quizzes are source-only metadata and are never published as website pages.
-- Canvas and GitHub are optional integrations, not required parts of the course repository contract.
-- Slides are still driven by the configured slide project, not by a separate slide adapter model.
+schedule:
+  start_date: 2026-01-12
+  end_date: 2026-04-28
 
-## Installation
+integrations:
+  mkdocs:
+    base_url: https://example.edu/courses/example-101
+    project_dir: website
+    assignments_url_path: assignments
+  canvas:
+    base_url: https://canvas.example.edu
+    course_id: "12345"
+  quarto:
+    dir: slides
 
-For a course repository, install `course.md` in the same Python environment that
-builds the course site. This lets MkDocs discover the plugin and keeps each
-course pinned to a known `course.md` release.
+paths:
+  data: data
+  assignments: assignments
+  quizzes: quizzes
+```
 
-Recommended from a tagged Git release with `uv`:
+An assignment can live in `assignments/hw1.md`:
+
+```markdown
+---
+title: Homework 1
+release_date: 2026-01-20
+due_at: 2026-01-27T23:59:00-05:00
+---
+
+Build a small command-line tool and submit your repository link.
+```
+
+The same assignment can then appear on the MkDocs site, in schedule macros, and in Canvas sync plans.
+
+## Install In Your Course
+
+Install `course.md` in the Python environment that builds your course:
 
 ```toml
 [project]
@@ -51,7 +71,7 @@ dependencies = [
 "course.md" = { git = "https://github.com/ChrisTimperley/course.md.git", tag = "v0.1.0" }
 ```
 
-Canvas-enabled course repositories should add the Canvas extra:
+For Canvas support, include the Canvas extra:
 
 ```toml
 [project]
@@ -61,181 +81,43 @@ dependencies = [
 ]
 ```
 
-For local development across two sibling repositories:
-
-```toml
-[tool.uv.sources]
-"course.md" = { path = "../coursemd", editable = true }
-```
-
-Equivalent `pip` installs:
+With `pip`:
 
 ```bash
 pip install "course.md[mkdocs] @ git+https://github.com/ChrisTimperley/course.md.git@v0.1.0"
-pip install "course.md[mkdocs,canvas] @ git+https://github.com/ChrisTimperley/course.md.git@v0.1.0"
 ```
 
-Contributor install:
+Then add `.coursemd.yml`, create the directories named in `paths`, and run:
 
 ```bash
-cd coursemd
-pip install -e ".[dev]"
+coursemd validate
 ```
 
-Run tests from the package directory:
+## Integrations
 
-```bash
-pytest
-```
+`coursemd` is designed to grow through integrations.
+Each integration should own the smallest useful workflow for one external tool, while the core package keeps the shared course model consistent.
 
-## Dev Container Feature
+Current integration docs:
 
-This repository also hosts the reusable `course.md` devcontainer feature under `devcontainer-features/`.
-It is intended for downstream course repositories that want the shared authoring toolchain without maintaining a custom Dockerfile.
+- [MkDocs](docs/mkdocs.md)
+- [Canvas](docs/canvas.md)
+- [Quarto](docs/quarto.md)
+- [GitHub](docs/github.md)
 
-To test the feature locally from this repository:
+As more integrations are added, their user docs should live in `docs/*.md`.
 
-```bash
-cd devcontainer-features
-devcontainer features test -f course-md --base-image mcr.microsoft.com/devcontainers/base:debian .
-```
-
-## Repository Contract
-
-A repository using `course.md` is configured with a root-level `.coursemd.yml`.
-The CLI discovers that file by walking upward from the current working
-directory.
-
-Minimal example:
-
-```yaml
-timezone: America/New_York
-integrations:
-  mkdocs:
-    base_url: https://example.edu/course
-    project_dir: website
-    assignments_url_path: assignments
-  quarto:
-    dir: slides
-paths:
-  data_dir: data
-  assignments_dir: assignments
-  quizzes_dir: quizzes
-```
-
-The core repository contract is:
-
-- `timezone` is an IANA timezone name used for date-only timestamps and current-date checks
-- `integrations.mkdocs.project_dir` points to the MkDocs project that consumes the package plugin
-- `integrations.mkdocs.assignments_url_path` controls where generated assignment pages are published
-- `integrations.quarto.dir` points to the Quarto slides project when slides commands are used
-- YAML data files live under the configured `paths.data_dir`
-- assignment source files live under the configured `paths.assignments_dir`
-- quiz source files live under the configured `paths.quizzes_dir`
-- assignment and quiz discovery is filename-agnostic; every Markdown file except `index.md` is loaded
-- quiz files are loaded for schedule rendering and Canvas sync, but never exposed as standalone website pages
-- Canvas-specific assignment and quiz frontmatter is only required when running Canvas sync commands
-- `paths.env_file` may point to a repository-local environment file for secrets; it defaults to `.env`
-
-Optional Canvas config:
-
-```yaml
-integrations:
-  canvas:
-    base_url: https://canvas.example.edu
-    course_id: 12345
-```
-
-Optional GitHub organization setup config:
-
-```yaml
-integrations:
-  github:
-    organization: example-course-org
-    instructors_team_slug: instructors
-```
-
-Secrets should stay in the environment or a repository-local `.env`, for
-example `CANVAS_TOKEN`.
-
-## MkDocs Integration
-
-Add the plugin to the website project's `mkdocs.yml`:
-
-```yaml
-plugins:
-  - coursemd:
-      config_file: ../.coursemd.yml
-  - search
-```
-
-The `config_file` setting is optional when `.coursemd.yml` can be discovered
-from the website project directory or one of its parents.
-
-The MkDocs adapter currently:
-
-- loads the canonical repository once during configuration
-- injects preloaded course data into the render environment
-- generates assignment pages from assignment source files
-- generates assignment navigation entries
-- filters unreleased content outside preview mode
-
-Macros render from preloaded repository data. They do not re-read YAML or
-Markdown source files during page rendering.
-
-Example page usage:
-
-```markdown
-# Course Schedule
-
-{{ schedule_table(schedule) }}
-```
-
-## CLI
-
-The package exposes one Typer CLI:
+## Common Commands
 
 ```bash
 coursemd validate
 coursemd site preview
 coursemd site build --output-dir build/website
-coursemd site build-preview --output-dir build/website/_preview/demo
-coursemd slides preview
-coursemd slides build --output-dir build/slides/html
+coursemd canvas assignments --plan-only
+coursemd canvas quizzes --plan-only
+coursemd quarto build --output-dir build/slides/html
 coursemd github setup --dry-run
-coursemd github setup --permissions-only
-coursemd github setup --rulesets-only
-coursemd sync canvas assignments --plan-only assignments/hw1.md
-coursemd sync canvas quizzes --plan-only quizzes/week1.md
 ```
-
-Command notes:
-
-- `coursemd validate` checks YAML data files plus assignment and quiz frontmatter through the shared loaders
-- `coursemd site ...` requires the `mkdocs` extra and a Python environment that also has the website project's MkDocs plugins installed
-- `coursemd slides ...` requires Quarto on `PATH`
-- `coursemd sync canvas ...` requires the `canvas` extra and Canvas config or explicit `--course-id`
-- `coursemd github setup` is an advanced opt-in workflow that requires authenticated GitHub CLI access with org-admin permissions
-
-During development in a larger workspace or submodule checkout, run the same
-CLI through the environment that has `course.md` installed:
-
-```bash
-uv run coursemd validate
-uv run coursemd site preview
-uv run coursemd sync canvas assignments --plan-only assignments/hw1.md
-```
-
-## Environment
-
-Recognized environment variables include:
-
-- `TZ` for legacy timezone handling when no course config has been loaded
-- `CURRENT_DATE_OVERRIDE` for deterministic testing and preview behavior
-- `CANVAS_TOKEN` for Canvas API access
-
-Repository-local environment files are loaded from `paths.env_file` when
-configured. Secrets should not be committed.
 
 ## License
 
