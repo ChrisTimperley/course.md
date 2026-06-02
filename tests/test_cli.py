@@ -713,7 +713,7 @@ def test_course_paths_config_defaults_all_paths(tmp_path: Path) -> None:
 
 
 def test_course_paths_config_from_dict_defaults_missing_fields(tmp_path: Path) -> None:
-    paths = CoursePathsConfig.from_dict({"data_dir": "course-data"}, repo_root=tmp_path)
+    paths = CoursePathsConfig.from_dict({"data": "course-data"}, repo_root=tmp_path)
 
     assert paths.data_dir == (tmp_path / "course-data").resolve()
     assert paths.assignments_dir == (tmp_path / "assignments").resolve()
@@ -1330,6 +1330,56 @@ def test_coursemd_mkdocs_plugin_builds_without_symlinked_content(
     assert "Homework 1" in index_html
     assert "Week 1 Reading Quiz" in index_html
     assert "quizzes/week1" not in index_html
+
+
+def test_coursemd_mkdocs_plugin_builds_without_course_content_dirs(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_file(
+        tmp_path / ".coursemd.yml",
+        """
+        integrations:
+          mkdocs:
+            base_url: https://example.edu/course
+            project_dir: website
+        paths:
+          data: data
+          assignments: assignments
+          quizzes: quizzes
+        """,
+    )
+    _write_file(
+        tmp_path / "website" / "mkdocs.yml",
+        """
+        site_name: Test Course
+        plugins:
+          - coursemd:
+              config_file: ../.coursemd.yml
+        nav:
+          - Home: index.md
+        """,
+    )
+    _write_file(
+        tmp_path / "website" / "docs" / "index.md",
+        """
+        # Home
+        """,
+    )
+    monkeypatch.chdir(tmp_path / "website")
+
+    config = load_config(config_file="mkdocs.yml", site_dir=str(tmp_path / "site"))
+    config.plugins.on_startup(command="build", dirty=False)
+    try:
+        mkdocs_build(config, dirty=False)
+    finally:
+        config.plugins.on_shutdown()
+
+    watched = set(config.get("watch") or [])
+    assert (tmp_path / "site" / "index.html").is_file()
+    assert str(tmp_path / "data") not in watched
+    assert str(tmp_path / "assignments") not in watched
+    assert str(tmp_path / "quizzes") not in watched
 
 
 def test_coursemd_mkdocs_plugin_builds_non_canvas_course(

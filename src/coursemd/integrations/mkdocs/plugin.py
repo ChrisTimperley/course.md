@@ -184,6 +184,8 @@ class CoursemdPlugin(BasePlugin):
             self.course_repository.paths.assignments_dir,
             self.course_repository.paths.quizzes_dir,
         ):
+            if not path.exists():
+                continue
             text = str(path)
             if text not in watched:
                 watched.append(text)
