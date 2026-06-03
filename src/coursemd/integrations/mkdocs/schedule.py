@@ -34,6 +34,9 @@ def _render_what(entry: ScheduleEntry) -> str:
             elif kind == "recitation":
                 title = f"Recitation: {title}"
                 attributes["class"] = "label label-blue"
+            elif kind == "lab":
+                title = f"Lab: {title}"
+                attributes["class"] = "label label-blue"
             elif kind == "midterm":
                 title = title or "Midterm"
                 attributes["class"] = "label label-red"
