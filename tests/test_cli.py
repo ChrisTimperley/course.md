@@ -27,8 +27,10 @@ from coursemd.core.models.course_break import CourseBreak
 from coursemd.core.models.course_event import CourseEvent
 from coursemd.core.models.repository import CourseRepository
 from coursemd.core.models.staff import StaffMember
+from coursemd.core.schedule import Schedule, ScheduleEntry
 from coursemd.integrations.canvas.config import CanvasConfig
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
+from coursemd.integrations.mkdocs.schedule import render_schedule
 
 runner = CliRunner()
 HW3_RAW_MAX = 100
@@ -918,6 +920,34 @@ def test_schedule_config_builds_full_schedule_from_repository(
         end=dt.date(2026, 1, 14),
     )
     assert by_date[dt.date(2026, 1, 16)].quiz_due is repository.quizzes[0]
+
+
+def test_render_schedule_omits_quiz_column_when_schedule_has_no_quizzes() -> None:
+    schedule = Schedule(
+        entries=[
+            ScheduleEntry(
+                date=dt.date(2026, 1, 12),
+                events=[
+                    CourseEvent(
+                        kind="lecture",
+                        date=dt.date(2026, 1, 12),
+                        title="Course Introduction",
+                    )
+                ],
+                break_=None,
+                assignment_released=None,
+                assignment_due=None,
+                quiz_released=None,
+                quiz_due=None,
+            )
+        ]
+    )
+
+    rendered = render_schedule(schedule)
+
+    assert "<th>Quiz</th>" not in rendered
+    assert '<td class="quiz"' not in rendered
+    assert "<th>Assignment</th>" in rendered
 
 
 def test_release_date_normalization_uses_configured_timezone_dst(

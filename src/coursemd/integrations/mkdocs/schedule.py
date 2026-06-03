@@ -124,10 +124,11 @@ def _render_quiz(entry: ScheduleEntry) -> str:
 
 def _render_entry(
     entry: ScheduleEntry,
+    include_quiz: bool = True,
     skip_quiz: bool = False,
     skip_assignment: bool = False,
 ) -> str:
-    html_quiz = "" if skip_quiz else _render_quiz(entry)
+    html_quiz = "" if not include_quiz or skip_quiz else _render_quiz(entry)
     html_assignment = "" if skip_assignment else _render_assignment(entry)
     return f"<tr>{_render_when(entry)}{_render_what(entry)}{html_quiz}{html_assignment}</tr>"
 
@@ -137,9 +138,11 @@ def render_schedule(schedule: Schedule) -> str:
     if not schedule.entries:
         return "<p><em>No events yet.</em></p>"
 
+    has_quizzes = any(entry.quiz_released or entry.quiz_due for entry in schedule.entries)
+    quiz_header = "<th>Quiz</th>" if has_quizzes else ""
     out = (
         '<div id="schedule"><table><thead><tr><th>Date</th><th>Event</th>'
-        "<th>Quiz</th><th>Assignment</th></tr></thead><tbody>"
+        f"{quiz_header}<th>Assignment</th></tr></thead><tbody>"
     )
 
     quiz_span_remaining = 0
@@ -159,7 +162,12 @@ def render_schedule(schedule: Schedule) -> str:
                 entry.assignment_released.due_date,
             )
 
-        out += _render_entry(entry, skip_quiz=skip_quiz, skip_assignment=skip_assignment)
+        out += _render_entry(
+            entry,
+            include_quiz=has_quizzes,
+            skip_quiz=skip_quiz,
+            skip_assignment=skip_assignment,
+        )
 
         if quiz_span_remaining > 0:
             quiz_span_remaining -= 1
