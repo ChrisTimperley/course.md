@@ -25,6 +25,7 @@ from coursemd.core.integration_config import (
 INTEGRATION_NAME = "mkdocs"
 DEFAULT_INIT_SITE_BASE_URL = "https://example.edu/course"
 DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH = "assignments"
+DEFAULT_INIT_SITE_LABS_URL_PATH = "labs"
 DEFAULT_INIT_SITE_PROJECT_DIR = "website"
 
 @dataclass(frozen=True)
@@ -35,6 +36,7 @@ class MkdocsIntegrationConfig(IntegrationConfig):
     base_url: str
     project_dir: Path
     assignments_url_path: str = DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH
+    labs_url_path: str = DEFAULT_INIT_SITE_LABS_URL_PATH
 
     @classmethod
     def parse(
@@ -64,6 +66,13 @@ class MkdocsIntegrationConfig(IntegrationConfig):
                     DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH,
                 ),
                 label=f"integrations.{cls.metavar}.assignments_url_path",
+            ),
+            labs_url_path=require_url_path(
+                config_map.get(
+                    "labs_url_path",
+                    DEFAULT_INIT_SITE_LABS_URL_PATH,
+                ),
+                label=f"integrations.{cls.metavar}.labs_url_path",
             ),
         )
 

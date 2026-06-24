@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from coursemd.core.loaders.repository import load_data_files
 from coursemd.core.loaders.specs import load_assignments
+from coursemd.core.models.lab import Lab
 from coursemd.core.models.quiz import Quiz
 
 if TYPE_CHECKING:
@@ -54,6 +55,7 @@ class CourseRepository:
     data: dict[str, Any] = field(default_factory=dict)
     assignments: list[Assignment] = field(default_factory=list)
     quizzes: list[Quiz] = field(default_factory=list)
+    labs: list[Lab] = field(default_factory=list)
 
     @property
     def staff(self) -> list[StaffMember]:
@@ -97,4 +99,5 @@ class CourseRepository:
             data=load_data_files(resolved_data_files),
             assignments=load_assignments(resolved_assignment_files),
             quizzes=Quiz.load_all(resolved_quiz_files),
+            labs=Lab.find(config),
         )

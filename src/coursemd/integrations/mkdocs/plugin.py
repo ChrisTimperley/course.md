@@ -168,6 +168,10 @@ class CoursemdPlugin(BasePlugin):
                 assignment.with_assignment_url_path(self.mkdocs_integration.assignments_url_path)
                 for assignment in self.course_repository.assignments
             ]
+            schedule_data["labs"] = [
+                lab.with_labs_url_path(self.mkdocs_integration.labs_url_path)
+                for lab in self.course_repository.labs
+            ]
             quizzes = self.course_repository.quizzes
             if canvas_cfg is not None and canvas_course_id is not None:
                 quizzes = inject_quiz_links(quizzes, canvas_cfg.base_url, canvas_course_id)
@@ -183,6 +187,7 @@ class CoursemdPlugin(BasePlugin):
             self.course_repository.paths.data_dir,
             self.course_repository.paths.assignments_dir,
             self.course_repository.paths.quizzes_dir,
+            self.course_repository.paths.labs_dir,
         ):
             if not path.exists():
                 continue
@@ -197,9 +202,15 @@ class CoursemdPlugin(BasePlugin):
             base_uri=self.mkdocs_integration.assignments_url_path,
             include_index=True,
         )
+        lab_nav = self._nav_items_for_markdown_dir(
+            self.course_repository.paths.labs_dir,
+            base_uri=self.mkdocs_integration.labs_url_path,
+            include_index=True,
+        )
 
         output: list[Any] = []
         saw_assignments = False
+        saw_labs = False
         for item in nav:
             key = self._nav_key(item)
             if key == "Assignments":
@@ -207,10 +218,17 @@ class CoursemdPlugin(BasePlugin):
                 if assignment_nav:
                     output.append({"Assignments": assignment_nav})
                 continue
+            if key == "Labs":
+                saw_labs = True
+                if lab_nav:
+                    output.append({"Labs": lab_nav})
+                continue
             output.append(item)
 
         if assignment_nav and not saw_assignments:
             output.append({"Assignments": assignment_nav})
+        if lab_nav and not saw_labs:
+            output.append({"Labs": lab_nav})
         return output
 
     def _nav_items_for_markdown_dir(
@@ -241,6 +259,11 @@ class CoursemdPlugin(BasePlugin):
             (
                 self.course_repository.paths.assignments_dir,
                 self.mkdocs_integration.assignments_url_path,
+                True,
+            ),
+            (
+                self.course_repository.paths.labs_dir,
+                self.mkdocs_integration.labs_url_path,
                 True,
             ),
         ):
