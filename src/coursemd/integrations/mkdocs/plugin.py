@@ -31,6 +31,34 @@ from coursemd.integrations.mkdocs.macros import define_env
 
 MacroFunction = Callable[..., Any]
 
+_ASSIGNMENTS_OVERVIEW_TEMPLATE = """\
+---
+title: Assignments
+hide:
+- navigation
+- toc
+---
+
+<table style="width:100%; font-size:0.95rem">
+<thead>
+<tr>
+  <th>Assignment</th>
+  <th style="text-align:center">Released</th>
+  <th style="text-align:center">Due</th>
+</tr>
+</thead>
+<tbody>
+{% for hw in released_assignments(schedule) %}
+<tr>
+  <td><a href="{{ hw.link }}">{{ hw.title }}</a></td>
+  <td style="text-align:center">{{ hw.release_date.strftime("%b %-d, %Y") }}</td>
+  <td style="text-align:center">{{ hw.due_date.strftime("%b %-d, %Y") }} @ 11:59 pm ET</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+"""
+
 
 @dataclass
 class _MacroRegistry:
@@ -202,6 +230,9 @@ class CoursemdPlugin(BasePlugin):
             base_uri=self.mkdocs_integration.assignments_url_path,
             include_index=True,
         )
+        if self._should_generate_assignments_index():
+            overview_uri = f"{self.mkdocs_integration.assignments_url_path}/index.md"
+            assignment_nav = [{"Assignments": overview_uri}, *assignment_nav]
         lab_nav = self._nav_items_for_markdown_dir(
             self.course_repository.paths.labs_dir,
             base_uri=self.mkdocs_integration.labs_url_path,
@@ -254,6 +285,10 @@ class CoursemdPlugin(BasePlugin):
             items.append({title: f"{base_uri}/{path.name}"})
         return items
 
+    def _should_generate_assignments_index(self) -> bool:
+        assignments_dir = self.course_repository.paths.assignments_dir
+        return assignments_dir.is_dir() and not (assignments_dir / "index.md").exists()
+
     def _add_generated_pages(self, files: Files, config: MkDocsConfig) -> None:
         for directory, base_uri, include_index in (
             (
@@ -276,6 +311,13 @@ class CoursemdPlugin(BasePlugin):
                 if files.get_file_from_path(src_uri) is not None:
                     continue
                 files.append(File.generated(config, src_uri, abs_src_path=str(path)))
+
+        if self._should_generate_assignments_index():
+            src_uri = f"{self.mkdocs_integration.assignments_url_path}/index.md"
+            if files.get_file_from_path(src_uri) is None:
+                files.append(
+                    File.generated(config, src_uri, content=_ASSIGNMENTS_OVERVIEW_TEMPLATE),
+                )
 
     def _macro_registry(self, *, config: MkDocsConfig, page: Any | None) -> _MacroRegistry:
         variables = {
