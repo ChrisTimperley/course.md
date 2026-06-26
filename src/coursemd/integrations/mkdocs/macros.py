@@ -14,6 +14,7 @@ from coursemd.integrations.mkdocs.schedule import render_schedule
 
 if t.TYPE_CHECKING:
     from coursemd.core.models.assignment import Assignment
+    from coursemd.core.models.lab import Lab
     from coursemd.core.models.staff import StaffMember
 
 _TH_EXCEPTION_MIN = 11  # 11th, 12th, 13th are exceptions to ordinal suffix rules
@@ -142,6 +143,21 @@ def define_env(env: t.Any) -> None:
         now = current_date()
         assignments = t.cast("list[Assignment]", schedule.get("assignments", []))
         return [assignment for assignment in assignments if assignment.release_date <= now]
+
+    @env.macro
+    def released_labs(schedule: dict[str, t.Any]) -> list[Lab]:
+        """
+        Return a list of labs whose session date has passed.
+
+        Args:
+            schedule: Dictionary containing schedule data
+
+        Returns:
+            List of lab objects whose date is on or before today
+        """
+        now = current_date()
+        labs = t.cast("list[Lab]", schedule.get("labs", []))
+        return [lab for lab in labs if lab.date <= now]
 
     @env.macro
     def grade_table(

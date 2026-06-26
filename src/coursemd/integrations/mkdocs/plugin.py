@@ -59,6 +59,32 @@ hide:
 </table>
 """
 
+_LABS_OVERVIEW_TEMPLATE = """\
+---
+title: Labs
+hide:
+- navigation
+- toc
+---
+
+<table style="width:100%; font-size:0.95rem">
+<thead>
+<tr>
+  <th>Lab</th>
+  <th style="text-align:center">Date</th>
+</tr>
+</thead>
+<tbody>
+{% for lab in released_labs(schedule) %}
+<tr>
+  <td><a href="{{ lab.link }}">{{ lab.title }}</a></td>
+  <td style="text-align:center">{{ lab.date.strftime("%b %-d, %Y") }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+"""
+
 
 @dataclass
 class _MacroRegistry:
@@ -232,12 +258,15 @@ class CoursemdPlugin(BasePlugin):
         )
         if self._should_generate_assignments_index():
             overview_uri = f"{self.mkdocs_integration.assignments_url_path}/index.md"
-            assignment_nav = [{"Assignments": overview_uri}, *assignment_nav]
+            assignment_nav = [overview_uri, *assignment_nav]
         lab_nav = self._nav_items_for_markdown_dir(
             self.course_repository.paths.labs_dir,
             base_uri=self.mkdocs_integration.labs_url_path,
             include_index=True,
         )
+        if self._should_generate_labs_index():
+            lab_overview_uri = f"{self.mkdocs_integration.labs_url_path}/index.md"
+            lab_nav = [lab_overview_uri, *lab_nav]
 
         output: list[Any] = []
         saw_assignments = False
@@ -281,13 +310,22 @@ class CoursemdPlugin(BasePlugin):
             metadata = self._load_markdown_metadata(path)
             if not self.in_preview and self._should_remove_file(metadata):
                 continue
-            title = str(metadata.get("title") or path.stem).strip()
-            items.append({title: f"{base_uri}/{path.name}"})
+            uri = f"{base_uri}/{path.name}"
+            if path.name == "index.md":
+                # Bare path lets MkDocs/Material recognise this as the section index page
+                items.append(uri)
+            else:
+                title = str(metadata.get("title") or path.stem).strip()
+                items.append({title: uri})
         return items
 
     def _should_generate_assignments_index(self) -> bool:
         assignments_dir = self.course_repository.paths.assignments_dir
         return assignments_dir.is_dir() and not (assignments_dir / "index.md").exists()
+
+    def _should_generate_labs_index(self) -> bool:
+        labs_dir = self.course_repository.paths.labs_dir
+        return labs_dir.is_dir() and not (labs_dir / "index.md").exists()
 
     def _add_generated_pages(self, files: Files, config: MkDocsConfig) -> None:
         for directory, base_uri, include_index in (
@@ -317,6 +355,13 @@ class CoursemdPlugin(BasePlugin):
             if files.get_file_from_path(src_uri) is None:
                 files.append(
                     File.generated(config, src_uri, content=_ASSIGNMENTS_OVERVIEW_TEMPLATE),
+                )
+
+        if self._should_generate_labs_index():
+            src_uri = f"{self.mkdocs_integration.labs_url_path}/index.md"
+            if files.get_file_from_path(src_uri) is None:
+                files.append(
+                    File.generated(config, src_uri, content=_LABS_OVERVIEW_TEMPLATE),
                 )
 
     def _macro_registry(self, *, config: MkDocsConfig, page: Any | None) -> _MacroRegistry:
