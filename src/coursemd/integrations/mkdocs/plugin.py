@@ -176,6 +176,7 @@ class CoursemdPlugin(BasePlugin):
         files: Files,  # noqa: ARG002
     ) -> str:
         markdown = self._normalize_generated_frontmatter(markdown, page)
+        self._inject_hide_metadata(page)
         registry = self._macro_registry(config=config, page=page)
         template_env = Environment(
             loader=FileSystemLoader(str(config.docs_dir)),
@@ -392,6 +393,13 @@ class CoursemdPlugin(BasePlugin):
             return cast("dict[str, Any]", frontmatter.load(path).metadata)
         except Exception:  # noqa: BLE001
             return {}
+
+    def _inject_hide_metadata(self, page: Any) -> None:
+        src_uri = page.file.src_uri
+        assignments_prefix = self.mkdocs_integration.assignments_url_path.strip("/") + "/"
+        labs_prefix = self.mkdocs_integration.labs_url_path.strip("/") + "/"
+        if src_uri.startswith((assignments_prefix, labs_prefix)):
+            page.meta.setdefault("hide", ["navigation", "toc"])
 
     def _normalize_generated_frontmatter(self, markdown: str, page: Any) -> str:
         if not markdown.startswith("---"):
