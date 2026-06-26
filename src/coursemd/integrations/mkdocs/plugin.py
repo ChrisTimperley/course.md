@@ -164,6 +164,7 @@ class CoursemdPlugin(BasePlugin):
     def on_nav(self, nav: Navigation, **kwargs: Any) -> Navigation:  # noqa: ARG002
         if not self.in_preview and self.removed_files:
             nav.items = list(self._filter_nav_items(nav.items))
+        self._inject_section_urls(nav.items)
         return nav
 
     def on_page_markdown(
@@ -421,6 +422,21 @@ class CoursemdPlugin(BasePlugin):
                     yield item
             else:
                 yield item
+
+    def _inject_section_urls(self, items: Any) -> None:
+        """Set url on Section objects whose first child is an index page.
+
+        MkDocs Section has no url attribute. Templates that access nav_item.url
+        on a section get Jinja2 Undefined, which the url filter renders as ".".
+        Setting url explicitly lets any template (including custom overrides)
+        resolve the correct link for sections that have an index page.
+        """
+        for item in items:
+            if item.is_section:
+                children = getattr(item, "children", [])
+                if children and children[0].is_page and children[0].is_index:
+                    item.url = children[0].url
+                self._inject_section_urls(children)
 
     def _nav_key(self, item: Any) -> str | None:
         if isinstance(item, dict) and len(item) == 1:
