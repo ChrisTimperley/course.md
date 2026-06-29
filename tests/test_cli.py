@@ -8,6 +8,7 @@ from textwrap import dedent
 
 import pytest
 import typer
+import yaml
 from mkdocs.commands.build import build as mkdocs_build
 from mkdocs.config import load_config
 from typer.testing import CliRunner
@@ -1336,6 +1337,142 @@ def test_slides_preview_uses_configured_directory(tmp_path: Path, monkeypatch) -
         ],
         "cwd": str(tmp_path / "lecture-slides"),
         "check": False,
+    }
+
+
+def test_slides_export_writes_deck_pdf_screenshots_and_index(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _build_repo_fixture(tmp_path)
+    _write_file(
+        tmp_path / "slides" / "observability.qmd",
+        """
+        ---
+        title: Observability
+        format: revealjs
+        ---
+
+        ## Signals
+
+        ## Alerting
+        """,
+    )
+    browser = tmp_path / "chrome"
+    browser.write_text("#!/bin/sh\n", encoding="utf-8")
+    recorded: list[dict[str, object]] = []
+
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path | None = None,
+        check: bool,
+    ) -> subprocess.CompletedProcess[str]:
+        recorded.append(
+            {"args": args, "cwd": str(cwd) if cwd is not None else None, "check": check}
+        )
+        if args[0] == "quarto":
+            output_dir = Path(args[args.index("--output-dir") + 1])
+            _write_file(
+                output_dir / "deck.html",
+                """
+                <html>
+                <body>
+                  <div class="reveal">
+                    <div class="slides">
+                      <section><h1>Observability</h1></section>
+                      <section>
+                        <section><h2>Signals</h2></section>
+                        <section><h2>Alerting</h2></section>
+                      </section>
+                    </div>
+                  </div>
+                </body>
+                </html>
+                """,
+            )
+        else:
+            pdf_arg = next((arg for arg in args if arg.startswith("--print-to-pdf=")), None)
+            screenshot_arg = next((arg for arg in args if arg.startswith("--screenshot=")), None)
+            if pdf_arg is not None:
+                Path(pdf_arg.removeprefix("--print-to-pdf=")).write_bytes(b"%PDF")
+            if screenshot_arg is not None:
+                Path(screenshot_arg.removeprefix("--screenshot=")).write_bytes(b"PNG")
+        return subprocess.CompletedProcess(args=args, returncode=0)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(coursemd.integrations.quarto.cli.subprocess, "run", fake_run)
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "quarto",
+            "export",
+            "slides/observability.qmd",
+            "--output-dir",
+            "build/observability",
+            "--browser-path",
+            str(browser),
+            "--width",
+            "1200",
+            "--height",
+            "675",
+        ],
+    )
+
+    assert result.exit_code == 0
+    output_dir = tmp_path / "build" / "observability"
+    assert (output_dir / "deck.html").is_file()
+    assert (output_dir / "deck.pdf").is_file()
+    assert (output_dir / "screenshots" / "slide-001.png").is_file()
+    assert (output_dir / "screenshots" / "slide-002.png").is_file()
+    assert (output_dir / "screenshots" / "slide-003.png").is_file()
+    assert recorded[0] == {
+        "args": [
+            "quarto",
+            "render",
+            "observability.qmd",
+            "--to",
+            "revealjs",
+            "--output",
+            "deck.html",
+            "--output-dir",
+            str(output_dir),
+        ],
+        "cwd": str(tmp_path / "slides"),
+        "check": False,
+    }
+    assert recorded[1]["args"] == [
+        str(browser),
+        "--headless=new",
+        "--disable-gpu",
+        "--allow-file-access-from-files",
+        f"--print-to-pdf={output_dir / 'deck.pdf'}",
+        f"{(output_dir / 'deck.html').as_uri()}?print-pdf",
+    ]
+    assert recorded[2]["args"] == [
+        str(browser),
+        "--headless=new",
+        "--disable-gpu",
+        "--hide-scrollbars",
+        "--allow-file-access-from-files",
+        "--window-size=1200,675",
+        "--virtual-time-budget=1000",
+        f"--screenshot={output_dir / 'screenshots' / 'slide-001.png'}",
+        f"{(output_dir / 'deck.html').as_uri()}#/0",
+    ]
+    assert yaml.safe_load((output_dir / "index.yml").read_text(encoding="utf-8")) == {
+        "html": "deck.html",
+        "slides": [
+            {
+                "number": 1,
+                "title": "Observability",
+                "image": "screenshots/slide-001.png",
+            },
+            {"number": 2, "title": "Signals", "image": "screenshots/slide-002.png"},
+            {"number": 3, "title": "Alerting", "image": "screenshots/slide-003.png"},
+        ],
+        "pdf": "deck.pdf",
     }
 
 
