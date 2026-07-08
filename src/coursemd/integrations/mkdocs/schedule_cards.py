@@ -80,15 +80,15 @@ def _render_event(event: CourseEvent) -> str:
     )
 
 
-def _render_break_run(start: ScheduleEntry, end: ScheduleEntry) -> str:
-    """Render one or more consecutive break days of the same break as a single strip."""
-    assert start.break_ is not None
-    name = html.escape(start.break_.name)
-    span = _format_range(start.date, end.date)
+def _render_break_day(entry: ScheduleEntry) -> str:
+    """Render a single break day as a dated row, like the event rows."""
+    assert entry.break_ is not None
+    day_label = entry.date.strftime("%a ") + str(entry.date.day)
+    name = f"No Class: {html.escape(entry.break_.name)}"
     return (
         '<li class="wevent wevent--break">'
+        f'<span class="wevent__day">{day_label}</span>'
         f'<span class="wevent__title">{name}</span>'
-        f'<span class="wevent__meta">{span}</span>'
         "</li>"
     )
 
@@ -120,27 +120,11 @@ def _render_week(
     today_week_start: dt.date,
 ) -> str:
     rows: list[str] = []
-    index = 0
-    count = len(entries)
-    while index < count:
-        entry = entries[index]
+    for entry in entries:
         if entry.events:
             rows.extend(_render_event(event) for event in entry.events)
-            index += 1
-            continue
-        current_break = entry.break_
-        if current_break is not None:
-            # Collapse consecutive break-only days sharing the same break into one row.
-            last = index
-            while last + 1 < count:
-                nxt = entries[last + 1]
-                if nxt.events or nxt.break_ is None or nxt.break_.name != current_break.name:
-                    break
-                last += 1
-            rows.append(_render_break_run(entry, entries[last]))
-            index = last + 1
-            continue
-        index += 1
+        elif entry.break_ is not None:
+            rows.append(_render_break_day(entry))
 
     # Homework is due on the weekend, so it follows the week's Mon-Fri events.
     rows.extend(_render_homework_row(a) for a in sorted(homework, key=lambda a: a.due_date))
