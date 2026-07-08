@@ -50,7 +50,7 @@ hide:
 <tbody>
 {% for hw in released_assignments(schedule) %}
 <tr>
-  <td><a href="{{ hw.link }}">{{ hw.title }}</a></td>
+  <td><a href="{{ hw.source_file.stem }}/">{{ hw.title }}</a></td>
   <td style="text-align:center">{{ hw.release_date.strftime("%b %-d, %Y") }}</td>
   <td style="text-align:center">{{ hw.due_date.strftime("%b %-d, %Y") }} @ 11:59 pm ET</td>
 </tr>
@@ -77,7 +77,7 @@ hide:
 <tbody>
 {% for lab in released_labs(schedule) %}
 <tr>
-  <td><a href="{{ lab.link }}">{{ lab.title }}</a></td>
+  <td><a href="{{ lab.source_file.stem }}">{{ lab.title }}</a></td>
   <td style="text-align:center">{{ lab.date.strftime("%b %-d, %Y") }}</td>
 </tr>
 {% endfor %}
