@@ -11,6 +11,7 @@ from coursemd.core.schedule import Schedule
 from coursemd.core.utils import current_date
 from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL
 from coursemd.integrations.mkdocs.schedule import render_schedule
+from coursemd.integrations.mkdocs.schedule_cards import render_schedule_cards
 
 if t.TYPE_CHECKING:
     from coursemd.core.models.assignment import Assignment
@@ -121,6 +122,29 @@ def define_env(env: t.Any) -> None:
             HTML string for the schedule table
         """
         return render_schedule(Schedule.build(
+            earliest_date=schedule["course"]["start_date"],
+            latest_date=schedule["course"]["end_date"],
+            events=schedule.get("events", []),
+            breaks=schedule.get("breaks", []),
+            assignments=schedule.get("assignments", []),
+            quizzes=schedule.get("quizzes", []),
+        ))
+
+    @env.macro
+    def schedule_cards(schedule: dict[str, t.Any]) -> str:
+        """
+        Render a course schedule as weekly cards from schedule data.
+
+        Groups the schedule into weekly cards, each listing that week's events
+        and the homework released that week. An alternative to ``schedule_table``.
+
+        Args:
+            schedule: Dictionary containing course, events, breaks, assignments, and quizzes
+
+        Returns:
+            HTML string for the weekly schedule cards
+        """
+        return render_schedule_cards(Schedule.build(
             earliest_date=schedule["course"]["start_date"],
             latest_date=schedule["course"]["end_date"],
             events=schedule.get("events", []),
