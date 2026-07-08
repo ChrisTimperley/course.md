@@ -119,6 +119,7 @@ def _render_week(
     homework: list[Assignment],
     today_week_start: dt.date,
     meeting_days: tuple[int, ...] | None,
+    show_status: bool = True,
 ) -> str:
     rows: list[str] = []
     for entry in entries:
@@ -139,7 +140,7 @@ def _render_week(
 
     if week_start == today_week_start:
         status_class = " week-card--current"
-        status = '<span class="week-card__status">You are here</span>'
+        status = '<span class="week-card__status">You are here</span>' if show_status else ""
     elif week_start > today_week_start:
         status_class = " week-card--upcoming"
         status = ""
@@ -161,6 +162,26 @@ def _render_week(
     )
 
 
+def _build_weeks(
+    schedule: Schedule,
+) -> tuple[dict[dt.date, list[ScheduleEntry]], dict[dt.date, list[Assignment]]]:
+    """Group entries by week (Monday) and released homework by its due-date week."""
+    weeks: dict[dt.date, list[ScheduleEntry]] = {}
+    for entry in schedule.entries:
+        weeks.setdefault(_week_start(entry.date), []).append(entry)
+
+    homework_by_week: dict[dt.date, list[Assignment]] = {}
+    seen: set[int] = set()
+    for entry in schedule.entries:
+        assignment = entry.assignment_released
+        if assignment is None or id(assignment) in seen:
+            continue
+        seen.add(id(assignment))
+        homework_by_week.setdefault(_week_start(assignment.due_date), []).append(assignment)
+
+    return weeks, homework_by_week
+
+
 def render_schedule_cards(
     schedule: Schedule,
     meeting_days: tuple[int, ...] | None = None,
@@ -173,21 +194,7 @@ def render_schedule_cards(
     if not schedule.entries:
         return "<p><em>No events yet.</em></p>"
 
-    # Group entries by the Monday of their week, preserving chronological order.
-    weeks: dict[dt.date, list[ScheduleEntry]] = {}
-    for entry in schedule.entries:
-        weeks.setdefault(_week_start(entry.date), []).append(entry)
-
-    # Group released homework by the week it is due in (the week of its due date).
-    homework_by_week: dict[dt.date, list[Assignment]] = {}
-    seen: set[int] = set()
-    for entry in schedule.entries:
-        assignment = entry.assignment_released
-        if assignment is None or id(assignment) in seen:
-            continue
-        seen.add(id(assignment))
-        homework_by_week.setdefault(_week_start(assignment.due_date), []).append(assignment)
-
+    weeks, homework_by_week = _build_weeks(schedule)
     first_week_start = min(weeks)
     today_week_start = _week_start(current_date())
 
@@ -206,3 +213,33 @@ def render_schedule_cards(
         )
 
     return f'<div id="schedule" class="schedule-cards">{"".join(cards)}</div>'
+
+
+def render_this_week_card(
+    schedule: Schedule,
+    meeting_days: tuple[int, ...] | None = None,
+) -> str:
+    """Render a single card for the current week (or the nearest upcoming one)."""
+    if not schedule.entries:
+        return ""
+
+    weeks, homework_by_week = _build_weeks(schedule)
+    first_week_start = min(weeks)
+    today_week_start = _week_start(current_date())
+    week_starts = sorted(weeks)
+
+    # Prefer this week; otherwise the next upcoming week; otherwise the last week.
+    upcoming = [start for start in week_starts if start >= today_week_start]
+    target = upcoming[0] if upcoming else week_starts[-1]
+
+    week_number = ((target - first_week_start).days // 7) + 1
+    card = _render_week(
+        meeting_days=meeting_days,
+        week_start=target,
+        week_number=week_number,
+        entries=weeks[target],
+        homework=homework_by_week.get(target, []),
+        today_week_start=today_week_start,
+        show_status=False,
+    )
+    return f'<div class="this-week">{card}</div>' if card else ""

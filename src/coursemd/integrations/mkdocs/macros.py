@@ -11,7 +11,10 @@ from coursemd.core.schedule import Schedule
 from coursemd.core.utils import current_date
 from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL
 from coursemd.integrations.mkdocs.schedule import render_schedule
-from coursemd.integrations.mkdocs.schedule_cards import render_schedule_cards
+from coursemd.integrations.mkdocs.schedule_cards import (
+    render_schedule_cards,
+    render_this_week_card,
+)
 
 if t.TYPE_CHECKING:
     from coursemd.core.models.assignment import Assignment
@@ -145,6 +148,32 @@ def define_env(env: t.Any) -> None:
             HTML string for the weekly schedule cards
         """
         return render_schedule_cards(
+            Schedule.build(
+                earliest_date=schedule["course"]["start_date"],
+                latest_date=schedule["course"]["end_date"],
+                events=schedule.get("events", []),
+                breaks=schedule.get("breaks", []),
+                assignments=schedule.get("assignments", []),
+                quizzes=schedule.get("quizzes", []),
+            ),
+            meeting_days=schedule.get("meeting_days"),
+        )
+
+    @env.macro
+    def this_week_card(schedule: dict[str, t.Any]) -> str:
+        """
+        Render a single weekly card for the current week (or nearest upcoming week).
+
+        Intended for a compact "This Week" preview, e.g. in a page hero. Reuses the
+        same card markup as ``schedule_cards``.
+
+        Args:
+            schedule: Dictionary containing course, events, breaks, assignments, and quizzes
+
+        Returns:
+            HTML string for a single week card, or an empty string if there is nothing to show
+        """
+        return render_this_week_card(
             Schedule.build(
                 earliest_date=schedule["course"]["start_date"],
                 latest_date=schedule["course"]["end_date"],
