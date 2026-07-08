@@ -8,9 +8,12 @@ labs, breaks) and the homework released that week.
 
 import datetime as dt
 import html
+import posixpath
+from urllib.parse import urlsplit, urlunsplit
 
 from coursemd.core.models.assignment import Assignment
 from coursemd.core.models.course_event import CourseEvent
+from coursemd.core.models.lab import Lab
 from coursemd.core.schedule import Schedule, ScheduleEntry
 from coursemd.core.utils import current_date
 
@@ -37,6 +40,36 @@ _KIND_LABELS = {
 _EXTERNAL_KINDS = {"lecture", "workshop"}
 
 
+def _relative_site_url(link: str, current_page_url: str | None = None) -> str:
+    """Convert root-relative internal URLs to page-relative URLs."""
+    parsed = urlsplit(link)
+    if (
+        parsed.scheme
+        or parsed.netloc
+        or not parsed.path.startswith("/")
+        or parsed.path.startswith("//")
+    ):
+        return link
+
+    current_path = (current_page_url or "").strip("/")
+    if not current_path:
+        current_dir = "."
+    else:
+        last_segment = current_path.rsplit("/", 1)[-1]
+        if "." in last_segment:
+            current_dir = posixpath.dirname(current_path) or "."
+        else:
+            current_dir = current_path
+
+    target_path = parsed.path.strip("/") or "."
+    target_has_trailing_slash = parsed.path.endswith("/")
+    relative_path = posixpath.relpath(target_path, start=current_dir)
+    if target_has_trailing_slash and not relative_path.endswith("/"):
+        relative_path += "/"
+
+    return urlunsplit(("", "", relative_path, parsed.query, parsed.fragment))
+
+
 def _week_start(day: dt.date) -> dt.date:
     """Return the Monday of the week containing ``day``."""
     return day - dt.timedelta(days=day.weekday())
@@ -51,7 +84,12 @@ def _format_range(start: dt.date, end: dt.date) -> str:
     return f"{left} – {right}"  # noqa: RUF001 (en dash is intentional for ranges)
 
 
-def _render_event(event: CourseEvent) -> str:
+def _render_event(
+    event: CourseEvent,
+    *,
+    labs_by_date: dict[dt.date, Lab] | None = None,
+    current_page_url: str | None = None,
+) -> str:
     kind = event.kind.strip().lower()
     modifier = _KIND_MODIFIERS.get(kind, "other")
 
@@ -65,8 +103,14 @@ def _render_event(event: CourseEvent) -> str:
 
     day_label = event.date.strftime("%a ") + str(event.date.day)
 
-    if event.link:
-        href = html.escape(event.link, quote=True)
+    link = event.link
+    if link is None and kind == "lab" and labs_by_date is not None:
+        lab = labs_by_date.get(event.date)
+        if lab is not None:
+            link = lab.link
+
+    if link:
+        href = html.escape(_relative_site_url(link, current_page_url), quote=True)
         target = ' target="_blank" rel="noopener noreferrer"' if kind in _EXTERNAL_KINDS else ""
         body = f'<a class="wevent__title" href="{href}"{target}>{title}</a>'
     else:
@@ -93,13 +137,17 @@ def _render_break_day(entry: ScheduleEntry) -> str:
     )
 
 
-def _render_homework_row(assignment: Assignment) -> str:
+def _render_homework_row(
+    assignment: Assignment,
+    *,
+    current_page_url: str | None = None,
+) -> str:
     """Render a homework as a dated row placed on its due date (usually Sunday)."""
     due = assignment.due_date
     day_label = due.strftime("%a ") + str(due.day)
     title = f"Due: {html.escape(assignment.title)}"
     if assignment.link:
-        href = html.escape(assignment.link, quote=True)
+        href = html.escape(_relative_site_url(assignment.link, current_page_url), quote=True)
         body = f'<a class="wevent__title" href="{href}">{title}</a>'
     else:
         body = f'<span class="wevent__title">{title}</span>'
@@ -117,14 +165,23 @@ def _render_week(
     week_number: int,
     entries: list[ScheduleEntry],
     homework: list[Assignment],
+    labs_by_date: dict[dt.date, Lab],
     today_week_start: dt.date,
     meeting_days: tuple[int, ...] | None,
+    current_page_url: str | None = None,
     show_status: bool = True,
 ) -> str:
     rows: list[str] = []
     for entry in entries:
         if entry.events:
-            rows.extend(_render_event(event) for event in entry.events)
+            rows.extend(
+                _render_event(
+                    event,
+                    labs_by_date=labs_by_date,
+                    current_page_url=current_page_url,
+                )
+                for event in entry.events
+            )
         elif entry.break_ is not None and (
             meeting_days is None or entry.date.weekday() in meeting_days
         ):
@@ -132,7 +189,10 @@ def _render_week(
             rows.append(_render_break_day(entry))
 
     # Homework is due on the weekend, so it follows the week's Mon-Fri events.
-    rows.extend(_render_homework_row(a) for a in sorted(homework, key=lambda a: a.due_date))
+    rows.extend(
+        _render_homework_row(a, current_page_url=current_page_url)
+        for a in sorted(homework, key=lambda a: a.due_date)
+    )
 
     # Skip weeks with nothing to show (e.g. unrevealed future weeks).
     if not rows:
@@ -185,6 +245,8 @@ def _build_weeks(
 def render_schedule_cards(
     schedule: Schedule,
     meeting_days: tuple[int, ...] | None = None,
+    labs: list[Lab] | None = None,
+    current_page_url: str | None = None,
 ) -> str:
     """Render a Schedule as a stack of weekly cards.
 
@@ -195,6 +257,7 @@ def render_schedule_cards(
         return "<p><em>No events yet.</em></p>"
 
     weeks, homework_by_week = _build_weeks(schedule)
+    labs_by_date = {lab.date: lab for lab in labs or []}
     first_week_start = min(weeks)
     today_week_start = _week_start(current_date())
 
@@ -208,7 +271,9 @@ def render_schedule_cards(
                 week_number=week_number,
                 entries=weeks[week_start],
                 homework=homework_by_week.get(week_start, []),
+                labs_by_date=labs_by_date,
                 today_week_start=today_week_start,
+                current_page_url=current_page_url,
             )
         )
 
@@ -218,12 +283,15 @@ def render_schedule_cards(
 def render_this_week_card(
     schedule: Schedule,
     meeting_days: tuple[int, ...] | None = None,
+    labs: list[Lab] | None = None,
+    current_page_url: str | None = None,
 ) -> str:
     """Render a single card for the current week (or the nearest upcoming one)."""
     if not schedule.entries:
         return ""
 
     weeks, homework_by_week = _build_weeks(schedule)
+    labs_by_date = {lab.date: lab for lab in labs or []}
     first_week_start = min(weeks)
     today_week_start = _week_start(current_date())
     week_starts = sorted(weeks)
@@ -239,7 +307,9 @@ def render_this_week_card(
         week_number=week_number,
         entries=weeks[target],
         homework=homework_by_week.get(target, []),
+        labs_by_date=labs_by_date,
         today_week_start=today_week_start,
+        current_page_url=current_page_url,
         show_status=False,
     )
     return f'<div class="this-week">{card}</div>' if card else ""

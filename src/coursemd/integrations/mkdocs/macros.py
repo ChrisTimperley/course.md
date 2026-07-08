@@ -105,6 +105,12 @@ def _render_staffer(
     return t.cast("str", module.render_staffer(person))
 
 
+def _current_page_url(env: t.Any) -> str | None:
+    page = getattr(env, "variables", {}).get("page")
+    url = getattr(page, "url", None)
+    return str(url) if url is not None else None
+
+
 def define_env(env: t.Any) -> None:
     """
     Define MkDocs macros for use in course websites.
@@ -157,6 +163,8 @@ def define_env(env: t.Any) -> None:
                 quizzes=schedule.get("quizzes", []),
             ),
             meeting_days=schedule.get("meeting_days"),
+            labs=schedule.get("labs", []),
+            current_page_url=_current_page_url(env),
         )
 
     @env.macro
@@ -183,6 +191,8 @@ def define_env(env: t.Any) -> None:
                 quizzes=schedule.get("quizzes", []),
             ),
             meeting_days=schedule.get("meeting_days"),
+            labs=schedule.get("labs", []),
+            current_page_url=_current_page_url(env),
         )
 
     @env.macro

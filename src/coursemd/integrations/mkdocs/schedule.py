@@ -78,7 +78,7 @@ def _render_assignment(entry: ScheduleEntry) -> str:
         else:
             out += "<br>"
 
-        attributes = {"class": "label label-red", "href": assignment.link}
+        attributes = {"class": "label label-red", "href": assignment.source_file.stem }
         html_attributes = " ".join(f'{k}="{v}"' for k, v in attributes.items())
         out += f"<a {html_attributes}>Handout</a>"
 
