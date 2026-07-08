@@ -144,14 +144,17 @@ def define_env(env: t.Any) -> None:
         Returns:
             HTML string for the weekly schedule cards
         """
-        return render_schedule_cards(Schedule.build(
-            earliest_date=schedule["course"]["start_date"],
-            latest_date=schedule["course"]["end_date"],
-            events=schedule.get("events", []),
-            breaks=schedule.get("breaks", []),
-            assignments=schedule.get("assignments", []),
-            quizzes=schedule.get("quizzes", []),
-        ))
+        return render_schedule_cards(
+            Schedule.build(
+                earliest_date=schedule["course"]["start_date"],
+                latest_date=schedule["course"]["end_date"],
+                events=schedule.get("events", []),
+                breaks=schedule.get("breaks", []),
+                assignments=schedule.get("assignments", []),
+                quizzes=schedule.get("quizzes", []),
+            ),
+            meeting_days=schedule.get("meeting_days"),
+        )
 
     @env.macro
     def released_assignments(schedule: dict[str, t.Any]) -> list[Assignment]:

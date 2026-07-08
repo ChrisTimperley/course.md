@@ -118,12 +118,16 @@ def _render_week(
     entries: list[ScheduleEntry],
     homework: list[Assignment],
     today_week_start: dt.date,
+    meeting_days: tuple[int, ...] | None,
 ) -> str:
     rows: list[str] = []
     for entry in entries:
         if entry.events:
             rows.extend(_render_event(event) for event in entry.events)
-        elif entry.break_ is not None:
+        elif entry.break_ is not None and (
+            meeting_days is None or entry.date.weekday() in meeting_days
+        ):
+            # Only flag a break on days the class would otherwise meet.
             rows.append(_render_break_day(entry))
 
     # Homework is due on the weekend, so it follows the week's Mon-Fri events.
@@ -157,8 +161,15 @@ def _render_week(
     )
 
 
-def render_schedule_cards(schedule: Schedule) -> str:
-    """Render a Schedule as a stack of weekly cards."""
+def render_schedule_cards(
+    schedule: Schedule,
+    meeting_days: tuple[int, ...] | None = None,
+) -> str:
+    """Render a Schedule as a stack of weekly cards.
+
+    ``meeting_days`` are the weekday numbers (Mon=0) the class meets; when given,
+    breaks are only flagged on those days. When None, breaks show on every working day.
+    """
     if not schedule.entries:
         return "<p><em>No events yet.</em></p>"
 
@@ -185,6 +196,7 @@ def render_schedule_cards(schedule: Schedule) -> str:
         week_number = ((week_start - first_week_start).days // 7) + 1
         cards.append(
             _render_week(
+                meeting_days=meeting_days,
                 week_start=week_start,
                 week_number=week_number,
                 entries=weeks[week_start],

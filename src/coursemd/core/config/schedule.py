@@ -27,12 +27,45 @@ def _require_date(value: Any, *, label: str) -> dt.date:
     return parsed
 
 
+# Weekday names (and common abbreviations) mapped to Python weekday numbers (Mon=0).
+_WEEKDAYS = {
+    "monday": 0, "mon": 0,
+    "tuesday": 1, "tue": 1, "tues": 1,
+    "wednesday": 2, "wed": 2,
+    "thursday": 3, "thu": 3, "thurs": 3,
+    "friday": 4, "fri": 4,
+    "saturday": 5, "sat": 5,
+    "sunday": 6, "sun": 6,
+}
+
+
+def _parse_meeting_days(value: Any) -> tuple[int, ...] | None:
+    """Parse ``schedule.meeting_days`` into sorted weekday numbers, or None if unset."""
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise CoursemdValidationError(
+            f"schedule.meeting_days must be a list of weekday names in {CONFIG_FILENAME}."
+        )
+    days: set[int] = set()
+    for index, raw in enumerate(value):
+        key = raw.strip().lower() if isinstance(raw, str) else None
+        if key not in _WEEKDAYS:
+            raise CoursemdValidationError(
+                f"schedule.meeting_days[{index}] must be a weekday name (e.g. 'monday') "
+                f"in {CONFIG_FILENAME}."
+            )
+        days.add(_WEEKDAYS[key])
+    return tuple(sorted(days))
+
+
 @dataclass(frozen=True)
 class ScheduleConfig:
     start_date: dt.date
     end_date: dt.date
     events: list[CourseEvent]
     breaks: list[CourseBreak]
+    meeting_days: tuple[int, ...] | None = None
 
     @classmethod
     def parse(cls, raw_value: Any) -> Self:
@@ -87,7 +120,15 @@ class ScheduleConfig:
             previous_index = index
             previous_break = break_
 
-        return cls(start_date=start_date, end_date=end_date, events=events, breaks=breaks)
+        meeting_days = _parse_meeting_days(schedule_map.get("meeting_days"))
+
+        return cls(
+            start_date=start_date,
+            end_date=end_date,
+            events=events,
+            breaks=breaks,
+            meeting_days=meeting_days,
+        )
 
     def build(self, repository: CourseRepository) -> Schedule:
         return Schedule.build(

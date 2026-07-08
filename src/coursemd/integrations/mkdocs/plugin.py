@@ -217,6 +217,7 @@ class CoursemdPlugin(BasePlugin):
             schedule_data["course"] = course
             schedule_data["events"] = schedule_config.events
             schedule_data["breaks"] = schedule_config.breaks
+            schedule_data["meeting_days"] = schedule_config.meeting_days
             canvas_cfg = self.course_repository.get_integration("canvas", CanvasConfig)
             canvas_course_id = schedule_data.get("course", {}).get("canvas_course_id")
 
