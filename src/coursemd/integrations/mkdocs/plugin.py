@@ -105,6 +105,7 @@ class CoursemdPlugin(BasePlugin):
     config_scheme = (
         ("config_file", config_options.Optional(config_options.Type(str))),
         ("generate_nav", config_options.Type(bool, default=True)),
+        ("assignment_card_template", config_options.Optional(config_options.Type(str))),
     )
 
     course_config: CourseConfig
@@ -184,6 +185,7 @@ class CoursemdPlugin(BasePlugin):
         )
         template_env.globals.update(registry.variables)
         template_env.globals.update(registry.macros)
+        markdown = self._prepend_assignment_card(markdown, page, template_env)
         return template_env.from_string(markdown).render()
 
     def on_env(self, env: Any, *, config: MkDocsConfig, files: Files) -> Any:  # noqa: ARG002
@@ -396,11 +398,16 @@ class CoursemdPlugin(BasePlugin):
             return {}
 
     def _inject_hide_metadata(self, page: Any) -> None:
-        src_uri = page.file.src_uri
-        assignments_prefix = self.mkdocs_integration.assignments_url_path.strip("/") + "/"
-        labs_prefix = self.mkdocs_integration.labs_url_path.strip("/") + "/"
-        if src_uri.startswith((assignments_prefix, labs_prefix)):
+        if self._is_assignment_page(page) or self._is_lab_page(page):
             page.meta.setdefault("hide", ["navigation", "toc"])
+
+    def _is_assignment_page(self, page: Any) -> bool:
+        prefix = self.mkdocs_integration.assignments_url_path.strip("/") + "/"
+        return page.file.src_uri.startswith(prefix)
+
+    def _is_lab_page(self, page: Any) -> bool:
+        prefix = self.mkdocs_integration.labs_url_path.strip("/") + "/"
+        return page.file.src_uri.startswith(prefix)
 
     def _normalize_generated_frontmatter(self, markdown: str, page: Any) -> str:
         if not markdown.startswith("---"):
@@ -412,6 +419,19 @@ class CoursemdPlugin(BasePlugin):
         if post.metadata:
             page.meta.update(post.metadata)
         return cast("str", post.content)
+
+    def _prepend_assignment_card(self, markdown: str, page: Any, template_env: Environment) -> str:
+        """Render the configured card before each assignment page's Markdown."""
+        template_path = self.config.get("assignment_card_template")
+        if not template_path or not self._is_assignment_page(page):
+            return markdown
+
+        card = page.meta.get("card")
+        if not isinstance(card, dict):
+            return markdown
+
+        template = template_env.get_template(str(template_path))
+        return template.render(assignment=page.meta, card=card) + "\n\n" + markdown
 
     def _should_remove_file(self, metadata: dict[str, Any]) -> bool:
         if metadata.get("draft"):
