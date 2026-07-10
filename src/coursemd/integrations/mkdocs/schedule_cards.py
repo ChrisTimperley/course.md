@@ -109,6 +109,31 @@ def _render_event(
         if lab is not None:
             link = lab.link
 
+    if kind == "lecture" and event.learning_goals:
+        goals = "".join(f"<li>{html.escape(goal)}</li>" for goal in event.learning_goals)
+        slides = ""
+        if link:
+            href = html.escape(_relative_site_url(link, current_page_url), quote=True)
+            slides = (
+                f'<a class="wevent__slides-link" href="{href}" '
+                'target="_blank" rel="noopener noreferrer">Open slides <span '
+                'aria-hidden="true">↗</span></a>'
+            )
+        return (
+            f'<li class="wevent wevent--{modifier} wevent--expandable">'
+            '<details class="wevent__details">'
+            '<summary class="wevent__summary">'
+            f'<span class="wevent__day">{day_label}</span>'
+            f'<span class="wevent__title">{title}</span>'
+            "</summary>"
+            '<div class="wevent__details-content">'
+            '<p class="wevent__goals-heading">Learning goals</p>'
+            f'<ul class="wevent__goals">{goals}</ul>{slides}'
+            "</div>"
+            "</details>"
+            "</li>"
+        )
+
     if link:
         href = html.escape(_relative_site_url(link, current_page_url), quote=True)
         target = ' target="_blank" rel="noopener noreferrer"' if kind in _EXTERNAL_KINDS else ""

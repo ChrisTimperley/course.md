@@ -20,6 +20,7 @@ class CourseEvent:
     date: dt.date
     title: str
     link: str | None = None
+    learning_goals: tuple[str, ...] = ()
     speakers: tuple[str, ...] = ()
 
     @classmethod
@@ -48,6 +49,18 @@ class CourseEvent:
         if link is not None and (not isinstance(link, str) or not link.strip()):
             raise CoursemdValidationError("event link must be a non-empty string.")
 
+        learning_goals_raw = value.get("learning-goals", [])
+        if learning_goals_raw is None:
+            learning_goals_raw = []
+        if not isinstance(learning_goals_raw, list):
+            raise CoursemdValidationError("event learning-goals must be a list.")
+
+        learning_goals: list[str] = []
+        for goal in learning_goals_raw:
+            if not isinstance(goal, str) or not goal.strip():
+                raise CoursemdValidationError("event learning-goals must be non-empty strings.")
+            learning_goals.append(goal.strip())
+
         speakers_raw = value.get("speakers", [])
         if speakers_raw is None:
             speakers_raw = []
@@ -65,6 +78,7 @@ class CourseEvent:
             date=parsed_date,
             title=title.strip(),
             link=link.strip() if isinstance(link, str) else None,
+            learning_goals=tuple(learning_goals),
             speakers=tuple(speakers),
         )
 

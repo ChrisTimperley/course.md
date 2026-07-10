@@ -266,6 +266,7 @@ def test_course_event_constructors_parse_event_data() -> None:
             "date": "2026-01-12",
             "title": " Course Introduction ",
             "link": " /slides/intro.pdf ",
+            "learning-goals": [" Explain flow ", "Describe feedback"],
             "speakers": [" Instructor One ", "Instructor Two"],
         }
     )
@@ -275,6 +276,7 @@ def test_course_event_constructors_parse_event_data() -> None:
         date=dt.date(2026, 1, 12),
         title="Course Introduction",
         link="/slides/intro.pdf",
+        learning_goals=("Explain flow", "Describe feedback"),
         speakers=("Instructor One", "Instructor Two"),
     )
     assert CourseEvent.parse(event) is event
