@@ -17,6 +17,7 @@ from coursemd.core.config_helpers import (
     require_url_path,
     resolve_relative_path,
 )
+from coursemd.core.exceptions import CoursemdValidationError
 from coursemd.core.integration_config import (
     IntegrationConfig,
     IntegrationConfigContext,
@@ -37,6 +38,7 @@ class MkdocsIntegrationConfig(IntegrationConfig):
     project_dir: Path
     assignments_url_path: str = DEFAULT_INIT_SITE_ASSIGNMENTS_URL_PATH
     labs_url_path: str = DEFAULT_INIT_SITE_LABS_URL_PATH
+    include_specs: bool = False
 
     @classmethod
     def parse(
@@ -50,6 +52,11 @@ class MkdocsIntegrationConfig(IntegrationConfig):
             config_map.get("version"),
             label=f"integrations.{cls.metavar}.version",
         )
+        include_specs = config_map.get("include_specs", False)
+        if not isinstance(include_specs, bool):
+            raise CoursemdValidationError(
+                f"integrations.{cls.metavar}.include_specs must be a boolean."
+            )
         return cls(
             base_url=require_string(
                 config_map.get("base_url"),
@@ -74,6 +81,7 @@ class MkdocsIntegrationConfig(IntegrationConfig):
                 ),
                 label=f"integrations.{cls.metavar}.labs_url_path",
             ),
+            include_specs=include_specs,
         )
 
     @classmethod

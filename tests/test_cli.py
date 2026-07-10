@@ -1056,14 +1056,18 @@ def test_config_reads_site_url_paths(tmp_path: Path) -> None:
     config_path.write_text(
         config_path.read_text(encoding="utf-8").replace(
             "        project_dir: website\n",
-            "        project_dir: website\n        assignments_url_path: coursework\n",
+            "        project_dir: website\n"
+            "        assignments_url_path: coursework\n"
+            "        include_specs: true\n",
         ),
         encoding="utf-8",
     )
 
     config = CourseConfig.load(start_dir=tmp_path / "website")
 
-    assert MkdocsIntegrationConfig.require(config).assignments_url_path == "coursework"
+    mkdocs_config = MkdocsIntegrationConfig.require(config)
+    assert mkdocs_config.assignments_url_path == "coursework"
+    assert mkdocs_config.include_specs is True
 
 
 def test_site_build_uses_project_dir_from_config(tmp_path: Path, monkeypatch) -> None:
@@ -1537,6 +1541,73 @@ def test_coursemd_mkdocs_plugin_filters_future_generated_pages(
         config.plugins.on_shutdown()
 
     assert not (tmp_path / "site" / "assignments" / "hw1" / "index.html").exists()
+
+
+def test_coursemd_mkdocs_plugin_exposes_lecture_specs_only_in_preview(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _build_repo_fixture(tmp_path)
+    config_path = tmp_path / ".coursemd.yml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            "        project_dir: website\n",
+            "        project_dir: website\n        include_specs: true\n",
+        ),
+        encoding="utf-8",
+    )
+    _write_file(
+        tmp_path / "specs" / "00-course-introduction.md",
+        """
+        ---
+        kind: lecture_spec
+        title: Course Introduction Spec
+        date: 2026-01-12
+        ---
+
+        # Course Introduction Spec
+        """,
+    )
+    _write_file(
+        tmp_path / "website" / "docs" / "index.md",
+        """
+        # Home
+
+        {{ schedule_cards(schedule) }}
+        """,
+    )
+    monkeypatch.setenv("CURRENT_DATE_OVERRIDE", "2026-01-13")
+    monkeypatch.chdir(tmp_path / "website")
+
+    public_config = load_config(config_file="mkdocs.yml", site_dir=str(tmp_path / "public-site"))
+    public_config.plugins.on_startup(command="build", dirty=False)
+    try:
+        mkdocs_build(public_config, dirty=False)
+    finally:
+        public_config.plugins.on_shutdown()
+
+    public_html = (tmp_path / "public-site" / "index.html").read_text(encoding="utf-8")
+    assert "View lecture spec" not in public_html
+    public_spec = tmp_path / "public-site" / "specs" / "00-course-introduction" / "index.html"
+    assert not public_spec.exists()
+
+    monkeypatch.setenv("COURSEMD_PREVIEW", "1")
+    preview_config = load_config(config_file="mkdocs.yml", site_dir=str(tmp_path / "preview-site"))
+    preview_config.plugins.on_startup(command="build", dirty=False)
+    try:
+        mkdocs_build(preview_config, dirty=False)
+    finally:
+        preview_config.plugins.on_shutdown()
+
+    preview_html = (tmp_path / "preview-site" / "index.html").read_text(encoding="utf-8")
+    assert "View lecture spec" in preview_html
+    assert "/specs/00-course-introduction/" in preview_html
+    preview_spec = tmp_path / "preview-site" / "specs" / "00-course-introduction" / "index.html"
+    assert preview_spec.is_file()
+    spec_html = preview_spec.read_text(encoding="utf-8")
+    assert 'data-md-type="navigation" hidden' in spec_html
+    assert 'data-md-type="toc" hidden' in spec_html
+    assert 'data-md-component="header-nav"' in spec_html
 
 
 def test_coursemd_mkdocs_plugin_renders_injected_assignment_includes(

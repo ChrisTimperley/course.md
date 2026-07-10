@@ -164,6 +164,7 @@ def define_env(env: t.Any) -> None:
             ),
             meeting_days=schedule.get("meeting_days"),
             labs=schedule.get("labs", []),
+            preview_spec_links=schedule.get("preview_spec_links"),
             current_page_url=_current_page_url(env),
         )
 
@@ -192,6 +193,7 @@ def define_env(env: t.Any) -> None:
             ),
             meeting_days=schedule.get("meeting_days"),
             labs=schedule.get("labs", []),
+            preview_spec_links=schedule.get("preview_spec_links"),
             current_page_url=_current_page_url(env),
         )
 

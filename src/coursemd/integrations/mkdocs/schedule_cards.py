@@ -88,6 +88,7 @@ def _render_event(
     event: CourseEvent,
     *,
     labs_by_date: dict[dt.date, Lab] | None = None,
+    preview_spec_links: dict[dt.date, str] | None = None,
     current_page_url: str | None = None,
 ) -> str:
     kind = event.kind.strip().lower()
@@ -119,6 +120,10 @@ def _render_event(
                 'target="_blank" rel="noopener noreferrer">Open slides <span '
                 'aria-hidden="true">↗</span></a>'
             )
+        spec = ""
+        if preview_spec_links and (spec_link := preview_spec_links.get(event.date)):
+            href = html.escape(_relative_site_url(spec_link, current_page_url), quote=True)
+            spec = f'<a class="wevent__spec-link" href="{href}">View lecture spec</a>'
         return (
             f'<li class="wevent wevent--{modifier} wevent--expandable">'
             '<details class="wevent__details">'
@@ -128,7 +133,7 @@ def _render_event(
             "</summary>"
             '<div class="wevent__details-content">'
             '<p class="wevent__goals-heading">Learning goals</p>'
-            f'<ul class="wevent__goals">{goals}</ul>{slides}'
+            f'<ul class="wevent__goals">{goals}</ul>{slides}{spec}'
             "</div>"
             "</details>"
             "</li>"
@@ -191,6 +196,7 @@ def _render_week(
     entries: list[ScheduleEntry],
     homework: list[Assignment],
     labs_by_date: dict[dt.date, Lab],
+    preview_spec_links: dict[dt.date, str] | None,
     today_week_start: dt.date,
     meeting_days: tuple[int, ...] | None,
     current_page_url: str | None = None,
@@ -203,6 +209,7 @@ def _render_week(
                 _render_event(
                     event,
                     labs_by_date=labs_by_date,
+                    preview_spec_links=preview_spec_links,
                     current_page_url=current_page_url,
                 )
                 for event in entry.events
@@ -271,6 +278,7 @@ def render_schedule_cards(
     schedule: Schedule,
     meeting_days: tuple[int, ...] | None = None,
     labs: list[Lab] | None = None,
+    preview_spec_links: dict[dt.date, str] | None = None,
     current_page_url: str | None = None,
 ) -> str:
     """Render a Schedule as a stack of weekly cards.
@@ -297,6 +305,7 @@ def render_schedule_cards(
                 entries=weeks[week_start],
                 homework=homework_by_week.get(week_start, []),
                 labs_by_date=labs_by_date,
+                preview_spec_links=preview_spec_links,
                 today_week_start=today_week_start,
                 current_page_url=current_page_url,
             )
@@ -309,6 +318,7 @@ def render_this_week_card(
     schedule: Schedule,
     meeting_days: tuple[int, ...] | None = None,
     labs: list[Lab] | None = None,
+    preview_spec_links: dict[dt.date, str] | None = None,
     current_page_url: str | None = None,
 ) -> str:
     """Render a single card for the current week (or the nearest upcoming one)."""
@@ -333,6 +343,7 @@ def render_this_week_card(
         entries=weeks[target],
         homework=homework_by_week.get(target, []),
         labs_by_date=labs_by_date,
+        preview_spec_links=preview_spec_links,
         today_week_start=today_week_start,
         current_page_url=current_page_url,
         show_status=False,

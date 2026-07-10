@@ -19,6 +19,7 @@ integrations:
     base_url: https://example.edu/courses/example-101
     project_dir: website
     assignments_url_path: assignments
+    include_specs: true
 ```
 
 Then enable the plugin in `website/mkdocs.yml`:
@@ -50,3 +51,13 @@ For example:
 ```
 
 Assignment Markdown files are read from the configured `paths.assignments` directory and published under `assignments_url_path`.
+
+### Preview-only lecture specs
+
+Set `integrations.mkdocs.include_specs: true` to publish lecture specs in `paths.specs_dir`
+(default: `specs/`) for instructors without exposing them on the public site. Give each
+spec `kind: lecture_spec` and a `date` in its front matter. `coursemd site preview` and
+`coursemd site build-preview` publish those files under `/specs/<filename>/`;
+`schedule_cards` adds a **View lecture spec** link to the lecture on the same date.
+Regular `coursemd site build` omits both the pages and the links. The setting defaults to
+`false`.

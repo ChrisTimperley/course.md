@@ -114,6 +114,7 @@ class CoursemdPlugin(BasePlugin):
     course_data: dict[str, Any]
     current_date: dt.date
     in_preview: bool
+    preview_spec_pages: dict[dt.date, Path]
     removed_files: set[str]
     macro_registry: _MacroRegistry
 
@@ -129,8 +130,13 @@ class CoursemdPlugin(BasePlugin):
         set_course_timezone(self.course_config.timezone)
         self.course_repository = self._load_course_repository()
         self.course_config = self.course_repository.config
-        self.course_data = self._build_course_data()
         self.in_preview = getattr(self, "in_preview", False) or self._env_truthy("COURSEMD_PREVIEW")
+        self.preview_spec_pages = (
+            self._load_preview_spec_pages()
+            if self.in_preview and self.mkdocs_integration.include_specs
+            else {}
+        )
+        self.course_data = self._build_course_data()
         self.current_date = current_date()
         self.removed_files = getattr(self, "removed_files", set())
 
@@ -235,6 +241,11 @@ class CoursemdPlugin(BasePlugin):
             if canvas_cfg is not None and canvas_course_id is not None:
                 quizzes = inject_quiz_links(quizzes, canvas_cfg.base_url, canvas_course_id)
             schedule_data["quizzes"] = quizzes
+            if self.preview_spec_pages:
+                schedule_data["preview_spec_links"] = {
+                    date: f"/specs/{path.stem}/"
+                    for date, path in self.preview_spec_pages.items()
+                }
             course_data["schedule"] = schedule_data
         else:
             course_data.pop("schedule", None)
@@ -247,6 +258,7 @@ class CoursemdPlugin(BasePlugin):
             self.course_repository.paths.assignments_dir,
             self.course_repository.paths.quizzes_dir,
             self.course_repository.paths.labs_dir,
+            self.course_repository.paths.specs_dir,
         ):
             if not path.exists():
                 continue
@@ -355,6 +367,12 @@ class CoursemdPlugin(BasePlugin):
                     continue
                 files.append(File.generated(config, src_uri, abs_src_path=str(path)))
 
+        if self.in_preview:
+            for path in self.preview_spec_pages.values():
+                src_uri = f"specs/{path.name}"
+                if files.get_file_from_path(src_uri) is None:
+                    files.append(File.generated(config, src_uri, abs_src_path=str(path)))
+
         if self._should_generate_assignments_index():
             src_uri = f"{self.mkdocs_integration.assignments_url_path}/index.md"
             if files.get_file_from_path(src_uri) is None:
@@ -386,6 +404,22 @@ class CoursemdPlugin(BasePlugin):
         define_env(registry)
         return registry
 
+    def _load_preview_spec_pages(self) -> dict[dt.date, Path]:
+        """Find dated lecture specs that should be visible only in previews."""
+        specs_dir = self.course_repository.paths.specs_dir
+        if not specs_dir.is_dir():
+            return {}
+
+        pages: dict[dt.date, Path] = {}
+        for path in sorted(specs_dir.glob("*.md")):
+            metadata = self._load_markdown_metadata(path)
+            if metadata.get("kind") != "lecture_spec":
+                continue
+            date = parse_date(metadata.get("date"))
+            if date is not None:
+                pages[date] = path
+        return pages
+
     def _load_file_metadata(self, file: File) -> dict[str, Any]:
         if not file.abs_src_path:
             return {}
@@ -398,7 +432,11 @@ class CoursemdPlugin(BasePlugin):
             return {}
 
     def _inject_hide_metadata(self, page: Any) -> None:
-        if self._is_assignment_page(page) or self._is_lab_page(page):
+        if (
+            self._is_assignment_page(page)
+            or self._is_lab_page(page)
+            or self._is_preview_spec_page(page)
+        ):
             page.meta.setdefault("hide", ["navigation", "toc"])
 
     def _is_assignment_page(self, page: Any) -> bool:
@@ -408,6 +446,9 @@ class CoursemdPlugin(BasePlugin):
     def _is_lab_page(self, page: Any) -> bool:
         prefix = self.mkdocs_integration.labs_url_path.strip("/") + "/"
         return page.file.src_uri.startswith(prefix)
+
+    def _is_preview_spec_page(self, page: Any) -> bool:
+        return page.file.src_uri.startswith("specs/")
 
     def _normalize_generated_frontmatter(self, markdown: str, page: Any) -> str:
         if not markdown.startswith("---"):

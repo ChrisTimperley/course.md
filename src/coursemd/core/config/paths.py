@@ -17,12 +17,14 @@ class CoursePathsConfig:
     DEFAULT_ASSIGNMENTS_DIR: ClassVar[str] = "assignments"
     DEFAULT_QUIZZES_DIR: ClassVar[str] = "quizzes"
     DEFAULT_LABS_DIR: ClassVar[str] = "labs"
+    DEFAULT_SPECS_DIR: ClassVar[str] = "specs"
     DEFAULT_ENV_FILE: ClassVar[str] = ".env"
 
     data_dir: Path
     assignments_dir: Path
     quizzes_dir: Path
     labs_dir: Path
+    specs_dir: Path
     env_file: str = DEFAULT_ENV_FILE
 
     @classmethod
@@ -39,6 +41,7 @@ class CoursePathsConfig:
         assignments_dir = value.get("assignments", cls.DEFAULT_ASSIGNMENTS_DIR)
         quizzes_dir = value.get("quizzes", cls.DEFAULT_QUIZZES_DIR)
         labs_dir = value.get("labs", cls.DEFAULT_LABS_DIR)
+        specs_dir = value.get("specs_dir", value.get("specs", cls.DEFAULT_SPECS_DIR))
         env_file = value.get("environment", cls.DEFAULT_ENV_FILE)
 
         if data_dir is None:
@@ -49,6 +52,8 @@ class CoursePathsConfig:
             quizzes_dir = cls.DEFAULT_QUIZZES_DIR
         if labs_dir is None:
             labs_dir = cls.DEFAULT_LABS_DIR
+        if specs_dir is None:
+            specs_dir = cls.DEFAULT_SPECS_DIR
         if env_file is None:
             env_file = cls.DEFAULT_ENV_FILE
 
@@ -61,5 +66,6 @@ class CoursePathsConfig:
             ),
             quizzes_dir=resolve_relative_path(repo_root, quizzes_dir, label="paths.quizzes"),
             labs_dir=resolve_relative_path(repo_root, labs_dir, label="paths.labs"),
+            specs_dir=resolve_relative_path(repo_root, specs_dir, label="paths.specs"),
             env_file=require_string(env_file, label="paths.environment"),
         )
