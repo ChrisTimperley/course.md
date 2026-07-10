@@ -76,6 +76,15 @@ def _parse_meta(metadata: dict[str, Any]) -> dict[str, Any]:
     return meta
 
 
+def _parse_card(metadata: dict[str, Any]) -> dict[str, Any]:
+    card_raw = metadata.get("card")
+    if card_raw is None:
+        return {}
+    if not isinstance(card_raw, dict):
+        raise TypeError("'card' must be an object/map.")
+    return dict(cast("dict[str, Any]", card_raw))
+
+
 def _parse_rubric(value: dict[str, Any]) -> Rubric:
     return Rubric.from_metadata(value)
 
@@ -92,6 +101,8 @@ class Assignment:
     due_at: str | None = None
     kind: str = "assignment"
     description: str | None = None
+    summary: str | None = None
+    card: dict[str, Any] = field(default_factory=dict)
     reveal_date: dt.date | None = None
     group_assignment: bool = False
     rubric: Rubric = field(default_factory=lambda: Rubric(sections=[]))
@@ -167,6 +178,8 @@ class Assignment:
                 due_at=due_at,
                 kind=optional_string(metadata.get("kind")) or "assignment",
                 description=str(post.content).strip() or None,
+                summary=optional_string(metadata.get("summary")),
+                card=_parse_card(metadata),
                 reveal_date=reveal_date,
                 group_assignment=_parse_bool(metadata.get("group_assignment")),
                 rubric=_parse_rubric(metadata),
