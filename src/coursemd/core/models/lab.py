@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING, Any, cast
 
 from coursemd.core.exceptions import validation_error_boundary
 from coursemd.core.loaders.markdown import load_markdown_post
@@ -19,6 +19,16 @@ if TYPE_CHECKING:
 DEFAULT_LABS_URL_PATH = "labs"
 
 
+def _parse_card(metadata: dict[str, Any]) -> dict[str, Any]:
+    """Return optional presentation metadata for a lab."""
+    card_raw = metadata.get("card")
+    if card_raw is None:
+        return {}
+    if not isinstance(card_raw, dict):
+        raise TypeError("'card' must be an object/map.")
+    return dict(cast("dict[str, Any]", card_raw))
+
+
 @dataclass(frozen=True)
 class Lab:
     """A lab session page specification."""
@@ -28,6 +38,7 @@ class Lab:
     date: dt.date
     link: str
     description: str | None = None
+    card: dict[str, Any] = field(default_factory=dict)
 
     @property
     def name(self) -> str:
@@ -60,6 +71,7 @@ class Lab:
                 date=date,
                 link=f"/{DEFAULT_LABS_URL_PATH}/{filename.stem}/",
                 description=description,
+                card=_parse_card(metadata),
             )
 
     @classmethod
