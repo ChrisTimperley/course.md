@@ -223,7 +223,14 @@ class CoursemdPlugin(BasePlugin):
             course["start_date"] = schedule_config.start_date
             course["end_date"] = schedule_config.end_date
             schedule_data["course"] = course
-            schedule_data["events"] = schedule_config.events
+            labs = [
+                lab.with_labs_url_path(self.mkdocs_integration.labs_url_path)
+                for lab in self.course_repository.labs
+            ]
+            schedule_data["events"] = [
+                *schedule_config.events,
+                *(lab.as_course_event() for lab in labs),
+            ]
             schedule_data["breaks"] = schedule_config.breaks
             schedule_data["meeting_days"] = schedule_config.meeting_days
             canvas_cfg = self.course_repository.get_integration("canvas", CanvasConfig)
@@ -233,10 +240,7 @@ class CoursemdPlugin(BasePlugin):
                 assignment.with_assignment_url_path(self.mkdocs_integration.assignments_url_path)
                 for assignment in self.course_repository.assignments
             ]
-            schedule_data["labs"] = [
-                lab.with_labs_url_path(self.mkdocs_integration.labs_url_path)
-                for lab in self.course_repository.labs
-            ]
+            schedule_data["labs"] = labs
             quizzes = self.course_repository.quizzes
             if canvas_cfg is not None and canvas_course_id is not None:
                 quizzes = inject_quiz_links(quizzes, canvas_cfg.base_url, canvas_course_id)

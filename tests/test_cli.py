@@ -900,6 +900,18 @@ def test_schedule_config_builds_full_schedule_from_repository(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _build_repo_fixture(tmp_path)
+    _write_file(
+        tmp_path / "labs" / "lab1.md",
+        """
+        ---
+        kind: lab
+        title: Lab 1
+        date: 2026-01-13
+        ---
+
+        # Lab 1
+        """,
+    )
     monkeypatch.setenv("CURRENT_DATE_OVERRIDE", "2026-01-13")
     config = CourseConfig.load(start_dir=tmp_path)
     repository = CourseRepository.build(config)
@@ -916,6 +928,14 @@ def test_schedule_config_builds_full_schedule_from_repository(
         )
     ]
     assert by_date[dt.date(2026, 1, 12)].assignment_released is repository.assignments[0]
+    assert by_date[dt.date(2026, 1, 13)].events == [
+        CourseEvent(
+            kind="lab",
+            date=dt.date(2026, 1, 13),
+            title="Lab 1",
+            link="/labs/lab1/",
+        )
+    ]
     assert by_date[dt.date(2026, 1, 14)].break_ == CourseBreak(
         name="No Class",
         start=dt.date(2026, 1, 14),
@@ -1790,6 +1810,37 @@ def test_coursemd_mkdocs_plugin_uses_preloaded_quiz_schedule_data(
     rendered = registry.macros["schedule_table"](plugin.course_data["schedule"])
 
     assert "Week 1 Reading Quiz" in rendered
+
+
+def test_coursemd_mkdocs_plugin_discovers_labs_for_schedule_table(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _build_repo_fixture(tmp_path)
+    _write_file(
+        tmp_path / "labs" / "lab1.md",
+        """
+        ---
+        kind: lab
+        title: Lab 1
+        date: 2026-01-13
+        ---
+
+        # Lab 1
+        """,
+    )
+    monkeypatch.setenv("CURRENT_DATE_OVERRIDE", "2026-01-13")
+    monkeypatch.chdir(tmp_path / "website")
+
+    config = load_config(config_file="mkdocs.yml", site_dir=str(tmp_path / "site"))
+    plugin = config.plugins["coursemd"]
+    plugin.on_config(config)
+    registry = plugin._macro_registry(config=config, page=None)
+
+    rendered = registry.macros["schedule_table"](plugin.course_data["schedule"])
+
+    assert 'href="/labs/lab1/"' in rendered
+    assert "Lab: Lab 1" in rendered
 
 
 def test_coursemd_mkdocs_plugin_loads_all_yaml_data_files(
