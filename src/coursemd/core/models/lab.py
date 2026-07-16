@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 from coursemd.core.exceptions import validation_error_boundary
 from coursemd.core.loaders.markdown import load_markdown_post
 from coursemd.core.loaders.validation import optional_string, require_date, require_non_empty_string
+from coursemd.core.models.course_event import CourseEvent
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -49,6 +50,10 @@ class Lab:
             self,
             link=f"/{labs_url_path.strip('/')}/{self.source_file.stem}/",
         )
+
+    def as_course_event(self) -> CourseEvent:
+        """Return the lab as an event for inclusion in a course schedule."""
+        return CourseEvent(kind="lab", date=self.date, title=self.title, link=self.link)
 
     @classmethod
     def load(cls, filename: Path) -> Lab | None:
