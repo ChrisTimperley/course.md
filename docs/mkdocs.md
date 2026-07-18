@@ -52,6 +52,22 @@ For example:
 
 Assignment Markdown files are read from the configured `paths.assignments` directory and published under `assignments_url_path`.
 
+### Instructor-only blocks
+
+Wrap instructor-only Markdown in the `instructor_only` call-block macro:
+
+```markdown
+{% call instructor_only() %}
+!!! info "Canvas questions (instructors only)"
+    Add the questions here.
+{% endcall %}
+```
+
+The block is rendered by `coursemd site preview` and `coursemd site build-preview`, but is
+omitted from a normal `coursemd site build`. This controls published site output only: anyone
+with access to the source repository can still read the block, so never place credentials or
+other real secrets in it.
+
 ### Preview-only lecture specs
 
 Set `integrations.mkdocs.include_specs: true` to publish lecture specs in `paths.specs_dir`

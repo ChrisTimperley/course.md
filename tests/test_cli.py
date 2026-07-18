@@ -1630,6 +1630,50 @@ def test_coursemd_mkdocs_plugin_exposes_lecture_specs_only_in_preview(
     assert 'data-md-component="header-nav"' in spec_html
 
 
+def test_coursemd_mkdocs_plugin_renders_instructor_only_blocks_only_in_preview(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _build_repo_fixture(tmp_path)
+    _write_file(
+        tmp_path / "website" / "docs" / "index.md",
+        """
+        # Home
+
+        Public verification marker.
+
+        {% call instructor_only() %}
+        Instructor-only verification marker.
+        {% endcall %}
+        """,
+    )
+    monkeypatch.setenv("CURRENT_DATE_OVERRIDE", "2026-01-13")
+    monkeypatch.delenv("COURSEMD_PREVIEW", raising=False)
+    monkeypatch.chdir(tmp_path / "website")
+
+    public_config = load_config(config_file="mkdocs.yml", site_dir=str(tmp_path / "public-site"))
+    public_config.plugins.on_startup(command="build", dirty=False)
+    try:
+        mkdocs_build(public_config, dirty=False)
+    finally:
+        public_config.plugins.on_shutdown()
+
+    public_html = (tmp_path / "public-site" / "index.html").read_text(encoding="utf-8")
+    assert "Public verification marker." in public_html
+    assert "Instructor-only verification marker." not in public_html
+
+    monkeypatch.setenv("COURSEMD_PREVIEW", "1")
+    preview_config = load_config(config_file="mkdocs.yml", site_dir=str(tmp_path / "preview-site"))
+    preview_config.plugins.on_startup(command="build", dirty=False)
+    try:
+        mkdocs_build(preview_config, dirty=False)
+    finally:
+        preview_config.plugins.on_shutdown()
+
+    preview_html = (tmp_path / "preview-site" / "index.html").read_text(encoding="utf-8")
+    assert "Instructor-only verification marker." in preview_html
+
+
 def test_coursemd_mkdocs_plugin_renders_injected_assignment_includes(
     tmp_path: Path,
     monkeypatch,

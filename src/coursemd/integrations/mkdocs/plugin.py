@@ -394,6 +394,7 @@ class CoursemdPlugin(BasePlugin):
     def _macro_registry(self, *, config: MkDocsConfig, page: Any | None) -> _MacroRegistry:
         variables = {
             **self.course_data,
+            "coursemd_preview": self.in_preview,
         }
         if page is not None:
             variables["page"] = page

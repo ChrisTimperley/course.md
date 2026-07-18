@@ -120,6 +120,21 @@ def define_env(env: t.Any) -> None:
     """
 
     @env.macro
+    def instructor_only(caller: t.Callable[[], str] | None = None) -> str:
+        """Render a call block only when coursemd is building a preview site.
+
+        Usage::
+
+            {% call instructor_only() %}
+            Content visible only in ``coursemd site preview`` and
+            ``coursemd site build-preview``.
+            {% endcall %}
+        """
+        if not env.variables.get("coursemd_preview", False):
+            return ""
+        return caller() if caller is not None else ""
+
+    @env.macro
     def schedule_table(schedule: dict[str, t.Any]) -> str:
         """
         Render a course schedule table from schedule data.
