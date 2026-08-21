@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
+from coursemd.core.exceptions import CoursemdValidationError
 from coursemd.core.loaders.validation import (
     normalize_due_at,
     optional_string,
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
 
     from coursemd.core.models.assignment import Assignment
     from coursemd.core.models.checkpoint import AssignmentCheckpoint
+    from coursemd.core.models.lab import Lab
     from coursemd.core.models.rubric import RubricCriterion
 
 
@@ -149,7 +151,7 @@ def _find_checkpoint(
 class CanvasAssignmentSubmission:
     """One Canvas assignment/submission target derived from a course.md assignment."""
 
-    assignment: Assignment
+    assignment: Assignment | Lab
     name: str
     due_at: str | None
     points_possible: float
@@ -313,6 +315,50 @@ def canvas_assignment_submissions(assignment: Assignment) -> list[CanvasAssignme
     return CanvasAssignment.from_assignment(assignment).submissions
 
 
+def canvas_lab_submission(lab: Lab) -> CanvasAssignmentSubmission:
+    """Return the Canvas assignment target for a course.md lab."""
+    canvas_map = _canvas_map(lab.integrations)
+    if canvas_map.get("name") is not None:
+        raise CoursemdValidationError(
+            "Lab names must use top-level 'title'; remove integrations.canvas.name.",
+            source_path=lab.source_file,
+        )
+    legacy_timing_fields = sorted({"due_at", "unlock_at"} & canvas_map.keys())
+    if legacy_timing_fields:
+        fields = ", ".join(f"integrations.canvas.{field}" for field in legacy_timing_fields)
+        raise CoursemdValidationError(
+            f"Lab timing must use top-level 'release_date' and 'due_at'; remove {fields}.",
+            source_path=lab.source_file,
+        )
+    if lab.release_date is None or lab.due_at is None:
+        raise CoursemdValidationError(
+            "Canvas lab sync requires top-level 'release_date' and 'due_at'.",
+            source_path=lab.source_file,
+        )
+    unlock_at = require_release_date(lab.release_date, "release_date")
+    points_raw = canvas_map.get("points", canvas_map.get("points_possible", 1.0))
+
+    return CanvasAssignmentSubmission(
+        assignment=lab,
+        name=lab.name,
+        due_at=lab.due_at,
+        points_possible=_parse_float(points_raw, "points"),
+        canvas_id=_parse_int(canvas_map.get("id") or canvas_map.get("canvas_id")),
+        canvas_assignment_group=optional_string(canvas_map.get("assignment_group")),
+        submission_types=_parse_submission_types(
+            canvas_map.get("submission_types", ["online_url"])
+        ),
+        published=_parse_bool(canvas_map.get("published")),
+        position=_parse_position(canvas_map.get("position")),
+        unlock_at=unlock_at,
+        group_assignment=_parse_bool(canvas_map.get("group_assignment")),
+        submission_form=_parse_submission_form(canvas_map.get("submission_form")),
+        doc_url=optional_string(canvas_map.get("doc_url")),
+        doc_anchor=optional_string(canvas_map.get("doc_anchor")),
+        notes=optional_string(canvas_map.get("notes")),
+    )
+
+
 def canvas_quiz(integrations: dict[str, Any]) -> CanvasQuizIntegration:
     """Extract Canvas integration data from a quiz's raw integrations dict."""
     canvas_map = _canvas_map(integrations)
@@ -329,5 +375,6 @@ __all__ = [
     "CanvasQuizIntegration",
     "CanvasSubmissionField",
     "canvas_assignment_submissions",
+    "canvas_lab_submission",
     "canvas_quiz",
 ]

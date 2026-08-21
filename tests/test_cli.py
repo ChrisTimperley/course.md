@@ -530,6 +530,41 @@ def test_sync_command_discovers_config_in_parent_directory(tmp_path: Path, monke
     assert "Loaded 1 assignment spec(s) for the Canvas integration:" in result.stdout
 
 
+def test_canvas_labs_plan_discovers_labs_and_submission_settings(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _build_repo_fixture(tmp_path)
+    _write_file(
+        tmp_path / "labs" / "lab01.md",
+        """
+        ---
+        kind: lab
+        title: CI Guardrails
+        date: 2026-01-16
+        release_date: 2026-01-12
+        due_at: 2026-01-16T23:59:00-05:00
+        integrations:
+          canvas:
+            assignment_group: Labs
+            points: 1
+            submission_types: [online_url]
+        ---
+
+        # CI Guardrails
+        """,
+    )
+    monkeypatch.chdir(tmp_path / "website")
+
+    result = runner.invoke(cli.app, ["canvas", "labs", "--plan-only"])
+
+    assert result.exit_code == 0, result.output
+    assert "Loaded 1 lab spec(s) for the Canvas integration:" in result.stdout
+    assert "CI Guardrails | due 2026-01-16T23:59:00-05:00 | 1.0 pts" in result.stdout
+    assert "group 'Labs'" in result.stdout
+    assert "submissions=['online_url']" in result.stdout
+
+
 def test_github_setup_uses_repository_defaults_in_dry_run(
     tmp_path: Path,
     monkeypatch,

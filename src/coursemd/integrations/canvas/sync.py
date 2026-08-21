@@ -6,8 +6,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
+from coursemd.core.exceptions import CoursemdValidationError
 from coursemd.integrations.canvas.assignments import form_for_assignment
-from coursemd.integrations.canvas.models import canvas_assignment_submissions, canvas_quiz
+from coursemd.integrations.canvas.models import (
+    canvas_assignment_submissions,
+    canvas_lab_submission,
+    canvas_quiz,
+)
 from coursemd.integrations.canvas.quizzes import (
     form_for_quiz,
     question_payload_for_canvas,
@@ -16,7 +21,9 @@ from coursemd.integrations.canvas.rubrics import form_for_rubric
 
 if TYPE_CHECKING:
     from coursemd.core.models.assignment import Assignment
+    from coursemd.core.models.lab import Lab
     from coursemd.core.models.quiz import Quiz
+    from coursemd.integrations.canvas.models import CanvasAssignmentSubmission
     from coursemd.integrations.canvas.resources import AssignmentCanvasClient, QuizCanvasClient
 
 CanvasSyncAction = Literal["create", "delete", "skip", "sync", "update"]
@@ -58,21 +65,15 @@ def resolve_group_category_id(
     return int(categories[0]["id"]) if categories else None
 
 
-def sync_assignments_to_canvas(
+def _sync_canvas_assignment_submissions(
     client: AssignmentCanvasClient,
     course_id: str,
-    specs: list[Assignment],
+    canvas_specs: list[CanvasAssignmentSubmission],
     publish_override: bool,
     group_category_id_override: int | None = None,
     reporter: CanvasSyncReporter | None = None,
     site_base_url: str = "",
 ) -> list[dict[str, Any]]:
-    canvas_specs = [
-        canvas_spec
-        for spec in specs
-        for canvas_spec in canvas_assignment_submissions(spec)
-    ]
-
     any_group = any(spec.group_assignment for spec in canvas_specs)
     group_category_id: int | None = None
     if any_group:
@@ -105,6 +106,20 @@ def sync_assignments_to_canvas(
 
     results: list[dict[str, Any]] = []
     for spec in canvas_specs:
+        existing: dict[str, Any] | None = None
+        if spec.canvas_id is not None:
+            existing = assignments_by_id.get(spec.canvas_id)
+            if existing is None:
+                raise CoursemdValidationError(
+                    f"Canvas assignment id {spec.canvas_id} configured for "
+                    f"'{spec.name}' was not found in course {course_id}. Refusing to "
+                    "match by name or create a replacement; correct or deliberately "
+                    "remove the configured Canvas id.",
+                    source_path=spec.source_file,
+                )
+        else:
+            existing = assignments_by_name.get(spec.name)
+
         assignment_group = spec.canvas_assignment_group or spec.name
         group = groups_by_name.get(assignment_group)
         if group is None:
@@ -131,12 +146,6 @@ def sync_assignments_to_canvas(
             group_category_id=group_category_id,
             site_base_url=site_base_url,
         )
-        existing: dict[str, Any] | None = None
-        if spec.canvas_id is not None:
-            existing = assignments_by_id.get(spec.canvas_id)
-        if existing is None:
-            existing = assignments_by_name.get(spec.name)
-
         if existing is None:
             action = "create"
             _emit(
@@ -227,6 +236,52 @@ def sync_assignments_to_canvas(
                 )
 
     return results
+
+
+def sync_assignments_to_canvas(
+    client: AssignmentCanvasClient,
+    course_id: str,
+    specs: list[Assignment],
+    publish_override: bool,
+    group_category_id_override: int | None = None,
+    reporter: CanvasSyncReporter | None = None,
+    site_base_url: str = "",
+) -> list[dict[str, Any]]:
+    canvas_specs = [
+        canvas_spec
+        for spec in specs
+        for canvas_spec in canvas_assignment_submissions(spec)
+    ]
+    return _sync_canvas_assignment_submissions(
+        client=client,
+        course_id=course_id,
+        canvas_specs=canvas_specs,
+        publish_override=publish_override,
+        group_category_id_override=group_category_id_override,
+        reporter=reporter,
+        site_base_url=site_base_url,
+    )
+
+
+def sync_labs_to_canvas(
+    client: AssignmentCanvasClient,
+    course_id: str,
+    specs: list[Lab],
+    publish_override: bool,
+    group_category_id_override: int | None = None,
+    reporter: CanvasSyncReporter | None = None,
+    site_base_url: str = "",
+) -> list[dict[str, Any]]:
+    """Sync labs as Canvas assignments that accept student submissions."""
+    return _sync_canvas_assignment_submissions(
+        client=client,
+        course_id=course_id,
+        canvas_specs=[canvas_lab_submission(spec) for spec in specs],
+        publish_override=publish_override,
+        group_category_id_override=group_category_id_override,
+        reporter=reporter,
+        site_base_url=site_base_url,
+    )
 
 
 

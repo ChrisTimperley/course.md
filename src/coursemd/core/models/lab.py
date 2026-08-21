@@ -7,7 +7,12 @@ from typing import TYPE_CHECKING, Any, cast
 
 from coursemd.core.exceptions import validation_error_boundary
 from coursemd.core.loaders.markdown import load_markdown_post
-from coursemd.core.loaders.validation import optional_string, require_date, require_non_empty_string
+from coursemd.core.loaders.validation import (
+    normalize_due_at,
+    optional_string,
+    require_date,
+    require_non_empty_string,
+)
 from coursemd.core.models.course_event import CourseEvent
 
 if TYPE_CHECKING:
@@ -30,6 +35,16 @@ def _parse_card(metadata: dict[str, Any]) -> dict[str, Any]:
     return dict(cast("dict[str, Any]", card_raw))
 
 
+def _parse_integrations(metadata: dict[str, Any]) -> dict[str, Any]:
+    """Return optional integration-specific metadata for a lab."""
+    integrations_raw = metadata.get("integrations")
+    if integrations_raw is None:
+        return {}
+    if not isinstance(integrations_raw, dict):
+        raise TypeError("'integrations' must be an object/map.")
+    return dict(cast("dict[str, Any]", integrations_raw))
+
+
 @dataclass(frozen=True)
 class Lab:
     """A lab session page specification."""
@@ -39,11 +54,19 @@ class Lab:
     date: dt.date
     link: str
     description: str | None = None
+    release_date: dt.date | None = None
+    due_at: str | None = None
     card: dict[str, Any] = field(default_factory=dict)
+    integrations: dict[str, Any] = field(default_factory=dict)
 
     @property
     def name(self) -> str:
         return self.title
+
+    @property
+    def reveal_on(self) -> dt.date:
+        """Return the date on which the lab becomes available to students."""
+        return self.release_date or self.date
 
     def with_labs_url_path(self, labs_url_path: str) -> Lab:
         return replace(
@@ -69,6 +92,20 @@ class Lab:
             title = require_non_empty_string(metadata.get("title"), "title")
             date = require_date(metadata.get("date"), "date")
             description = optional_string(metadata.get("description"))
+            release_date = (
+                None
+                if metadata.get("release_date") is None
+                else require_date(metadata.get("release_date"), "release_date")
+            )
+            due_at = (
+                None
+                if metadata.get("due_at") is None
+                else normalize_due_at(metadata.get("due_at"), title)
+            )
+            if release_date is not None and release_date > date:
+                raise ValueError("'release_date' must not be later than 'date'.")
+            if due_at is not None and require_date(due_at, "due_at") != date:
+                raise ValueError("'date' must match the calendar date of 'due_at'.")
 
             return cls(
                 source_file=filename,
@@ -76,7 +113,10 @@ class Lab:
                 date=date,
                 link=f"/{DEFAULT_LABS_URL_PATH}/{filename.stem}/",
                 description=description,
+                release_date=release_date,
+                due_at=due_at,
                 card=_parse_card(metadata),
+                integrations=_parse_integrations(metadata),
             )
 
     @classmethod

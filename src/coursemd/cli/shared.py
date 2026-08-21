@@ -76,6 +76,14 @@ def default_quiz_files(state: AppState) -> list[Path]:
     )
 
 
+def default_lab_files(state: AppState) -> list[Path]:
+    if not state.config.paths.labs_dir.exists():
+        return []
+    return sorted(
+        path for path in state.config.paths.labs_dir.glob("*.md") if path.name != "index.md"
+    )
+
+
 def write_json_output(output_json: Path | None, results: list[dict[str, Any]]) -> None:
     if output_json is None:
         return
@@ -89,5 +97,4 @@ def click_error_boundary() -> Iterator[None]:
         yield
     except CoursemdError as exc:
         raise click.ClickException(str(exc)) from exc
-
 

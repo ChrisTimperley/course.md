@@ -13,25 +13,36 @@ from coursemd.cli.shared import (
     AppState,
     click_error_boundary,
     default_assignment_files,
+    default_lab_files,
     default_quiz_files,
     normalize_input_paths,
     require_paths_exist,
     write_json_output,
 )
 from coursemd.core.loaders.specs import load_assignments
+from coursemd.core.models.lab import Lab
 from coursemd.core.models.quiz import Quiz
 from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL, CanvasConfig
-from coursemd.integrations.canvas.models import canvas_assignment_submissions, canvas_quiz
+from coursemd.integrations.canvas.models import (
+    canvas_assignment_submissions,
+    canvas_lab_submission,
+    canvas_quiz,
+)
 
 if TYPE_CHECKING:
     from coursemd.core.models.assignment import Assignment
 from coursemd.integrations.canvas.frontmatter import (
     update_assignment_frontmatter_with_ids,
+    update_lab_frontmatter_with_ids,
     update_quiz_frontmatter_with_canvas_id,
 )
 from coursemd.integrations.canvas.quizzes import total_quiz_points
 from coursemd.integrations.canvas.resources import AssignmentCanvasClient, QuizCanvasClient
-from coursemd.integrations.canvas.sync import sync_assignments_to_canvas, sync_quizzes_to_canvas
+from coursemd.integrations.canvas.sync import (
+    sync_assignments_to_canvas,
+    sync_labs_to_canvas,
+    sync_quizzes_to_canvas,
+)
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
 
 CLI_NAME = "canvas"
@@ -46,10 +57,12 @@ def _register_unavailable_command(app: typer.Typer, command_name: str, message: 
 
 def _register_unavailable_canvas_commands(canvas_app: typer.Typer) -> None:
     message = (
-        "coursemd canvas assignments, coursemd canvas quizzes require the optional "
+        "coursemd canvas assignments, coursemd canvas labs, and coursemd canvas quizzes "
+        "require the optional "
         '`canvas` dependencies. Install them with `pip install "coursemd[canvas]"`.'
     )
     _register_unavailable_command(canvas_app, "assignments", message)
+    _register_unavailable_command(canvas_app, "labs", message)
     _register_unavailable_command(canvas_app, "quizzes", message)
 
 
@@ -69,6 +82,21 @@ def _print_assignment_plan(specs: list[Assignment]) -> None:
                 f"{unlock}{group} | group '{assignment_group}' | "
                 f"submissions={spec.submission_types} | source={spec.source_file}"
             )
+
+
+def _print_lab_plan(specs: list[Lab]) -> None:
+    typer.echo(f"Loaded {len(specs)} lab spec(s) for the Canvas integration:")
+    for lab in specs:
+        spec = canvas_lab_submission(lab)
+        unlock = f" | unlock {spec.unlock_at}" if spec.unlock_at else ""
+        group = " [group]" if spec.group_assignment else ""
+        assignment_group = spec.canvas_assignment_group or "<unassigned>"
+        due_text = spec.due_at or lab.date.isoformat()
+        typer.echo(
+            f"- {spec.name} | due {due_text} | {spec.points_possible} pts"
+            f"{unlock}{group} | group '{assignment_group}' | "
+            f"submissions={spec.submission_types} | source={spec.source_file}"
+        )
 
 
 def _print_canvas_sync_event(event: Any) -> None:
@@ -259,6 +287,128 @@ def register_sync_canvas_assignments_command(canvas_app: typer.Typer) -> None:
         return 0
 
 
+def register_sync_canvas_labs_command(canvas_app: typer.Typer) -> None:
+    @canvas_app.command("labs")
+    def sync_canvas_labs(
+        ctx: typer.Context,
+        lab_files: Annotated[
+            list[Path] | None,
+            typer.Argument(
+                help="Lab Markdown files. Defaults to the configured labs_dir.",
+            ),
+        ] = None,
+        course_id: Annotated[
+            str | None,
+            typer.Option(
+                "--course-id",
+                help="Canvas course ID. Required unless --plan-only is used.",
+            ),
+        ] = None,
+        base_url: Annotated[
+            str | None,
+            typer.Option("--base-url", help="Canvas base URL."),
+        ] = None,
+        site_base_url: Annotated[
+            str | None,
+            typer.Option(
+                "--site-base-url",
+                help="Course site base URL used in generated links.",
+            ),
+        ] = None,
+        plan_only: Annotated[
+            bool,
+            typer.Option(
+                "--plan-only",
+                help="Parse and print the planned lab sync without contacting Canvas.",
+            ),
+        ] = False,
+        dry_run: Annotated[
+            bool,
+            typer.Option("--dry-run", help="Contact Canvas, but do not create or update labs."),
+        ] = False,
+        publish: Annotated[
+            bool,
+            typer.Option("--publish", help="Force published=true for all synced labs."),
+        ] = False,
+        output_json: Annotated[
+            Path | None,
+            typer.Option(
+                "--output-json",
+                resolve_path=True,
+                help="Optional path to write sync results as JSON.",
+            ),
+        ] = None,
+    ) -> int:
+        with click_error_boundary():
+            state = AppState.from_typer(ctx)
+            repo_root = state.repo_root
+            mkdocs_config = MkdocsIntegrationConfig.require(state.config)
+            canvas_config = CanvasConfig.get(state.config)
+            resolved_site_base_url = site_base_url or mkdocs_config.base_url
+            resolved_base_url = base_url or (
+                canvas_config.base_url if canvas_config is not None else DEFAULT_CANVAS_BASE_URL
+            )
+            resolved_course_id = course_id or (
+                canvas_config.course_id if canvas_config is not None else None
+            )
+            group_category_id = (
+                canvas_config.group_category_id if canvas_config is not None else None
+            )
+            using_default_files = not lab_files
+            files = normalize_input_paths(
+                lab_files or default_lab_files(state),
+                repo_root=repo_root,
+            )
+            if not files:
+                raise click.ClickException("No lab files found.")
+            require_paths_exist(files, label="Lab")
+
+            specs: list[Lab] = []
+            for path in files:
+                lab = Lab.load(path)
+                if lab is None:
+                    if using_default_files:
+                        continue
+                    raise click.ClickException(f"Lab file must define kind: lab: {path}")
+                specs.append(lab.with_labs_url_path(mkdocs_config.labs_url_path))
+            if not specs:
+                raise click.ClickException("No lab specs found.")
+            specs.sort(key=lambda lab: lab.date)
+            _print_lab_plan(specs)
+
+            token, resolved_course_id = require_canvas_credentials(
+                resolved_course_id,
+                plan_only=plan_only,
+            )
+            if plan_only:
+                return 0
+
+            with AssignmentCanvasClient(
+                base_url=resolved_base_url, token=token, dry_run=dry_run
+            ) as client:
+                results = sync_labs_to_canvas(
+                    client=client,
+                    course_id=resolved_course_id,
+                    specs=specs,
+                    publish_override=publish,
+                    group_category_id_override=group_category_id,
+                    reporter=_print_canvas_sync_event,
+                    site_base_url=resolved_site_base_url,
+                )
+
+        typer.echo("\nSync results:")
+        for item in results:
+            url = item.get("html_url") or "-"
+            typer.echo(
+                f"- {str(item['action']).upper():6} {item['name']} | id={item.get('id')} | {url}"
+            )
+
+        if not dry_run:
+            update_lab_frontmatter_with_ids(results)
+        write_json_output(output_json, results)
+        return 0
+
+
 def register_sync_canvas_quizzes_command(canvas_app: typer.Typer) -> None:
     @canvas_app.command("quizzes")
     def sync_canvas_quizzes(
@@ -374,6 +524,7 @@ def register_canvas_cli(app: typer.Typer) -> None:
 
     try:
         register_sync_canvas_assignments_command(canvas_app)
+        register_sync_canvas_labs_command(canvas_app)
         register_sync_canvas_quizzes_command(canvas_app)
     except ModuleNotFoundError as exc:
         module_name = exc.name or ""

@@ -8,7 +8,7 @@ The current shape is intentionally small:
 - keep canonical course data in YAML and Markdown files
 - validate that data before publishing or syncing
 - build course websites with MkDocs
-- sync assignments and quizzes to Canvas
+- sync assignments, labs, and quizzes to Canvas
 - build slide decks with Quarto
 - run optional GitHub organization setup workflows
 
@@ -39,6 +39,7 @@ integrations:
 paths:
   data: data
   assignments: assignments
+  labs: labs
   quizzes: quizzes
 ```
 
@@ -114,6 +115,7 @@ coursemd validate
 coursemd site preview
 coursemd site build --output-dir build/website
 coursemd canvas assignments --plan-only
+coursemd canvas labs --plan-only
 coursemd canvas quizzes --plan-only
 coursemd quarto build --output-dir build/slides/html
 coursemd github setup --dry-run

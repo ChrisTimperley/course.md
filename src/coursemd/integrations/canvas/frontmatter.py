@@ -63,6 +63,11 @@ def update_assignment_frontmatter_with_ids(results: list[dict[str, object]]) -> 
             path.write_text(frontmatter.dumps(post), encoding="utf-8")
 
 
+def update_lab_frontmatter_with_ids(results: list[dict[str, object]]) -> None:
+    """Persist Canvas assignment IDs for synced labs."""
+    update_assignment_frontmatter_with_ids(results)
+
+
 def update_quiz_frontmatter_with_canvas_id(results: list[dict[str, object]]) -> None:
     for result in results:
         canvas_id = result.get("id")

@@ -230,17 +230,17 @@ def define_env(env: t.Any) -> None:
     @env.macro
     def released_labs(schedule: dict[str, t.Any]) -> list[Lab]:
         """
-        Return a list of labs whose session date has passed.
+        Return a list of labs whose release date has passed.
 
         Args:
             schedule: Dictionary containing schedule data
 
         Returns:
-            List of lab objects whose date is on or before today
+            List of lab objects whose release date is on or before today
         """
         now = current_date()
         labs = t.cast("list[Lab]", schedule.get("labs", []))
-        return [lab for lab in labs if lab.date <= now]
+        return [lab for lab in labs if lab.reveal_on <= now]
 
     @env.macro
     def grade_table(
