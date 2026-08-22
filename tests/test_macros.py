@@ -24,7 +24,7 @@ class _MacroEnvironment:
         return function
 
 
-def test_schedule_cards_show_lectures_and_exams_publicly_and_everything_in_preview(
+def test_schedule_macros_show_lectures_and_exams_publicly_and_everything_in_preview(
     monkeypatch,
 ) -> None:
     monkeypatch.setenv("CURRENT_DATE_OVERRIDE", "2026-01-11")
@@ -69,32 +69,34 @@ def test_schedule_cards_show_lectures_and_exams_publicly_and_everything_in_previ
     public_env = _MacroEnvironment()
     public_env.variables["coursemd_preview"] = False
     define_env(public_env)
-    public = public_env.macros["schedule_cards"](
-        schedule,
-        show_upcoming_lectures=True,
-        show_upcoming_exams=True,
-    )
-
-    assert "First lecture" in public
-    assert "Future lecture" in public
-    assert "Midterm I" in public
-    assert "Future lab" not in public
-    assert "Future homework" not in public
-
     preview_env = _MacroEnvironment()
     preview_env.variables["coursemd_preview"] = True
     define_env(preview_env)
-    preview = preview_env.macros["schedule_cards"](
-        schedule,
-        show_upcoming_lectures=True,
-        show_upcoming_exams=True,
-    )
 
-    assert "First lecture" in preview
-    assert "Future lecture" in preview
-    assert "Midterm I" in preview
-    assert "Future lab" in preview
-    assert "Future homework" in preview
+    for macro_name in ("schedule_cards", "this_week_card"):
+        public = public_env.macros[macro_name](
+            schedule,
+            show_upcoming_lectures=True,
+            show_upcoming_exams=True,
+        )
+
+        assert "First lecture" in public
+        assert "Future lecture" in public
+        assert "Midterm I" in public
+        assert "Future lab" not in public
+        assert "Future homework" not in public
+
+        preview = preview_env.macros[macro_name](
+            schedule,
+            show_upcoming_lectures=True,
+            show_upcoming_exams=True,
+        )
+
+        assert "First lecture" in preview
+        assert "Future lecture" in preview
+        assert "Midterm I" in preview
+        assert "Future lab" in preview
+        assert "Future homework" in preview
 
 
 def test_canvas_submission_resolves_checkpoint_anchor() -> None:

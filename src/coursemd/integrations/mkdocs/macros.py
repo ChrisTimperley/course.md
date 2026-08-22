@@ -224,6 +224,8 @@ def define_env(env: t.Any) -> None:
     def this_week_card(
         schedule: dict[str, t.Any],
         show_learning_goals: bool = True,
+        show_upcoming_lectures: bool = False,
+        show_upcoming_exams: bool = False,
     ) -> str:
         """
         Render a single weekly card for the current week (or nearest upcoming week).
@@ -234,6 +236,8 @@ def define_env(env: t.Any) -> None:
         Args:
             schedule: Dictionary containing course, events, breaks, assignments, and quizzes
             show_learning_goals: Whether lecture rows expand to show their learning goals
+            show_upcoming_lectures: Whether to show every upcoming lecture
+            show_upcoming_exams: Whether to show every upcoming exam or midterm
 
         Returns:
             HTML string for a single week card, or an empty string if there is nothing to show
@@ -246,6 +250,9 @@ def define_env(env: t.Any) -> None:
                 breaks=schedule.get("breaks", []),
                 assignments=schedule.get("assignments", []),
                 quizzes=schedule.get("quizzes", []),
+                show_upcoming_lectures=show_upcoming_lectures,
+                show_upcoming_exams=show_upcoming_exams,
+                show_all_content=bool(env.variables.get("coursemd_preview", False)),
             ),
             meeting_days=schedule.get("meeting_days"),
             labs=schedule.get("labs", []),
