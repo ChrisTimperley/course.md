@@ -106,9 +106,11 @@ def test_submission_checklists_renders_complete_section_from_metadata() -> None:
 
     rendered = env.macros["submission_checklists"](metadata)
 
-    assert rendered.startswith("## Submission and Deliverables")
+    assert rendered.startswith(
+        "## Submission and Deliverables { #checkpoint-a }"
+    )
     assert "Complete each checklist." in rendered
-    assert "### HW1A: Baseline { #checkpoint-a }" in rendered
+    assert "### HW1A: Baseline" not in rendered
     assert "**Due Sunday, August 30 at 11:59 pm ET.**" in rendered
     assert "* [ ] Preserve the submitted revision." in rendered
     assert "* [ ] Submit its URL." in rendered
@@ -116,3 +118,45 @@ def test_submission_checklists_renders_complete_section_from_metadata() -> None:
     assert "Open HW1A in Canvas" in rendered
     assert '!!! info "AI-use disclosure"' in rendered
     assert "No AI tools used." in rendered
+
+
+def test_submission_checklists_separates_multiple_checkpoints() -> None:
+    env = _MacroEnvironment()
+    env.conf = {
+        "extra": {
+            "canvas_base_url": "https://canvas.example.edu",
+            "canvas_course_id": 12345,
+        }
+    }
+    metadata = {
+        "checkpoints": [
+            {
+                "title": "Checkpoint A",
+                "doc_anchor": "checkpoint-a",
+                "due_at": "2026-08-30T23:59:00-04:00",
+                "deliverables": ["Submit the baseline."],
+            },
+            {
+                "title": "Checkpoint B",
+                "doc_anchor": "checkpoint-b",
+                "due_at": "2026-09-06T23:59:00-04:00",
+                "deliverables": ["Submit the repairs."],
+            },
+        ],
+        "integrations": {
+            "canvas": {
+                "checkpoints": [
+                    {"name": "HW1A: Baseline", "doc_anchor": "checkpoint-a"},
+                    {"name": "HW1B: Repairs", "doc_anchor": "checkpoint-b"},
+                ]
+            }
+        },
+    }
+    env.variables["page"] = SimpleNamespace(meta=metadata)
+    define_env(env)
+
+    rendered = env.macros["submission_checklists"](metadata)
+
+    assert rendered.startswith("## Submission and Deliverables\n")
+    assert "### HW1A: Baseline { #checkpoint-a }" in rendered
+    assert "### HW1B: Repairs { #checkpoint-b }" in rendered

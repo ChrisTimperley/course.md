@@ -895,22 +895,30 @@ def define_env(env: t.Any) -> None:
         heading = str(submission_cfg.get("heading") or "Submission and Deliverables")
         intro = str(submission_cfg.get("intro") or "").strip()
         timezone = str(submission_cfg.get("timezone") or "").strip()
-        lines = [f"## {heading}", ""]
+        valid_checkpoints = [
+            checkpoint for checkpoint in checkpoints if isinstance(checkpoint, dict)
+        ]
+        single_checkpoint = len(valid_checkpoints) == 1
+        section_anchor = ""
+        if single_checkpoint:
+            anchor = str(valid_checkpoints[0].get("doc_anchor") or "").strip()
+            section_anchor = f" {{ #{anchor} }}" if anchor else ""
+
+        lines = [f"## {heading}{section_anchor}", ""]
         if intro:
             lines.extend([intro, ""])
 
-        for checkpoint in checkpoints:
-            if not isinstance(checkpoint, dict):
-                continue
+        for checkpoint in valid_checkpoints:
             anchor = str(checkpoint.get("doc_anchor") or "").strip()
             canvas_checkpoint = canvas_by_anchor.get(anchor, {})
-            title = str(
-                canvas_checkpoint.get("name")
-                or checkpoint.get("title")
-                or "Checkpoint"
-            )
-            anchor_attr = f" {{ #{anchor} }}" if anchor else ""
-            lines.extend([f"### {title}{anchor_attr}", ""])
+            if not single_checkpoint:
+                title = str(
+                    canvas_checkpoint.get("name")
+                    or checkpoint.get("title")
+                    or "Checkpoint"
+                )
+                anchor_attr = f" {{ #{anchor} }}" if anchor else ""
+                lines.extend([f"### {title}{anchor_attr}", ""])
 
             due_label = _format_submission_due_at(checkpoint.get("due_at"), timezone)
             if due_label:
