@@ -39,6 +39,9 @@ class Schedule:
         breaks: list[CourseBreak],
         assignments: list[Assignment],
         quizzes: list[Quiz],
+        show_upcoming_lectures: bool = False,
+        show_upcoming_exams: bool = False,
+        show_all_content: bool = False,
     ) -> t.Self:
         """
         Build a schedule from course data.
@@ -50,6 +53,9 @@ class Schedule:
             breaks: List of break periods
             assignments: List of assignments
             quizzes: List of quizzes
+            show_upcoming_lectures: Whether to include every upcoming lecture
+            show_upcoming_exams: Whether to include every upcoming exam or midterm
+            show_all_content: Whether to include unreleased events, assignments, and quizzes
 
         Returns:
             A Schedule object with all entries populated
@@ -66,15 +72,30 @@ class Schedule:
         def preview_next(
             events_by_date: dict[dt.date, list[CourseEvent]],
         ) -> dict[dt.date, list[CourseEvent]]:
-            """Keep all previous events and the next upcoming event, hide future ones."""
+            """Keep previous events, the next event, and optional public previews."""
             filtered: dict[dt.date, list[CourseEvent]] = {}
+            found_next_upcoming = False
 
-            # We keep all previous events as well as the next upcoming event
-            # We ignore all other future events
             for d in sorted(events_by_date):
-                filtered[d] = events_by_date[d]
-                if d > now:
-                    break
+                events_on_date = events_by_date[d]
+                if d <= now or not found_next_upcoming:
+                    filtered[d] = events_on_date
+                    if d > now:
+                        found_next_upcoming = True
+                    continue
+
+                if show_upcoming_lectures or show_upcoming_exams:
+                    previewed_events = [
+                        event
+                        for event in events_on_date
+                        if (show_upcoming_lectures and event.kind.strip().lower() == "lecture")
+                        or (
+                            show_upcoming_exams
+                            and event.kind.strip().lower() in {"exam", "midterm"}
+                        )
+                    ]
+                    if previewed_events:
+                        filtered[d] = previewed_events
 
             return filtered
 
@@ -82,25 +103,29 @@ class Schedule:
         events_by_date: dict[dt.date, list[CourseEvent]] = {}
         for event in events:
             events_by_date.setdefault(event.date, []).append(event)
-        date_to_events = preview_next(events_by_date)
+        date_to_events = events_by_date if show_all_content else preview_next(events_by_date)
 
         # Build assignment dictionaries
         date_to_assignment_release = {
             assignment.release_date: assignment
             for assignment in assignments
-            if assignment.reveal_on <= now
+            if show_all_content or assignment.reveal_on <= now
         }
         date_to_assignment_due = {
             assignment.due_date: assignment
             for assignment in assignments
-            if assignment.release_date <= now
+            if show_all_content or assignment.release_date <= now
         }
 
         # Build quiz dictionaries
         date_to_quiz_release = {
-            quiz.release_date: quiz for quiz in quizzes if quiz.release_date <= now
+            quiz.release_date: quiz
+            for quiz in quizzes
+            if show_all_content or quiz.release_date <= now
         }
-        date_to_quiz_due = {quiz.due_date: quiz for quiz in quizzes if quiz.release_date <= now}
+        date_to_quiz_due = {
+            quiz.due_date: quiz for quiz in quizzes if show_all_content or quiz.release_date <= now
+        }
 
         # Build schedule entries
         entries: list[ScheduleEntry] = []

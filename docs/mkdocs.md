@@ -50,6 +50,19 @@ For example:
 {{ schedule_table(schedule) }}
 ```
 
+By default, `schedule_cards` shows past events and the next upcoming event. Set
+`show_upcoming_lectures=true` and `show_upcoming_exams=true` to include every
+upcoming lecture and exam while retaining the default visibility rules for
+other content:
+
+```markdown
+{{ schedule_cards(schedule, show_upcoming_lectures=true, show_upcoming_exams=true) }}
+```
+
+Preview builds (`coursemd site preview` and `coursemd site build-preview`) always
+show the complete schedule, including unreleased events and assignments. The
+The upcoming-content options control public builds only.
+
 Assignment Markdown files are read from the configured `paths.assignments` directory and published under `assignments_url_path`.
 
 ### Instructor-only blocks

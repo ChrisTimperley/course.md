@@ -82,8 +82,7 @@ def _format_submission_due_at(value: t.Any, timezone: str) -> str | None:
     meridiem = due_at.strftime("%p").lower()
     timezone_suffix = f" {timezone.strip()}" if timezone.strip() else ""
     return (
-        f"{due_at.strftime('%A, %B')} {due_at.day} at "
-        f"{hour}:{minute} {meridiem}{timezone_suffix}"
+        f"{due_at.strftime('%A, %B')} {due_at.day} at {hour}:{minute} {meridiem}{timezone_suffix}"
     )
 
 
@@ -184,6 +183,8 @@ def define_env(env: t.Any) -> None:
     def schedule_cards(
         schedule: dict[str, t.Any],
         show_learning_goals: bool = True,
+        show_upcoming_lectures: bool = False,
+        show_upcoming_exams: bool = False,
     ) -> str:
         """
         Render a course schedule as weekly cards from schedule data.
@@ -194,6 +195,8 @@ def define_env(env: t.Any) -> None:
         Args:
             schedule: Dictionary containing course, events, breaks, assignments, and quizzes
             show_learning_goals: Whether lecture rows expand to show their learning goals
+            show_upcoming_lectures: Whether to show every upcoming lecture
+            show_upcoming_exams: Whether to show every upcoming exam or midterm
 
         Returns:
             HTML string for the weekly schedule cards
@@ -206,6 +209,9 @@ def define_env(env: t.Any) -> None:
                 breaks=schedule.get("breaks", []),
                 assignments=schedule.get("assignments", []),
                 quizzes=schedule.get("quizzes", []),
+                show_upcoming_lectures=show_upcoming_lectures,
+                show_upcoming_exams=show_upcoming_exams,
+                show_all_content=bool(env.variables.get("coursemd_preview", False)),
             ),
             meeting_days=schedule.get("meeting_days"),
             labs=schedule.get("labs", []),
@@ -799,9 +805,7 @@ def define_env(env: t.Any) -> None:
             canvas_id = target_value
 
         if canvas_course_id and canvas_id is not None:
-            url = (
-                f"{canvas_base_url}/courses/{canvas_course_id}/assignments/{canvas_id}"
-            )
+            url = f"{canvas_base_url}/courses/{canvas_course_id}/assignments/{canvas_id}"
         elif canvas_id is not None:
             url = f"{canvas_base_url}/assignments/{canvas_id}"
         elif canvas_course_id:
@@ -817,7 +821,7 @@ def define_env(env: t.Any) -> None:
             return (
                 '<p class="canvas-submission">'
                 f'<a class="canvas-submission__link" href="{escape(url, quote=True)}">'
-                f'<span>{escape(compact_label)}</span>'
+                f"<span>{escape(compact_label)}</span>"
                 '<span class="canvas-submission__arrow" aria-hidden="true">&rarr;</span>'
                 "</a></p>"
             )
@@ -825,11 +829,7 @@ def define_env(env: t.Any) -> None:
         if canvas_id is not None:
             link_text = f"Click here to submit {name}" if name else "Click here to submit"
         else:
-            link_text = (
-                f"Open Canvas assignments for {name}"
-                if name
-                else "Open Canvas assignments"
-            )
+            link_text = f"Open Canvas assignments for {name}" if name else "Open Canvas assignments"
 
         # Build submission form field lines.
         form_fields: list[dict[str, t.Any]] = assignment_cfg.get("submission_form", [])
@@ -898,9 +898,7 @@ def define_env(env: t.Any) -> None:
                 ]
 
         canvas_by_anchor = {
-            str(item["doc_anchor"]): item
-            for item in canvas_checkpoints
-            if item.get("doc_anchor")
+            str(item["doc_anchor"]): item for item in canvas_checkpoints if item.get("doc_anchor")
         }
         heading = str(submission_cfg.get("heading") or "Submission and Deliverables")
         intro = str(submission_cfg.get("intro") or "").strip()
@@ -923,9 +921,7 @@ def define_env(env: t.Any) -> None:
             canvas_checkpoint = canvas_by_anchor.get(anchor, {})
             if not single_checkpoint:
                 title = str(
-                    canvas_checkpoint.get("name")
-                    or checkpoint.get("title")
-                    or "Checkpoint"
+                    canvas_checkpoint.get("name") or checkpoint.get("title") or "Checkpoint"
                 )
                 anchor_attr = f" {{ #{anchor} }}" if anchor else ""
                 lines.extend([f"### {title}{anchor_attr}", ""])

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import datetime as dt
+from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+from coursemd.core.models.assignment import Assignment
+from coursemd.core.models.course_event import CourseEvent
 from coursemd.integrations.mkdocs.macros import define_env
 
 
@@ -18,6 +22,79 @@ class _MacroEnvironment:
     def macro(self, function: Callable[..., str]) -> Callable[..., str]:
         self.macros[function.__name__] = function
         return function
+
+
+def test_schedule_cards_show_lectures_and_exams_publicly_and_everything_in_preview(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("CURRENT_DATE_OVERRIDE", "2026-01-11")
+    schedule = {
+        "course": {
+            "start_date": dt.date(2026, 1, 12),
+            "end_date": dt.date(2026, 1, 16),
+        },
+        "events": [
+            CourseEvent(
+                kind="lecture",
+                date=dt.date(2026, 1, 12),
+                title="First lecture",
+            ),
+            CourseEvent(
+                kind="lab",
+                date=dt.date(2026, 1, 13),
+                title="Future lab",
+            ),
+            CourseEvent(
+                kind="lecture",
+                date=dt.date(2026, 1, 14),
+                title="Future lecture",
+            ),
+            CourseEvent(
+                kind="midterm",
+                date=dt.date(2026, 1, 15),
+                title="Midterm I",
+            ),
+        ],
+        "assignments": [
+            Assignment(
+                source_file=Path("assignments/future.md"),
+                title="Future homework",
+                release_date=dt.date(2026, 1, 15),
+                due_date=dt.date(2026, 1, 16),
+                link="/assignments/future/",
+            )
+        ],
+    }
+
+    public_env = _MacroEnvironment()
+    public_env.variables["coursemd_preview"] = False
+    define_env(public_env)
+    public = public_env.macros["schedule_cards"](
+        schedule,
+        show_upcoming_lectures=True,
+        show_upcoming_exams=True,
+    )
+
+    assert "First lecture" in public
+    assert "Future lecture" in public
+    assert "Midterm I" in public
+    assert "Future lab" not in public
+    assert "Future homework" not in public
+
+    preview_env = _MacroEnvironment()
+    preview_env.variables["coursemd_preview"] = True
+    define_env(preview_env)
+    preview = preview_env.macros["schedule_cards"](
+        schedule,
+        show_upcoming_lectures=True,
+        show_upcoming_exams=True,
+    )
+
+    assert "First lecture" in preview
+    assert "Future lecture" in preview
+    assert "Midterm I" in preview
+    assert "Future lab" in preview
+    assert "Future homework" in preview
 
 
 def test_canvas_submission_resolves_checkpoint_anchor() -> None:
@@ -106,9 +183,7 @@ def test_submission_checklists_renders_complete_section_from_metadata() -> None:
 
     rendered = env.macros["submission_checklists"](metadata)
 
-    assert rendered.startswith(
-        "## Submission and Deliverables { #checkpoint-a }"
-    )
+    assert rendered.startswith("## Submission and Deliverables { #checkpoint-a }")
     assert "Complete each checklist." in rendered
     assert "### HW1A: Baseline" not in rendered
     assert "**Due Sunday, August 30 at 11:59 pm ET.**" in rendered
