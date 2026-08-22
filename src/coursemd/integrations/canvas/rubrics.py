@@ -26,8 +26,13 @@ def form_for_rubric(
     for ci, criterion in enumerate(criteria):
         criterion_prefix = f"rubric[criteria][{ci}]"
         form[f"{criterion_prefix}[description]"] = criterion.name
-        form[f"{criterion_prefix}[long_description]"] = criterion.desc
+        form[f"{criterion_prefix}[long_description]"] = (
+            criterion.desc if criterion.desc != criterion.name else ""
+        )
         form[f"{criterion_prefix}[points]"] = str(criterion.points)
+        form[f"{criterion_prefix}[criterion_use_range]"] = str(
+            criterion.criterion_type == "range"
+        ).lower()
         for ri, tier in enumerate(criterion.tiers):
             rating_prefix = f"{criterion_prefix}[ratings][{ri}]"
             form[f"{rating_prefix}[description]"] = tier.label

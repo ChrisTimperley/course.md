@@ -222,7 +222,13 @@ def _rubric_criteria(
 ) -> list[RubricCriterion]:
     rubric_section = optional_string(source.get("rubric_section"))
     rubric_criteria_filter = _parse_rubric_criteria_filter(source.get("rubric_criteria"))
-    return assignment.rubric.select_criteria(rubric_section, rubric_criteria_filter)
+    criteria = assignment.rubric.select_criteria(rubric_section, rubric_criteria_filter)
+    if assignment.rubric.typed and rubric_section is not None and not criteria:
+        raise CoursemdValidationError(
+            f"Typed rubric section '{rubric_section}' was not found or selected no criteria.",
+            source_path=assignment.source_file,
+        )
+    return criteria
 
 
 def _unlock_at(assignment: Assignment, source: dict[str, Any]) -> str | None:
@@ -257,6 +263,15 @@ def _submission_from_canvas_map(
         or (checkpoint.doc_anchor if checkpoint is not None else None)
         or assignment.doc_anchor
     )
+    rubric_criteria = _rubric_criteria(assignment, source)
+    if assignment.rubric.typed and rubric_criteria:
+        rubric_points = sum(criterion.points for criterion in rubric_criteria)
+        if points_possible != rubric_points:
+            raise CoursemdValidationError(
+                f"Canvas assignment '{name}' declares {points_possible:g} points, "
+                f"but its typed rubric criteria total {rubric_points}.",
+                source_path=assignment.source_file,
+            )
 
     return CanvasAssignmentSubmission(
         assignment=assignment,
@@ -274,7 +289,7 @@ def _submission_from_canvas_map(
             default=assignment.group_assignment,
         ),
         submission_form=_parse_submission_form(source.get("submission_form")),
-        rubric_criteria=_rubric_criteria(assignment, source),
+        rubric_criteria=rubric_criteria,
         doc_url=optional_string(source.get("doc_url")) or assignment.doc_url,
         doc_anchor=doc_anchor,
         notes=optional_string(source.get("notes")) or assignment.notes,

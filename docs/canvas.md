@@ -58,6 +58,57 @@ The stored ID is authoritative: if it no longer exists in the configured Canvas 
 stops rather than matching by name or creating a replacement. Correct or deliberately remove
 the ID before retrying.
 
+## Typed rubrics
+
+A typed rubric gives every section and criterion a stable slug. Canvas integrations select a
+section by slug, while labels, display order, and point values can change independently. Its
+top-level `type` is the default scoring mode for every item:
+
+```yaml
+integrations:
+  canvas:
+    points: 10
+    rubric_section: setup
+rubric:
+  type: pass-fail
+  sections:
+    - slug: setup
+      section: Setup
+      points: 10
+      criteria:
+        - slug: clean-start
+          points: 10
+          desc: The project starts successfully from a clean checkout.
+```
+
+Each pass/fail criterion becomes a full-credit `Pass` rating and a zero-credit `Fail` rating in
+Canvas. An individual criterion may override the default with `type: tiered` and explicit
+ratings, or with `type: range` and an optional `min_points` (zero by default):
+
+```yaml
+        - slug: heldout-cases
+          type: range
+          points: 20
+          desc: The implementation succeeds across the staff-held-out cases.
+        - slug: design-quality
+          type: tiered
+          points: 10
+          desc: The design is coherent, focused, and maintainable.
+          tiers:
+            - {points: 10, label: Strong, desc: Meets the full specification.}
+            - {points: 5, label: Developing, desc: Meets the core specification with gaps.}
+            - {points: 0, label: Insufficient, desc: Does not meet the core specification.}
+```
+
+Range items accept any point score between their minimum and maximum. Tiered items require
+unique ratings that include both full-credit and zero-credit tiers. Section and criterion slugs
+must be lowercase kebab case and unique within their scope. Criteria must total the section's
+declared points, and a Canvas assignment's points must equal the selected criteria total.
+
+On an MkDocs assignment page, render the same rubric with
+`{{ rubric_table(page.meta.rubric) | safe }}`. Typed rubrics use compact outcome rows and expand
+only the items with explicit tiers; legacy list-form rubrics retain their existing rendering.
+
 ## Lab submissions
 
 Labs sync as Canvas assignments through the dedicated `labs` command. A lab accepts a URL

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import typing as t
+from html import escape
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -145,14 +146,16 @@ def define_env(env: t.Any) -> None:
         Returns:
             HTML string for the schedule table
         """
-        return render_schedule(Schedule.build(
-            earliest_date=schedule["course"]["start_date"],
-            latest_date=schedule["course"]["end_date"],
-            events=schedule.get("events", []),
-            breaks=schedule.get("breaks", []),
-            assignments=schedule.get("assignments", []),
-            quizzes=schedule.get("quizzes", []),
-        ))
+        return render_schedule(
+            Schedule.build(
+                earliest_date=schedule["course"]["start_date"],
+                latest_date=schedule["course"]["end_date"],
+                events=schedule.get("events", []),
+                breaks=schedule.get("breaks", []),
+                assignments=schedule.get("assignments", []),
+                quizzes=schedule.get("quizzes", []),
+            )
+        )
 
     @env.macro
     def schedule_cards(schedule: dict[str, t.Any]) -> str:
@@ -384,23 +387,120 @@ def define_env(env: t.Any) -> None:
         return "\n".join(out)
 
     @env.macro
-    def rubric_table(rubric: list[dict[str, t.Any]]) -> str:
+    def rubric_table(rubric: list[dict[str, t.Any]] | dict[str, t.Any]) -> str:
         """
         Render a rubric from structured front-matter data.
 
-        Expects a list of sections, each with a 'section' name, 'points' total,
-        and a 'criteria' list. Each criterion has a 'name', 'points', and 'tiers'
-        list (ordered best-to-worst), where each tier has 'points', 'label', and 'desc'.
+        Legacy list rubrics render expandable tier tables. Typed rubrics render
+        compact rows; individual criteria may be pass/fail, tiered, or ranges.
 
         Args:
-            rubric: List of rubric section dicts (from page front matter)
+            rubric: Rubric data from page front matter.
 
         Returns:
             HTML string for the rubric
         """
-        html_parts: list[str] = []
+        rubric_type = str(rubric.get("type", "tiered")) if isinstance(rubric, dict) else "tiered"
+        sections = rubric.get("sections", []) if isinstance(rubric, dict) else rubric
+        if not isinstance(sections, list):
+            return ""
+        total_points = sum(
+            int(section.get("points", 0)) for section in sections if isinstance(section, dict)
+        )
+        point_label = "point" if total_points == 1 else "points"
+        summary = (
+            '<p class="rubric__summary">The assignment is worth '
+            f"<strong>{total_points} {point_label}</strong>.</p>"
+        )
 
-        for section in rubric:
+        if isinstance(rubric, dict):
+            html_parts = [
+                f'<div class="rubric rubric--typed rubric--{escape(rubric_type)}">',
+                summary,
+            ]
+            for section in sections:
+                if not isinstance(section, dict):
+                    continue
+                section_name = escape(str(section.get("section", "")))
+                section_slug = escape(str(section.get("slug", "")), quote=True)
+                section_points = int(section.get("points", 0))
+                criteria = section.get("criteria", [])
+                if not isinstance(criteria, list):
+                    continue
+                html_parts.append(
+                    f'<section class="rubric-section" id="rubric-{section_slug}" '
+                    f'data-rubric-section="{section_slug}">'
+                    f'<h3 class="rubric-section__title">{section_name}'
+                    f'<span class="rubric-section__points">{section_points} pts</span>'
+                    f'</h3><ul class="rubric-checklist">'
+                )
+                for criterion in criteria:
+                    if not isinstance(criterion, dict):
+                        continue
+                    criterion_slug = escape(str(criterion.get("slug", "")), quote=True)
+                    item_key = f"{section_slug}.{criterion_slug}"
+                    criterion_type = escape(str(criterion.get("type", rubric_type)), quote=True)
+                    criterion_points = int(criterion.get("points", 0))
+                    point_label = "pt" if criterion_points == 1 else "pts"
+                    checkbox_id = f"rubric-check-{section_slug}-{criterion_slug}"
+                    points_id = f"rubric-points-{section_slug}-{criterion_slug}"
+                    min_points = int(criterion.get("min_points", 0))
+                    points_text = (
+                        f"{min_points}&ndash;{criterion_points} pts"
+                        if criterion_type == "range"
+                        else f"{criterion_points} {point_label}"
+                    )
+                    description = escape(str(criterion.get("desc") or criterion.get("name") or ""))
+                    html_parts.append(
+                        f'<li class="rubric-checklist__item '
+                        f'rubric-checklist__item--{criterion_type}" '
+                        f'id="rubric-{section_slug}-{criterion_slug}" '
+                        f'data-rubric-item="{item_key}" '
+                        f'data-rubric-type="{criterion_type}">'
+                        f'<input class="rubric-checklist__checkbox" type="checkbox" '
+                        f'id="{checkbox_id}" aria-describedby="{points_id}">'
+                        f'<label class="rubric-checklist__description" '
+                        f'for="{checkbox_id}">{description}</label>'
+                        f'<span class="rubric-checklist__points" id="{points_id}">'
+                        f"{points_text}</span>"
+                    )
+                    tiers = criterion.get("tiers", [])
+                    if criterion_type == "tiered" and isinstance(tiers, list):
+                        html_parts.append(
+                            '<details class="rubric-checklist__tiers">'
+                            "<summary>Scoring levels</summary>"
+                            '<table class="rubric-criterion__table">'
+                            "<thead><tr><th>Points</th><th>Level</th>"
+                            "<th>Description</th></tr></thead><tbody>"
+                        )
+                        for tier in tiers:
+                            if not isinstance(tier, dict):
+                                continue
+                            tier_points = int(tier.get("points", 0))
+                            tier_class = (
+                                "rubric-tier--top"
+                                if tier_points == criterion_points
+                                else ("rubric-tier--zero" if tier_points == 0 else "")
+                            )
+                            html_parts.append(
+                                f'<tr class="rubric-tier {tier_class}">'
+                                f'<td class="rubric-tier__points">{tier_points}</td>'
+                                f'<td class="rubric-tier__label">'
+                                f"{escape(str(tier.get('label', '')))}</td>"
+                                f'<td class="rubric-tier__desc">'
+                                f"{escape(str(tier.get('desc', '')))}</td></tr>"
+                            )
+                        html_parts.append("</tbody></table></details>")
+                    html_parts.append("</li>")
+                html_parts.append("</ul></section>")
+            html_parts.append("</div>")
+            return "\n".join(html_parts)
+
+        html_parts = [summary]
+
+        for section in sections:
+            if not isinstance(section, dict):
+                continue
             section_name = section["section"]
             section_points = section["points"]
             criteria = section.get("criteria", [])
