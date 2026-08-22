@@ -181,7 +181,10 @@ def define_env(env: t.Any) -> None:
         )
 
     @env.macro
-    def schedule_cards(schedule: dict[str, t.Any]) -> str:
+    def schedule_cards(
+        schedule: dict[str, t.Any],
+        show_learning_goals: bool = True,
+    ) -> str:
         """
         Render a course schedule as weekly cards from schedule data.
 
@@ -190,6 +193,7 @@ def define_env(env: t.Any) -> None:
 
         Args:
             schedule: Dictionary containing course, events, breaks, assignments, and quizzes
+            show_learning_goals: Whether lecture rows expand to show their learning goals
 
         Returns:
             HTML string for the weekly schedule cards
@@ -207,10 +211,14 @@ def define_env(env: t.Any) -> None:
             labs=schedule.get("labs", []),
             preview_spec_links=schedule.get("preview_spec_links"),
             current_page_url=_current_page_url(env),
+            show_learning_goals=show_learning_goals,
         )
 
     @env.macro
-    def this_week_card(schedule: dict[str, t.Any]) -> str:
+    def this_week_card(
+        schedule: dict[str, t.Any],
+        show_learning_goals: bool = True,
+    ) -> str:
         """
         Render a single weekly card for the current week (or nearest upcoming week).
 
@@ -219,6 +227,7 @@ def define_env(env: t.Any) -> None:
 
         Args:
             schedule: Dictionary containing course, events, breaks, assignments, and quizzes
+            show_learning_goals: Whether lecture rows expand to show their learning goals
 
         Returns:
             HTML string for a single week card, or an empty string if there is nothing to show
@@ -236,6 +245,7 @@ def define_env(env: t.Any) -> None:
             labs=schedule.get("labs", []),
             preview_spec_links=schedule.get("preview_spec_links"),
             current_page_url=_current_page_url(env),
+            show_learning_goals=show_learning_goals,
         )
 
     @env.macro

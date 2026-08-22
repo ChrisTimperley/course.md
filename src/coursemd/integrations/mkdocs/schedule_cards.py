@@ -90,6 +90,7 @@ def _render_event(
     labs_by_date: dict[dt.date, Lab] | None = None,
     preview_spec_links: dict[dt.date, str] | None = None,
     current_page_url: str | None = None,
+    show_learning_goals: bool = True,
 ) -> str:
     kind = event.kind.strip().lower()
     modifier = _KIND_MODIFIERS.get(kind, "other")
@@ -110,7 +111,7 @@ def _render_event(
         if lab is not None:
             link = lab.link
 
-    if kind == "lecture" and event.learning_goals:
+    if kind == "lecture" and show_learning_goals and event.learning_goals:
         goals = "".join(f"<li>{html.escape(goal)}</li>" for goal in event.learning_goals)
         slides = ""
         if link:
@@ -200,6 +201,7 @@ def _render_week(
     today_week_start: dt.date,
     meeting_days: tuple[int, ...] | None,
     current_page_url: str | None = None,
+    show_learning_goals: bool = True,
     show_status: bool = True,
 ) -> str:
     rows: list[str] = []
@@ -211,6 +213,7 @@ def _render_week(
                     labs_by_date=labs_by_date,
                     preview_spec_links=preview_spec_links,
                     current_page_url=current_page_url,
+                    show_learning_goals=show_learning_goals,
                 )
                 for event in entry.events
             )
@@ -280,11 +283,13 @@ def render_schedule_cards(
     labs: list[Lab] | None = None,
     preview_spec_links: dict[dt.date, str] | None = None,
     current_page_url: str | None = None,
+    show_learning_goals: bool = True,
 ) -> str:
     """Render a Schedule as a stack of weekly cards.
 
     ``meeting_days`` are the weekday numbers (Mon=0) the class meets; when given,
     breaks are only flagged on those days. When None, breaks show on every working day.
+    Set ``show_learning_goals`` to false to render lectures as regular linked rows.
     """
     if not schedule.entries:
         return "<p><em>No events yet.</em></p>"
@@ -308,6 +313,7 @@ def render_schedule_cards(
                 preview_spec_links=preview_spec_links,
                 today_week_start=today_week_start,
                 current_page_url=current_page_url,
+                show_learning_goals=show_learning_goals,
             )
         )
 
@@ -320,6 +326,7 @@ def render_this_week_card(
     labs: list[Lab] | None = None,
     preview_spec_links: dict[dt.date, str] | None = None,
     current_page_url: str | None = None,
+    show_learning_goals: bool = True,
 ) -> str:
     """Render a single card for the current week (or the nearest upcoming one)."""
     if not schedule.entries:
@@ -346,6 +353,7 @@ def render_this_week_card(
         preview_spec_links=preview_spec_links,
         today_week_start=today_week_start,
         current_page_url=current_page_url,
+        show_learning_goals=show_learning_goals,
         show_status=False,
     )
     return f'<div class="this-week">{card}</div>' if card else ""

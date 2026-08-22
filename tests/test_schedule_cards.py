@@ -38,6 +38,40 @@ def test_lecture_card_expands_learning_goals_and_links_to_slides() -> None:
     assert ">Open slides <" in rendered
 
 
+def test_lecture_card_can_hide_learning_goals() -> None:
+    event = CourseEvent(
+        kind="lecture",
+        date=dt.date(2026, 1, 12),
+        title="Course Introduction",
+        link="/slides/course-introduction.html",
+        learning_goals=("Explain flow & feedback.",),
+    )
+    schedule = Schedule(
+        entries=[
+            ScheduleEntry(
+                date=event.date,
+                events=[event],
+                break_=None,
+                assignment_released=None,
+                assignment_due=None,
+                quiz_released=None,
+                quiz_due=None,
+            )
+        ]
+    )
+
+    rendered = render_schedule_cards(
+        schedule,
+        current_page_url="schedule/",
+        show_learning_goals=False,
+    )
+
+    assert "wevent--expandable" not in rendered
+    assert "Explain flow &amp; feedback." not in rendered
+    assert "Learning goals" not in rendered
+    assert 'href="../slides/course-introduction.html"' in rendered
+
+
 def test_lecture_card_links_to_preview_spec() -> None:
     event = CourseEvent(
         kind="lecture",
