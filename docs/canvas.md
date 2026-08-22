@@ -109,6 +109,35 @@ On an MkDocs assignment page, render the same rubric with
 `{{ rubric_table(page.meta.rubric) | safe }}`. Typed rubrics use compact outcome rows and expand
 only the items with explicit tiers; legacy list-form rubrics retain their existing rendering.
 
+## Submission checklists
+
+Keep each checkpoint's student-facing checklist with its canonical deadline, and configure the
+shared section copy in a top-level `submission` map:
+
+```yaml
+checkpoints:
+  - date: 2026-08-30
+    title: "Checkpoint A"
+    due_at: "2026-08-30T23:59:00-04:00"
+    doc_anchor: checkpoint-a
+    deliverables:
+      - Preserve the exact revision to be graded.
+      - Submit the revision URL and required evidence.
+submission:
+  intro: Complete each checklist and use the corresponding Canvas submission.
+  timezone: ET
+  ai_disclosure: Name the AI tools used, or write **No AI tools used.**
+integrations:
+  canvas:
+    checkpoints:
+      - name: "HW1A: Baseline"
+        doc_anchor: checkpoint-a
+```
+
+Render the whole section with `{{ submission_checklists(page.meta) | safe }}`. The macro joins
+checkpoint and Canvas data by `doc_anchor`, renders clickable task lists and due dates, adds the
+compact Canvas action, and presents the disclosure text in a reusable admonition.
+
 ## Lab submissions
 
 Labs sync as Canvas assignments through the dedicated `labs` command. A lab accepts a URL

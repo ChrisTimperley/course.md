@@ -140,13 +140,16 @@ class CoursemdPlugin(BasePlugin):
         self.current_date = current_date()
         self.removed_files = getattr(self, "removed_files", set())
 
+        canvas_config = self.course_repository.get_integration("canvas", CanvasConfig)
+        canvas_course_id = (
+            self.course_data.get("schedule", {})
+            .get("course", {})
+            .get("canvas_course_id")
+        ) or (canvas_config.course_id if canvas_config is not None else None)
         extra = {
             **dict(config.get("extra", {})),
-            "canvas_course_id": self.course_data.get("schedule", {})
-            .get("course", {})
-            .get("canvas_course_id"),
+            "canvas_course_id": canvas_course_id,
         }
-        canvas_config = self.course_repository.get_integration("canvas", CanvasConfig)
         if canvas_config is not None:
             extra["canvas_base_url"] = canvas_config.base_url
         extra["course_timezone"] = self.course_repository.timezone
@@ -234,7 +237,9 @@ class CoursemdPlugin(BasePlugin):
             schedule_data["breaks"] = schedule_config.breaks
             schedule_data["meeting_days"] = schedule_config.meeting_days
             canvas_cfg = self.course_repository.get_integration("canvas", CanvasConfig)
-            canvas_course_id = schedule_data.get("course", {}).get("canvas_course_id")
+            canvas_course_id = schedule_data.get("course", {}).get("canvas_course_id") or (
+                canvas_cfg.course_id if canvas_cfg is not None else None
+            )
 
             schedule_data["assignments"] = [
                 assignment.with_assignment_url_path(self.mkdocs_integration.assignments_url_path)

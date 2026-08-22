@@ -27,6 +27,7 @@ class AssignmentCheckpoint:
     due_at: dt.datetime
     description: str | None = None
     doc_anchor: str | None = None
+    deliverables: tuple[str, ...] = ()
 
     @classmethod
     def from_dict(
@@ -47,6 +48,13 @@ class AssignmentCheckpoint:
             checkpoint_due_at_raw,
             f"checkpoints[{index}]",
         )
+        deliverables_raw = value.get("deliverables", [])
+        if not isinstance(deliverables_raw, list):
+            raise TypeError(f"'checkpoints[{index}].deliverables' must be a list.")
+        deliverables = tuple(
+            require_non_empty_string(item, f"checkpoints[{index}].deliverables[{item_index}]")
+            for item_index, item in enumerate(deliverables_raw)
+        )
 
         return cls(
             date=checkpoint_date,
@@ -54,6 +62,7 @@ class AssignmentCheckpoint:
             description=optional_string(value.get("description")),
             due_at=checkpoint_due_at,
             doc_anchor=optional_string(value.get("doc_anchor")),
+            deliverables=deliverables,
         )
 
     @classmethod

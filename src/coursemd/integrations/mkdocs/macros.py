@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import typing as t
+from datetime import datetime
 from html import escape
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -62,6 +63,28 @@ _DEFAULT_STAFFER_TEMPLATE = """
 def _configured_canvas_base_url(env: t.Any) -> str:
     raw_value = env.conf.get("extra", {}).get("canvas_base_url") or DEFAULT_CANVAS_BASE_URL
     return str(raw_value).rstrip("/")
+
+
+def _format_submission_due_at(value: t.Any, timezone: str) -> str | None:
+    """Format a checkpoint due time for a student-facing submission heading."""
+    if isinstance(value, datetime):
+        due_at = value
+    elif isinstance(value, str):
+        try:
+            due_at = datetime.fromisoformat(value.strip())
+        except ValueError:
+            return None
+    else:
+        return None
+
+    hour = due_at.strftime("%I").lstrip("0") or "0"
+    minute = due_at.strftime("%M")
+    meridiem = due_at.strftime("%p").lower()
+    timezone_suffix = f" {timezone.strip()}" if timezone.strip() else ""
+    return (
+        f"{due_at.strftime('%A, %B')} {due_at.day} at "
+        f"{hour}:{minute} {meridiem}{timezone_suffix}"
+    )
 
 
 def _template_environment(env: t.Any) -> Environment:
@@ -678,21 +701,37 @@ def define_env(env: t.Any) -> None:
         return f"https://docs.google.com/document/d/{doc_id}/copy"
 
     @env.macro
-    def canvas_submission(canvas_id: int) -> str:
+    def canvas_submission(
+        target: int | str,
+        *,
+        show_form: bool = True,
+    ) -> str:
         """
-        Render a Canvas submission callout for a specific assignment.
+        Render a Canvas submission callout for a specific assignment or checkpoint.
 
-        Looks up the assignment by canvas_id in the page's assignments
-        frontmatter list and renders an admonition with a direct submission link.
+        ``target`` may be a numeric Canvas assignment ID or a stable ``doc_anchor``
+        (or name) from the page's Canvas integration metadata. Looking up a
+        checkpoint by anchor lets its Markdown call site remain stable when Canvas
+        sync first assigns, or later changes, the numeric ID.
+
+        The macro renders a direct assignment link when an ID is available. Before
+        the first sync, it links to the course assignment list instead of emitting a
+        broken URL.
+
         When the Canvas submission defines a ``submission_form`` list, each field is
         rendered as a labelled item so students know exactly what to paste into
-        the Canvas text-entry box.
-        Falls back to a generic link if the assignment is not found in frontmatter.
+        the Canvas text-entry box. Set ``show_form`` to false when the surrounding
+        document already provides a deliverables checklist; this renders a compact
+        action instead of the full admonition.
 
-        Usage in Markdown: {{ canvas_submission(958737) }}
+        Usage in Markdown::
+
+            {{ canvas_submission(958737) }}
+            {{ canvas_submission("checkpoint-a", show_form=false) }}
 
         Args:
-            canvas_id: The Canvas assignment ID to link to.
+            target: Canvas assignment ID, checkpoint anchor, or assignment name.
+            show_form: Whether to render the configured submission form fields.
 
         Returns:
             Markdown string for the submission admonition.
@@ -701,15 +740,20 @@ def define_env(env: t.Any) -> None:
             "canvas_course_id"
         ) or env.variables.get("schedule", {}).get("course", {}).get("canvas_course_id")
         canvas_base_url = _configured_canvas_base_url(env)
-        url = (
-            f"{canvas_base_url}/courses/{canvas_course_id}/assignments/{canvas_id}"
-            if canvas_course_id
-            else f"{canvas_base_url}/assignments/{canvas_id}"
-        )
-
         # Try to find the Canvas submission config from the current page first,
         # then from any assignment list injected into the page.
         assignment_cfg: dict[str, t.Any] = {}
+        target_value = str(target).strip()
+
+        def matches(candidate: dict[str, t.Any]) -> bool:
+            candidate_id = candidate.get("canvas_id") or candidate.get("id")
+            return (
+                (candidate_id is not None and str(candidate_id) == target_value)
+                or candidate.get("doc_anchor") == target_value
+                or candidate.get("name") == target_value
+                or candidate.get("title") == target_value
+            )
+
         page = env.variables.get("page")
         if page is not None:
             page_meta = getattr(page, "meta", {})
@@ -722,14 +766,11 @@ def define_env(env: t.Any) -> None:
                         for checkpoint in checkpoints:
                             if not isinstance(checkpoint, dict):
                                 continue
-                            checkpoint_id = checkpoint.get("canvas_id") or checkpoint.get("id")
-                            if checkpoint_id == canvas_id:
+                            if matches(checkpoint):
                                 assignment_cfg = checkpoint
                                 break
-                    if not assignment_cfg:
-                        page_id = page_canvas.get("canvas_id") or page_canvas.get("id")
-                        if page_id == canvas_id:
-                            assignment_cfg = page_canvas
+                    if not assignment_cfg and matches(page_canvas):
+                        assignment_cfg = page_canvas
             assignments = getattr(page, "meta", {}).get("assignments", [])
             if not assignment_cfg:
                 for assignment in assignments:
@@ -739,13 +780,46 @@ def define_env(env: t.Any) -> None:
                     canvas = integration_map.get("canvas", {})
                     if not isinstance(canvas, dict):
                         continue
-                    canvas_id_value = canvas.get("canvas_id") or canvas.get("id")
-                    if canvas_id_value == canvas_id:
-                        assignment_cfg = assignment
+                    if matches(canvas) or matches(assignment):
+                        assignment_cfg = {**assignment, **canvas}
                         break
 
-        name: str | None = assignment_cfg.get("name")
-        link_text = f"Click here to submit {name}" if name else "Click here to submit"
+        canvas_id = assignment_cfg.get("canvas_id") or assignment_cfg.get("id")
+        if canvas_id is None and target_value.isdigit():
+            canvas_id = target_value
+
+        if canvas_course_id and canvas_id is not None:
+            url = (
+                f"{canvas_base_url}/courses/{canvas_course_id}/assignments/{canvas_id}"
+            )
+        elif canvas_id is not None:
+            url = f"{canvas_base_url}/assignments/{canvas_id}"
+        elif canvas_course_id:
+            url = f"{canvas_base_url}/courses/{canvas_course_id}/assignments"
+        else:
+            url = f"{canvas_base_url}/assignments"
+
+        name_value = assignment_cfg.get("name") or assignment_cfg.get("title")
+        name = str(name_value) if name_value else None
+        short_name = name.split(":", 1)[0].strip() if name else "assignment"
+        if not show_form:
+            compact_label = f"Open {short_name} in Canvas"
+            return (
+                '<p class="canvas-submission">'
+                f'<a class="canvas-submission__link" href="{escape(url, quote=True)}">'
+                f'<span>{escape(compact_label)}</span>'
+                '<span class="canvas-submission__arrow" aria-hidden="true">&rarr;</span>'
+                "</a></p>"
+            )
+
+        if canvas_id is not None:
+            link_text = f"Click here to submit {name}" if name else "Click here to submit"
+        else:
+            link_text = (
+                f"Open Canvas assignments for {name}"
+                if name
+                else "Open Canvas assignments"
+            )
 
         # Build submission form field lines.
         form_fields: list[dict[str, t.Any]] = assignment_cfg.get("submission_form", [])
@@ -773,3 +847,96 @@ def define_env(env: t.Any) -> None:
                 lines.append(f"    - {icon} {label_md}{hint_md}")
 
         return "\n".join(lines)
+
+    @env.macro
+    def submission_checklists(metadata: dict[str, t.Any]) -> str:
+        """Render an assignment's complete submission section from front matter.
+
+        Canonical checkpoint entries provide the anchor, deadline, and
+        ``deliverables`` checklist. Matching ``integrations.canvas.checkpoints``
+        entries provide the Canvas assignment name and link. The optional
+        top-level ``submission`` map configures the section heading, introduction,
+        timezone label, and reusable AI-disclosure admonition.
+
+        Usage in Markdown::
+
+            {{ submission_checklists(page.meta) | safe }}
+
+        Args:
+            metadata: Current page front matter.
+
+        Returns:
+            Markdown for the complete submission and deliverables section.
+        """
+        if not isinstance(metadata, dict):
+            return ""
+
+        submission_cfg = metadata.get("submission", {})
+        if not isinstance(submission_cfg, dict):
+            submission_cfg = {}
+        checkpoints = metadata.get("checkpoints", [])
+        if not isinstance(checkpoints, list) or not checkpoints:
+            return ""
+
+        canvas_checkpoints: list[dict[str, t.Any]] = []
+        integrations = metadata.get("integrations", {})
+        if isinstance(integrations, dict):
+            canvas = integrations.get("canvas", {})
+            if isinstance(canvas, dict) and isinstance(canvas.get("checkpoints"), list):
+                canvas_checkpoints = [
+                    item for item in canvas["checkpoints"] if isinstance(item, dict)
+                ]
+
+        canvas_by_anchor = {
+            str(item["doc_anchor"]): item
+            for item in canvas_checkpoints
+            if item.get("doc_anchor")
+        }
+        heading = str(submission_cfg.get("heading") or "Submission and Deliverables")
+        intro = str(submission_cfg.get("intro") or "").strip()
+        timezone = str(submission_cfg.get("timezone") or "").strip()
+        lines = [f"## {heading}", ""]
+        if intro:
+            lines.extend([intro, ""])
+
+        for checkpoint in checkpoints:
+            if not isinstance(checkpoint, dict):
+                continue
+            anchor = str(checkpoint.get("doc_anchor") or "").strip()
+            canvas_checkpoint = canvas_by_anchor.get(anchor, {})
+            title = str(
+                canvas_checkpoint.get("name")
+                or checkpoint.get("title")
+                or "Checkpoint"
+            )
+            anchor_attr = f" {{ #{anchor} }}" if anchor else ""
+            lines.extend([f"### {title}{anchor_attr}", ""])
+
+            due_label = _format_submission_due_at(checkpoint.get("due_at"), timezone)
+            if due_label:
+                lines.extend([f"**Due {due_label}.**", ""])
+
+            deliverables = checkpoint.get("deliverables", [])
+            if isinstance(deliverables, list):
+                for deliverable in deliverables:
+                    text = str(deliverable).strip()
+                    if text:
+                        lines.append(f"* [ ] {text}")
+                if deliverables:
+                    lines.append("")
+
+            canvas_target: int | str | None = anchor or canvas_checkpoint.get("canvas_id")
+            if canvas_target is None:
+                canvas_target = canvas_checkpoint.get("id") or canvas_checkpoint.get("name")
+            if canvas_target is not None:
+                lines.extend([canvas_submission(canvas_target, show_form=False), ""])
+
+        disclosure = submission_cfg.get("ai_disclosure")
+        if disclosure:
+            lines.append('!!! info "AI-use disclosure"')
+            lines.extend(
+                f"    {disclosure_line}" if disclosure_line else ""
+                for disclosure_line in str(disclosure).splitlines()
+            )
+
+        return "\n".join(lines).rstrip()

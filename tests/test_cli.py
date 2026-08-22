@@ -246,6 +246,7 @@ def test_assignment_checkpoint_from_dict_loads_checkpoint() -> None:
             "description": "Share a draft.",
             "due_at": "2026-01-14T23:59:00-05:00",
             "doc_anchor": "draft-due",
+            "deliverables": ["Preserve the revision.", "Submit its URL."],
         },
         index=0,
     )
@@ -256,7 +257,21 @@ def test_assignment_checkpoint_from_dict_loads_checkpoint() -> None:
         due_at=dt.datetime.fromisoformat("2026-01-14T23:59:00-05:00"),
         description="Share a draft.",
         doc_anchor="draft-due",
+        deliverables=("Preserve the revision.", "Submit its URL."),
     )
+
+
+def test_assignment_checkpoint_rejects_invalid_deliverables() -> None:
+    with pytest.raises(TypeError, match=r"deliverables.*must be a list"):
+        AssignmentCheckpoint.from_dict(
+            {
+                "date": "2026-01-14",
+                "title": "Draft Due",
+                "due_at": "2026-01-14T23:59:00-05:00",
+                "deliverables": "Submit the draft.",
+            },
+            index=0,
+        )
 
 
 def test_course_event_constructors_parse_event_data() -> None:
@@ -1756,6 +1771,14 @@ def test_coursemd_mkdocs_plugin_uses_configured_urls(
     monkeypatch,
 ) -> None:
     _build_repo_fixture(tmp_path)
+    schedule_path = tmp_path / "data" / "schedule.yaml"
+    schedule_path.write_text(
+        schedule_path.read_text(encoding="utf-8").replace(
+            "          canvas_course_id: 12345\n",
+            "",
+        ),
+        encoding="utf-8",
+    )
     config_path = tmp_path / ".coursemd.yml"
     config_path.write_text(
         config_path.read_text(encoding="utf-8").replace(
@@ -1830,7 +1853,7 @@ def test_coursemd_mkdocs_plugin_uses_configured_urls(
     index_html = (tmp_path / "site" / "index.html").read_text(encoding="utf-8")
     assert "https://canvas.example.edu/courses/12345/assignments/456" in assignment_html
     assert "https://canvas.example.edu/courses/12345/quizzes/987" in index_html
-    assert "/coursework/hw1/" in index_html
+    assert 'href="coursework/hw1/"' in index_html
 
 
 def test_coursemd_macros_do_not_discover_quizzes_from_docs_dir(
