@@ -65,7 +65,7 @@ def form_for_assignment(
     }
     if spec.due_at is not None:
         form["assignment[due_at]"] = spec.due_at
-        form["assignment[lock_at]"] = spec.due_at
+        form["assignment[lock_at]"] = spec.close_at or spec.due_at
     if spec.position is not None:
         form["assignment[position]"] = str(spec.position)
     if spec.unlock_at is not None:

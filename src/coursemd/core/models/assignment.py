@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, cast
 
@@ -9,6 +10,7 @@ from coursemd.core.exceptions import validation_error_boundary
 from coursemd.core.loaders.assignments import DEFAULT_ASSIGNMENTS_URL_PATH, assignment_link_for
 from coursemd.core.loaders.markdown import load_markdown_post
 from coursemd.core.loaders.validation import (
+    normalize_close_at,
     normalize_due_at,
     optional_string,
     require_date,
@@ -18,7 +20,6 @@ from coursemd.core.models.checkpoint import AssignmentCheckpoint
 from coursemd.core.models.rubric import Rubric
 
 if TYPE_CHECKING:
-    import datetime as dt
     from pathlib import Path
 
 
@@ -99,6 +100,7 @@ class Assignment:
     due_date: dt.date
     link: str
     due_at: str | None = None
+    close_at: str | None = None
     kind: str = "assignment"
     description: str | None = None
     summary: str | None = None
@@ -145,6 +147,18 @@ class Assignment:
             due_at_raw = metadata.get("due_at")
             due_at = None if due_at_raw is None else normalize_due_at(due_at_raw, title)
             due_date_from_due_at = None if due_at is None else require_date(due_at, "due_at")
+            close_at_raw = metadata.get("close_at")
+            close_at = (
+                None if close_at_raw is None else normalize_close_at(close_at_raw, title)
+            )
+
+            if close_at is not None and due_at is None:
+                raise ValueError("assignment must define 'due_at' when 'close_at' is set.")
+            if close_at is not None and due_at is not None:
+                due_datetime = dt.datetime.fromisoformat(due_at)
+                close_datetime = dt.datetime.fromisoformat(close_at)
+                if close_datetime < due_datetime:
+                    raise ValueError("'close_at' must not be earlier than 'due_at'.")
 
             if due_date_raw is None and due_date_from_due_at is None:
                 raise ValueError("assignment must define 'due_date' or 'due_at'.")
@@ -176,6 +190,7 @@ class Assignment:
                     assignment_url_path=DEFAULT_ASSIGNMENTS_URL_PATH,
                 ),
                 due_at=due_at,
+                close_at=close_at,
                 kind=optional_string(metadata.get("kind")) or "assignment",
                 description=str(post.content).strip() or None,
                 summary=optional_string(metadata.get("summary")),

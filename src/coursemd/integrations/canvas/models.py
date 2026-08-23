@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
 from coursemd.core.exceptions import CoursemdValidationError
 from coursemd.core.loaders.validation import (
+    normalize_close_at,
     normalize_due_at,
     optional_string,
     require_non_empty_string,
@@ -155,6 +157,7 @@ class CanvasAssignmentSubmission:
     name: str
     due_at: str | None
     points_possible: float
+    close_at: str | None = None
     canvas_id: int | None = None
     canvas_assignment_group: str | None = None
     submission_types: list[str] = field(default_factory=lambda: ["none"])
@@ -255,6 +258,25 @@ def _submission_from_canvas_map(
     else:
         due_at = assignment.due_at
 
+    close_at: str | None
+    close_at_raw = source.get("close_at")
+    if close_at_raw is not None:
+        close_at = normalize_close_at(close_at_raw, name)
+    elif checkpoint is not None and checkpoint.close_at is not None:
+        close_at = checkpoint.close_at.isoformat()
+    else:
+        close_at = assignment.close_at
+
+    if (
+        close_at is not None
+        and due_at is not None
+        and dt.datetime.fromisoformat(close_at) < dt.datetime.fromisoformat(due_at)
+    ):
+        raise CoursemdValidationError(
+            f"Canvas assignment '{name}' close_at must not be earlier than due_at.",
+            source_path=assignment.source_file,
+        )
+
     points_raw = source.get("points", source.get("points_possible", default_points))
     points_possible = 100.0 if points_raw is None else _parse_float(points_raw, "points")
 
@@ -278,6 +300,7 @@ def _submission_from_canvas_map(
         name=name,
         due_at=due_at,
         points_possible=points_possible,
+        close_at=close_at,
         canvas_id=_parse_int(source.get("id") or source.get("canvas_id")),
         canvas_assignment_group=optional_string(source.get("assignment_group")),
         submission_types=_parse_submission_types(source.get("submission_types")),
@@ -358,6 +381,7 @@ def canvas_lab_submission(lab: Lab) -> CanvasAssignmentSubmission:
         name=lab.name,
         due_at=lab.due_at,
         points_possible=_parse_float(points_raw, "points"),
+        close_at=lab.due_at,
         canvas_id=_parse_int(canvas_map.get("id") or canvas_map.get("canvas_id")),
         canvas_assignment_group=optional_string(canvas_map.get("assignment_group")),
         submission_types=_parse_submission_types(

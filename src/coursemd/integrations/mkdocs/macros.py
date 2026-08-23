@@ -143,6 +143,12 @@ def define_env(env: t.Any) -> None:
     """
 
     @env.macro
+    def format_deadline_date(value: t.Any) -> str:
+        """Format an ISO deadline as a compact student-facing date."""
+        deadline = _parse_date(value)
+        return "" if deadline is None else deadline.strftime("%b %-d, %Y")
+
+    @env.macro
     def instructor_only(caller: t.Callable[[], str] | None = None) -> str:
         """Render a call block only when coursemd is building a preview site.
 
@@ -869,8 +875,8 @@ def define_env(env: t.Any) -> None:
     def submission_checklists(metadata: dict[str, t.Any]) -> str:
         """Render an assignment's complete submission section from front matter.
 
-        Canonical checkpoint entries provide the anchor, deadline, and
-        ``deliverables`` checklist. Matching ``integrations.canvas.checkpoints``
+        Canonical checkpoint entries provide the anchor, due time, last-accepted
+        time, and ``deliverables`` checklist. Matching ``integrations.canvas.checkpoints``
         entries provide the Canvas assignment name and link. The optional
         top-level ``submission`` map configures the section heading, introduction,
         timezone label, and reusable AI-disclosure admonition.
@@ -936,6 +942,9 @@ def define_env(env: t.Any) -> None:
             due_label = _format_submission_due_at(checkpoint.get("due_at"), timezone)
             if due_label:
                 lines.extend([f"**Due {due_label}.**", ""])
+            close_label = _format_submission_due_at(checkpoint.get("close_at"), timezone)
+            if close_label:
+                lines.extend([f"**Last accepted {close_label}.**", ""])
 
             deliverables = checkpoint.get("deliverables", [])
             if isinstance(deliverables, list):

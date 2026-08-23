@@ -46,6 +46,12 @@ class BoundValidation:
     def normalize_due_at(self, value: Any, context: str) -> str:
         return self._call(normalize_due_at, value, context)
 
+    def require_close_at(self, value: Any, context: str) -> datetime:
+        return self._call(require_close_at, value, context)
+
+    def normalize_close_at(self, value: Any, context: str) -> str:
+        return self._call(normalize_close_at, value, context)
+
     def require_release_date(self, value: Any, field_name: str = "release_date") -> str:
         return self._call(require_release_date, value, field_name)
 
@@ -123,6 +129,45 @@ def normalize_due_at(value: Any, context: str) -> str:
 
     due_at = require_due_at(value, context)
     return due_at.isoformat()
+
+
+def require_close_at(value: Any, context: str) -> datetime:
+    """Parse a last-accepted timestamp and require an explicit timezone."""
+
+    if isinstance(value, datetime):
+        close_at = value
+    elif isinstance(value, date):
+        raise CoursemdValidationError(
+            f"'{context}' close_at must include time + timezone (received date only)."
+        )
+    elif isinstance(value, str):
+        candidate = value.strip()
+        if candidate.endswith("Z"):
+            candidate = candidate[:-1] + "+00:00"
+        try:
+            close_at = datetime.fromisoformat(candidate)
+        except ValueError as exc:
+            raise CoursemdValidationError(
+                f"'{context}' close_at must be ISO-8601 "
+                f"(example: 2026-03-17T23:59:00-04:00)."
+            ) from exc
+    else:
+        raise CoursemdValidationError(
+            f"'{context}' close_at has unsupported type: {type(value).__name__}"
+        )
+
+    if close_at.tzinfo is None:
+        raise CoursemdValidationError(
+            f"'{context}' close_at must include timezone offset "
+            f"(example: 2026-03-17T23:59:00-04:00)."
+        )
+    return close_at
+
+
+def normalize_close_at(value: Any, context: str) -> str:
+    """Normalize a last-accepted timestamp and require an explicit timezone."""
+
+    return require_close_at(value, context).isoformat()
 
 
 def normalize_release_date(value: Any) -> str | None:

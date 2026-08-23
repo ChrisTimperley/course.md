@@ -7,10 +7,14 @@ from typing import Any
 import pytest
 
 from coursemd.core.exceptions import CoursemdValidationError
-from coursemd.core.models.assignment import Assignment
+from coursemd.core.models.assignment import Assignment, AssignmentCheckpoint
 from coursemd.core.models.lab import Lab
+from coursemd.integrations.canvas.assignments import form_for_assignment
 from coursemd.integrations.canvas.frontmatter import update_lab_frontmatter_with_ids
-from coursemd.integrations.canvas.models import canvas_lab_submission
+from coursemd.integrations.canvas.models import (
+    canvas_assignment_submissions,
+    canvas_lab_submission,
+)
 from coursemd.integrations.canvas.sync import (
     CanvasSyncEvent,
     sync_assignments_to_canvas,
@@ -50,6 +54,53 @@ class ExistingAssignmentClient(DryRunAssignmentClient):
         self, course_id: str, assignment_id: int  # noqa: ARG002
     ) -> bool:
         return False
+
+
+def test_assignment_uses_close_at_as_canvas_lock() -> None:
+    assignment = Assignment(
+        source_file=Path("assignments/hw1.md"),
+        title="Homework 1",
+        release_date=dt.date(2026, 1, 12),
+        due_date=dt.date(2026, 1, 16),
+        link="/assignments/hw1/",
+        due_at="2026-01-16T23:59:00-05:00",
+        close_at="2026-01-20T23:59:00-05:00",
+        integrations={"canvas": {"assignment_group": "Homework"}},
+    )
+
+    submission = canvas_assignment_submissions(assignment)[0]
+    form = form_for_assignment(submission, assignment_group_id=10, publish_override=False)
+
+    assert submission.close_at == "2026-01-20T23:59:00-05:00"
+    assert form["assignment[due_at]"] == "2026-01-16T23:59:00-05:00"
+    assert form["assignment[lock_at]"] == "2026-01-20T23:59:00-05:00"
+
+
+def test_canvas_checkpoint_inherits_canonical_close_at() -> None:
+    checkpoint = AssignmentCheckpoint.from_dict(
+        {
+            "date": "2026-01-14",
+            "title": "Draft",
+            "due_at": "2026-01-14T23:59:00-05:00",
+            "close_at": "2026-01-18T23:59:00-05:00",
+            "doc_anchor": "draft",
+        },
+        index=0,
+    )
+    assignment = Assignment(
+        source_file=Path("assignments/hw1.md"),
+        title="Homework 1",
+        release_date=dt.date(2026, 1, 12),
+        due_date=dt.date(2026, 1, 16),
+        link="/assignments/hw1/",
+        checkpoints=[checkpoint],
+        integrations={"canvas": {"checkpoints": [{"doc_anchor": "draft"}]}},
+    )
+
+    submission = canvas_assignment_submissions(assignment)[0]
+
+    assert submission.due_at == "2026-01-14T23:59:00-05:00"
+    assert submission.close_at == "2026-01-18T23:59:00-05:00"
 
 
 def test_assignment_sync_reports_events_without_printing(capsys) -> None:

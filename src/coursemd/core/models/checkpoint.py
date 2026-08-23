@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from coursemd.core.loaders.validation import (
     optional_string,
+    require_close_at,
     require_date,
     require_due_at,
     require_non_empty_string,
@@ -25,6 +26,7 @@ class AssignmentCheckpoint:
     date: dt.date
     title: str
     due_at: dt.datetime
+    close_at: dt.datetime | None = None
     description: str | None = None
     doc_anchor: str | None = None
     deliverables: tuple[str, ...] = ()
@@ -48,6 +50,17 @@ class AssignmentCheckpoint:
             checkpoint_due_at_raw,
             f"checkpoints[{index}]",
         )
+        checkpoint_close_at_raw = value.get("close_at")
+        checkpoint_close_at = (
+            None
+            if checkpoint_close_at_raw is None
+            else require_close_at(checkpoint_close_at_raw, f"checkpoints[{index}]")
+        )
+        if checkpoint_close_at is not None and checkpoint_close_at < checkpoint_due_at:
+            raise ValueError(
+                f"checkpoints[{index}].close_at must not be earlier than "
+                f"checkpoints[{index}].due_at."
+            )
         deliverables_raw = value.get("deliverables", [])
         if not isinstance(deliverables_raw, list):
             raise TypeError(f"'checkpoints[{index}].deliverables' must be a list.")
@@ -61,6 +74,7 @@ class AssignmentCheckpoint:
             title=checkpoint_title,
             description=optional_string(value.get("description")),
             due_at=checkpoint_due_at,
+            close_at=checkpoint_close_at,
             doc_anchor=optional_string(value.get("doc_anchor")),
             deliverables=deliverables,
         )

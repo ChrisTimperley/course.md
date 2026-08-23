@@ -111,14 +111,17 @@ only the items with explicit tiers; legacy list-form rubrics retain their existi
 
 ## Submission checklists
 
-Keep each checkpoint's student-facing checklist with its canonical deadline, and configure the
-shared section copy in a top-level `submission` map:
+Keep each checkpoint's student-facing checklist with its canonical due and last-accepted times,
+and configure the shared section copy in a top-level `submission` map. Canvas uses `due_at` for
+late-status calculations and `close_at` for the submission lock. If `close_at` is omitted,
+Canvas locks the submission at `due_at`:
 
 ```yaml
 checkpoints:
   - date: 2026-08-30
     title: "Checkpoint A"
     due_at: "2026-08-30T23:59:00-04:00"
+    close_at: "2026-09-03T23:59:00-04:00"
     doc_anchor: checkpoint-a
     deliverables:
       - Preserve the exact revision to be graded.
@@ -135,8 +138,8 @@ integrations:
 ```
 
 Render the whole section with `{{ submission_checklists(page.meta) | safe }}`. The macro joins
-checkpoint and Canvas data by `doc_anchor`, renders clickable task lists and due dates, adds the
-compact Canvas action, and presents the disclosure text in a reusable admonition.
+checkpoint and Canvas data by `doc_anchor`, renders clickable task lists plus both deadline
+labels, adds the compact Canvas action, and presents the disclosure text in a reusable admonition.
 
 ## Lab submissions
 

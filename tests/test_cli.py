@@ -97,6 +97,7 @@ def _build_repo_fixture(repo_root: Path) -> None:
         release_date: 2026-01-12
         due_date: 2026-01-16
         due_at: "2026-01-16T23:59:00-05:00"
+        close_at: "2026-01-20T23:59:00-05:00"
         points: 100
         ---
 
@@ -206,6 +207,7 @@ def test_assignment_load_uses_canonical_loader(tmp_path: Path) -> None:
     assert assignment.name == "Homework 1"
     assert assignment.source_file == tmp_path / "assignments" / "hw1.md"
     assert assignment.due_at == "2026-01-16T23:59:00-05:00"
+    assert assignment.close_at == "2026-01-20T23:59:00-05:00"
     assert assignment.description == "# Homework 1"
 
 
@@ -245,6 +247,7 @@ def test_assignment_checkpoint_from_dict_loads_checkpoint() -> None:
             "title": "Draft Due",
             "description": "Share a draft.",
             "due_at": "2026-01-14T23:59:00-05:00",
+            "close_at": "2026-01-18T23:59:00-05:00",
             "doc_anchor": "draft-due",
             "deliverables": ["Preserve the revision.", "Submit its URL."],
         },
@@ -255,6 +258,7 @@ def test_assignment_checkpoint_from_dict_loads_checkpoint() -> None:
         date=dt.date(2026, 1, 14),
         title="Draft Due",
         due_at=dt.datetime.fromisoformat("2026-01-14T23:59:00-05:00"),
+        close_at=dt.datetime.fromisoformat("2026-01-18T23:59:00-05:00"),
         description="Share a draft.",
         doc_anchor="draft-due",
         deliverables=("Preserve the revision.", "Submit its URL."),
@@ -272,6 +276,40 @@ def test_assignment_checkpoint_rejects_invalid_deliverables() -> None:
             },
             index=0,
         )
+
+
+def test_assignment_checkpoint_rejects_close_before_due() -> None:
+    with pytest.raises(ValueError, match="close_at must not be earlier than"):
+        AssignmentCheckpoint.from_dict(
+            {
+                "date": "2026-01-14",
+                "title": "Draft Due",
+                "due_at": "2026-01-14T23:59:00-05:00",
+                "close_at": "2026-01-14T22:59:00-05:00",
+            },
+            index=0,
+        )
+
+
+def test_assignment_rejects_close_before_due(tmp_path: Path) -> None:
+    assignment_path = tmp_path / "assignments" / "hw1.md"
+    _write_file(
+        assignment_path,
+        """
+        ---
+        title: Homework 1
+        kind: homework
+        release_date: 2026-01-12
+        due_at: "2026-01-16T23:59:00-05:00"
+        close_at: "2026-01-16T22:59:00-05:00"
+        ---
+
+        # Homework 1
+        """,
+    )
+
+    with pytest.raises(CoursemdValidationError, match=r"close_at.*earlier than.*due_at"):
+        Assignment.load(assignment_path)
 
 
 def test_course_event_constructors_parse_event_data() -> None:

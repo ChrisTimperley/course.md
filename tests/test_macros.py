@@ -99,6 +99,13 @@ def test_schedule_macros_show_lectures_and_exams_publicly_and_everything_in_prev
         assert "Future homework" in preview
 
 
+def test_format_deadline_date_accepts_iso_timestamp() -> None:
+    env = _MacroEnvironment()
+    define_env(env)
+
+    assert env.macros["format_deadline_date"]("2026-09-03T23:59:00-04:00") == "Sep 3, 2026"
+
+
 def test_canvas_submission_resolves_checkpoint_anchor() -> None:
     env = _MacroEnvironment()
     env.conf = {
@@ -165,6 +172,7 @@ def test_submission_checklists_renders_complete_section_from_metadata() -> None:
                 "title": "Checkpoint A",
                 "doc_anchor": "checkpoint-a",
                 "due_at": "2026-08-30T23:59:00-04:00",
+                "close_at": "2026-09-03T23:59:00-04:00",
                 "deliverables": ["Preserve the submitted revision.", "Submit its URL."],
             }
         ],
@@ -189,6 +197,7 @@ def test_submission_checklists_renders_complete_section_from_metadata() -> None:
     assert "Complete each checklist." in rendered
     assert "### HW1A: Baseline" not in rendered
     assert "**Due Sunday, August 30 at 11:59 pm ET.**" in rendered
+    assert "**Last accepted Thursday, September 3 at 11:59 pm ET.**" in rendered
     assert "* [ ] Preserve the submitted revision." in rendered
     assert "* [ ] Submit its URL." in rendered
     assert "courses/12345/assignments/456" in rendered

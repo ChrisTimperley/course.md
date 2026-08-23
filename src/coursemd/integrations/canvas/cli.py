@@ -74,12 +74,13 @@ def _print_assignment_plan(specs: list[Assignment]) -> None:
             typer.echo(f"- {assignment.name} | {len(submissions)} Canvas checkpoints")
         for spec in submissions:
             unlock = f" | unlock {spec.unlock_at}" if spec.unlock_at else ""
+            close = f" | close {spec.close_at}" if spec.close_at else ""
             group = " [group]" if spec.group_assignment else ""
             assignment_group = spec.canvas_assignment_group or "<unassigned>"
             due_text = spec.due_at or assignment.due_date.isoformat()
             typer.echo(
                 f"- {spec.name} | due {due_text} | {spec.points_possible} pts"
-                f"{unlock}{group} | group '{assignment_group}' | "
+                f"{close}{unlock}{group} | group '{assignment_group}' | "
                 f"submissions={spec.submission_types} | source={spec.source_file}"
             )
 
