@@ -9,14 +9,6 @@ if TYPE_CHECKING:
     from coursemd.integrations.canvas.models import CanvasAssignmentSubmission
 
 
-def _render_description_html(text: str) -> str:
-    blocks = [block.strip() for block in text.split("\n\n") if block.strip()]
-    return "".join(
-        "<p>" + "<br>".join(escape(line) for line in block.splitlines()) + "</p>"
-        for block in blocks
-    )
-
-
 def build_assignment_description_html(
     spec: CanvasAssignmentSubmission,
     site_base_url: str,
@@ -31,8 +23,6 @@ def build_assignment_description_html(
             f'<a href="{escape(doc_url, quote=True)}">{escape(spec.name)}</a></p>'
         )
     ]
-    if spec.description:
-        html_parts.append(_render_description_html(spec.description))
     if spec.notes:
         html_parts.append(f"<p>{escape(spec.notes)}</p>")
 

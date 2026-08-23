@@ -60,6 +60,7 @@ def test_assignment_uses_close_at_as_canvas_lock() -> None:
     assignment = Assignment(
         source_file=Path("assignments/hw1.md"),
         title="Homework 1",
+        description="# Private Markdown handout\n\nDo not copy this body into Canvas.",
         release_date=dt.date(2026, 1, 12),
         due_date=dt.date(2026, 1, 16),
         link="/assignments/hw1/",
@@ -74,6 +75,10 @@ def test_assignment_uses_close_at_as_canvas_lock() -> None:
     assert submission.close_at == "2026-01-20T23:59:00-05:00"
     assert form["assignment[due_at]"] == "2026-01-16T23:59:00-05:00"
     assert form["assignment[lock_at]"] == "2026-01-20T23:59:00-05:00"
+    assert "Private Markdown handout" not in form["assignment[description]"]
+    assert "See assignment instructions on the course website" in form[
+        "assignment[description]"
+    ]
 
 
 def test_canvas_checkpoint_inherits_canonical_close_at() -> None:

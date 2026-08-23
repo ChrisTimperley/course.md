@@ -58,6 +58,10 @@ The stored ID is authoritative: if it no longer exists in the configured Canvas 
 stops rather than matching by name or creating a replacement. Correct or deliberately remove
 the ID before retrying.
 
+Canvas assignment descriptions contain a link to the course website, any explicit Canvas
+`notes`, and the configured submission checklist. The Markdown assignment or lab body remains
+on the course website and is not copied into Canvas.
+
 ## Typed rubrics
 
 A typed rubric gives every section and criterion a stable slug. Canvas integrations select a
