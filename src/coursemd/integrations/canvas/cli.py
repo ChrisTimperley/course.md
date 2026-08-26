@@ -22,17 +22,24 @@ from coursemd.cli.shared import (
 from coursemd.core.loaders.specs import load_assignments
 from coursemd.core.models.lab import Lab
 from coursemd.core.models.quiz import Quiz
-from coursemd.integrations.canvas.config import DEFAULT_CANVAS_BASE_URL, CanvasConfig
+from coursemd.integrations.canvas.config import (
+    DEFAULT_CANVAS_BASE_URL,
+    CanvasConfig,
+    CanvasParticipationConfig,
+)
 from coursemd.integrations.canvas.models import (
     canvas_assignment_submissions,
     canvas_lab_submission,
+    canvas_participation_events,
     canvas_quiz,
 )
 
 if TYPE_CHECKING:
     from coursemd.core.models.assignment import Assignment
+    from coursemd.integrations.canvas.models import CanvasParticipationEvent
 from coursemd.integrations.canvas.frontmatter import (
     update_assignment_frontmatter_with_ids,
+    update_course_config_with_participation_ids,
     update_lab_frontmatter_with_ids,
     update_quiz_frontmatter_with_canvas_id,
 )
@@ -41,6 +48,7 @@ from coursemd.integrations.canvas.resources import AssignmentCanvasClient, QuizC
 from coursemd.integrations.canvas.sync import (
     sync_assignments_to_canvas,
     sync_labs_to_canvas,
+    sync_participation_to_canvas,
     sync_quizzes_to_canvas,
 )
 from coursemd.integrations.mkdocs.config import MkdocsIntegrationConfig
@@ -57,12 +65,13 @@ def _register_unavailable_command(app: typer.Typer, command_name: str, message: 
 
 def _register_unavailable_canvas_commands(canvas_app: typer.Typer) -> None:
     message = (
-        "coursemd canvas assignments, coursemd canvas labs, and coursemd canvas quizzes "
-        "require the optional "
+        "coursemd canvas assignments, coursemd canvas labs, coursemd canvas participation, "
+        "and coursemd canvas quizzes require the optional "
         '`canvas` dependencies. Install them with `pip install "coursemd[canvas]"`.'
     )
     _register_unavailable_command(canvas_app, "assignments", message)
     _register_unavailable_command(canvas_app, "labs", message)
+    _register_unavailable_command(canvas_app, "participation", message)
     _register_unavailable_command(canvas_app, "quizzes", message)
 
 
@@ -100,6 +109,23 @@ def _print_lab_plan(specs: list[Lab]) -> None:
         )
 
 
+def _print_participation_plan(
+    specs: list[CanvasParticipationEvent],
+    policy: CanvasParticipationConfig,
+) -> None:
+    typer.echo(f"Loaded {len(specs)} lecture participation event(s) for Canvas:")
+    policy_parts = [f"assignment group '{policy.assignment_group}'"]
+    if policy.group_weight is not None:
+        policy_parts.append(f"weight {policy.group_weight:g}%")
+    if policy.drop_lowest is not None:
+        policy_parts.append(f"drop lowest {policy.drop_lowest}")
+    typer.echo(f"- Policy: {' | '.join(policy_parts)}")
+    for spec in specs:
+        typer.echo(
+            f"- {spec.name} | 1.0 pts | submissions=['none'] | source={spec.source_file}"
+        )
+
+
 def _print_canvas_sync_event(event: Any) -> None:
     if event.dry_run:
         target = event.target.replace("_", " ")
@@ -110,6 +136,8 @@ def _print_canvas_sync_event(event: Any) -> None:
 
     if event.action == "create" and event.target == "assignment_group":
         typer.echo(f"Creating assignment group '{event.name}'")
+    elif event.action == "update" and event.target == "assignment_group":
+        typer.echo(f"Updating assignment group '{event.name}' (id={event.id})")
     elif event.action == "create" and event.target == "assignment":
         typer.echo(f"Creating assignment '{event.name}'")
     elif event.action == "update" and event.target == "assignment":
@@ -410,6 +438,116 @@ def register_sync_canvas_labs_command(canvas_app: typer.Typer) -> None:
         return 0
 
 
+def register_sync_canvas_participation_command(canvas_app: typer.Typer) -> None:
+    @canvas_app.command("participation")
+    def sync_canvas_participation(
+        ctx: typer.Context,
+        course_id: Annotated[
+            str | None,
+            typer.Option(
+                "--course-id",
+                help="Canvas course ID. Required unless --plan-only is used.",
+            ),
+        ] = None,
+        base_url: Annotated[
+            str | None,
+            typer.Option("--base-url", help="Canvas base URL."),
+        ] = None,
+        plan_only: Annotated[
+            bool,
+            typer.Option(
+                "--plan-only",
+                help="Parse and print participation events without contacting Canvas.",
+            ),
+        ] = False,
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                help="Contact Canvas, but do not create or update participation events.",
+            ),
+        ] = False,
+        publish: Annotated[
+            bool,
+            typer.Option(
+                "--publish",
+                help="Force published=true for all synced participation events.",
+            ),
+        ] = False,
+        output_json: Annotated[
+            Path | None,
+            typer.Option(
+                "--output-json",
+                resolve_path=True,
+                help="Optional path to write sync results as JSON.",
+            ),
+        ] = None,
+    ) -> int:
+        with click_error_boundary():
+            state = AppState.from_typer(ctx)
+            canvas_config = CanvasConfig.get(state.config)
+            resolved_base_url = base_url or (
+                canvas_config.base_url if canvas_config is not None else DEFAULT_CANVAS_BASE_URL
+            )
+            resolved_course_id = course_id or (
+                canvas_config.course_id if canvas_config is not None else None
+            )
+            policy = (
+                canvas_config.participation
+                if canvas_config is not None
+                else CanvasParticipationConfig()
+            )
+            schedule = state.config.schedule
+            if schedule is None:
+                raise click.ClickException(
+                    "No course schedule found. Add schedule.events to .coursemd.yml."
+                )
+            specs = canvas_participation_events(
+                schedule.events,
+                policy,
+                source_file=state.config.config_path,
+            )
+            if not specs:
+                raise click.ClickException(
+                    "No lecture events found in .coursemd.yml under schedule.events."
+                )
+            _print_participation_plan(specs, policy)
+
+            token, resolved_course_id = require_canvas_credentials(
+                resolved_course_id,
+                plan_only=plan_only,
+            )
+            if plan_only:
+                return 0
+
+            with AssignmentCanvasClient(
+                base_url=resolved_base_url,
+                token=token,
+                dry_run=dry_run,
+            ) as client:
+                results = sync_participation_to_canvas(
+                    client=client,
+                    course_id=resolved_course_id,
+                    specs=specs,
+                    policy=policy,
+                    publish_override=publish,
+                    reporter=_print_canvas_sync_event,
+                )
+
+        typer.echo("\nSync results:")
+        for item in results:
+            url = item.get("html_url") or "-"
+            typer.echo(
+                f"- {str(item['action']).upper():6} {item['name']} | "
+                f"id={item.get('id')} | {url}"
+            )
+
+        if not dry_run:
+            update_course_config_with_participation_ids(results)
+        write_json_output(output_json, results)
+        return 0
+
+
 def register_sync_canvas_quizzes_command(canvas_app: typer.Typer) -> None:
     @canvas_app.command("quizzes")
     def sync_canvas_quizzes(
@@ -526,6 +664,7 @@ def register_canvas_cli(app: typer.Typer) -> None:
     try:
         register_sync_canvas_assignments_command(canvas_app)
         register_sync_canvas_labs_command(canvas_app)
+        register_sync_canvas_participation_command(canvas_app)
         register_sync_canvas_quizzes_command(canvas_app)
     except ModuleNotFoundError as exc:
         module_name = exc.name or ""

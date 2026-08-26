@@ -21,8 +21,10 @@ if TYPE_CHECKING:
 
     from coursemd.core.models.assignment import Assignment
     from coursemd.core.models.checkpoint import AssignmentCheckpoint
+    from coursemd.core.models.course_event import CourseEvent
     from coursemd.core.models.lab import Lab
     from coursemd.core.models.rubric import RubricCriterion
+    from coursemd.integrations.canvas.config import CanvasParticipationConfig
 
 
 def _canvas_map(integrations: dict[str, Any]) -> dict[str, Any]:
@@ -208,6 +210,57 @@ class CanvasAssignment:
             canvas_assignment_group=canvas_group,
             submissions=submissions,
         )
+
+
+@dataclass(frozen=True)
+class CanvasParticipationEvent:
+    """A one-point, staff-graded Canvas assignment for a lecture."""
+
+    event: CourseEvent
+    source_file: Path
+    canvas_assignment_group: str
+    canvas_id: int | None = None
+    published: bool = False
+    position: int | None = None
+    points_possible: float = 1.0
+    due_at: str | None = None
+    close_at: str | None = None
+    unlock_at: str | None = None
+    submission_types: list[str] = field(default_factory=lambda: ["none"])
+    group_assignment: bool = False
+    doc_anchor: str | None = None
+    rubric_criteria: list[RubricCriterion] = field(default_factory=list)
+
+    @property
+    def name(self) -> str:
+        return f"Participation: {self.event.date.isoformat()} — {self.event.title}"
+
+
+def canvas_participation_events(
+    events: list[CourseEvent],
+    config: CanvasParticipationConfig,
+    *,
+    source_file: Path,
+) -> list[CanvasParticipationEvent]:
+    """Return chronological Canvas participation targets for lecture events."""
+
+    lectures = sorted(
+        (event for event in events if event.kind == "lecture"),
+        key=lambda event: (event.date, event.title),
+    )
+    participation_events: list[CanvasParticipationEvent] = []
+    for position, event in enumerate(lectures, start=1):
+        canvas_map = _canvas_map(event.integrations)
+        participation_events.append(
+            CanvasParticipationEvent(
+                event=event,
+                source_file=source_file,
+                canvas_assignment_group=config.assignment_group,
+                canvas_id=_parse_int(canvas_map.get("participation_id")),
+                position=position,
+            )
+        )
+    return participation_events
 
 
 @dataclass(frozen=True)
@@ -411,9 +464,11 @@ def canvas_quiz(integrations: dict[str, Any]) -> CanvasQuizIntegration:
 __all__ = [
     "CanvasAssignment",
     "CanvasAssignmentSubmission",
+    "CanvasParticipationEvent",
     "CanvasQuizIntegration",
     "CanvasSubmissionField",
     "canvas_assignment_submissions",
     "canvas_lab_submission",
+    "canvas_participation_events",
     "canvas_quiz",
 ]

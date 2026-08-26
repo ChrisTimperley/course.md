@@ -6,7 +6,10 @@ from html import escape
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from coursemd.integrations.canvas.models import CanvasAssignmentSubmission
+    from coursemd.integrations.canvas.models import (
+        CanvasAssignmentSubmission,
+        CanvasParticipationEvent,
+    )
 
 
 def build_assignment_description_html(
@@ -62,4 +65,32 @@ def form_for_assignment(
         form["assignment[unlock_at]"] = spec.unlock_at
     if spec.group_assignment and group_category_id is not None:
         form["assignment[group_category_id]"] = str(group_category_id)
+    return form
+
+
+def form_for_participation_event(
+    spec: CanvasParticipationEvent,
+    assignment_group_id: int,
+    publish_override: bool,
+) -> dict[str, Any]:
+    """Build a no-submission, one-point assignment for staff-recorded participation."""
+
+    publish_value = True if publish_override else spec.published
+    title = escape(spec.event.title)
+    date = spec.event.date.isoformat()
+    description = (
+        f"<p>Participation for <strong>{title}</strong> on {date}. "
+        "Course staff will record attendance; no student submission is required.</p>"
+    )
+    form: dict[str, Any] = {
+        "assignment[name]": spec.name,
+        "assignment[points_possible]": "1.0",
+        "assignment[grading_type]": "points",
+        "assignment[published]": "true" if publish_value else "false",
+        "assignment[assignment_group_id]": str(assignment_group_id),
+        "assignment[description]": description,
+        "assignment[submission_types][]": ["none"],
+    }
+    if spec.position is not None:
+        form["assignment[position]"] = str(spec.position)
     return form

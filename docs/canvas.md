@@ -1,6 +1,7 @@
 # Canvas Integration
 
-The Canvas integration syncs assignment, lab, and quiz specs from the course repository into Canvas.
+The Canvas integration syncs assignment, lab, quiz, and lecture-participation specs from the
+course repository into Canvas.
 It is optional and only needed for repositories that publish to Canvas.
 
 ## Install
@@ -34,6 +35,7 @@ It parses local files and prints what would sync without contacting Canvas:
 ```bash
 coursemd canvas assignments --plan-only
 coursemd canvas labs --plan-only
+coursemd canvas participation --plan-only
 coursemd canvas quizzes --plan-only
 ```
 
@@ -42,6 +44,7 @@ To contact Canvas without creating or updating content:
 ```bash
 coursemd canvas assignments --dry-run
 coursemd canvas labs --dry-run
+coursemd canvas participation --dry-run
 coursemd canvas quizzes --dry-run
 ```
 
@@ -61,6 +64,43 @@ the ID before retrying.
 Canvas assignment descriptions contain a link to the course website, any explicit Canvas
 `notes`, and the configured submission checklist. The Markdown assignment or lab body remains
 on the course website and is not copied into Canvas.
+
+## Lecture participation
+
+`coursemd canvas participation` creates one Canvas assignment for every `schedule.events` item
+whose `kind` is `lecture`. Each event is worth one point, uses points grading, has no due date,
+and sets `submission_types` to `none`. Students therefore have nothing to submit. Course staff
+can record present as `1`, absent as `0`, and leave an unreviewed record ungraded (`null`).
+
+Participation assignments use the `Participation` assignment group by default. Configure a
+different group, its percentage of the final grade, or the number of lowest participation scores
+to drop under the course-level Canvas integration:
+
+```yaml
+integrations:
+  canvas:
+    base_url: https://canvas.example.edu
+    course_id: "12345"
+    participation:
+      assignment_group: Engagement
+      group_weight: 10
+      drop_lowest: 4
+```
+
+`group_weight` is a percentage from 0 through 100, and `drop_lowest` is a non-negative integer.
+The sync writes these values to the Canvas assignment group. Canvas must already have weighted
+assignment groups enabled for `group_weight` to affect the final grade.
+
+As with other Canvas content, participation events are unpublished unless `--publish` is passed.
+After a real sync, the Canvas assignment ID is stored on its lecture event as
+`integrations.canvas.participation_id`, so later runs update the same assignment even if its title
+changes.
+
+Participation sync is grade-preserving and idempotent. It never deletes assignments or writes
+student grades. A rerun reuses each stored Canvas ID (or, before the first ID write-back, its exact
+generated name), updates group policy only when it differs, and skips any assignment that is
+already released or has submissions, grades, or excused records. A recorded zero counts as an
+existing grade and is never treated as empty.
 
 ## Typed rubrics
 

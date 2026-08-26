@@ -25,10 +25,34 @@ def _published_item_is_released(data: dict[str, Any]) -> bool:
 
 
 class AssignmentCanvasClient(CanvasApiClient):
-    def create_assignment_group(self, course_id: str, name: str) -> dict[str, Any]:
+    def create_assignment_group(
+        self,
+        course_id: str,
+        name: str,
+        *,
+        group_weight: float | None = None,
+    ) -> dict[str, Any]:
+        form: dict[str, Any] = {"name": name}
+        if group_weight is not None:
+            form["group_weight"] = group_weight
         response = self.session.post(
             self._api_url(f"/courses/{course_id}/assignment_groups"),
-            data={"name": name},
+            data=form,
+        )
+        self._raise_for_status(response)
+        return cast("dict[str, Any]", response.json())
+
+    def update_assignment_group(
+        self,
+        course_id: str,
+        assignment_group_id: int,
+        form: dict[str, Any],
+    ) -> dict[str, Any]:
+        response = self.session.put(
+            self._api_url(
+                f"/courses/{course_id}/assignment_groups/{assignment_group_id}"
+            ),
+            data=form,
         )
         self._raise_for_status(response)
         return cast("dict[str, Any]", response.json())
@@ -60,6 +84,20 @@ class AssignmentCanvasClient(CanvasApiClient):
         )
         self._raise_for_status(response)
         return _published_item_is_released(cast("dict[str, Any]", response.json()))
+
+    def assignment_has_grades(self, course_id: str, assignment_id: int) -> bool:
+        """Return whether Canvas holds any grade, including a numeric zero."""
+
+        submissions = self.get_paginated(
+            f"/courses/{course_id}/assignments/{assignment_id}/submissions",
+            params={"per_page": 100},
+        )
+        return any(
+            submission.get("score") is not None
+            or submission.get("grade") is not None
+            or submission.get("excused") is True
+            for submission in submissions
+        )
 
     def create_rubric(self, course_id: str, form: dict[str, Any]) -> None:
         response = self.session.post(
@@ -139,5 +177,3 @@ class QuizCanvasClient(CanvasApiClient):
             self._api_url(f"/courses/{course_id}/quizzes/{quiz_id}/questions/{question_id}")
         )
         self._raise_for_status(response)
-
-

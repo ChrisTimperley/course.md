@@ -34,6 +34,8 @@ from coursemd.integrations.mkdocs.schedule import render_schedule
 
 runner = CliRunner()
 HW3_RAW_MAX = 100
+PARTICIPATION_DROP_LOWEST = 3
+PARTICIPATION_GROUP_WEIGHT = 15.5
 
 
 def test_validation_error_is_a_coursemd_error() -> None:
@@ -618,6 +620,34 @@ def test_canvas_labs_plan_discovers_labs_and_submission_settings(
     assert "submissions=['online_url']" in result.stdout
 
 
+def test_canvas_participation_plan_uses_lecture_events_and_policy(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _build_repo_fixture(tmp_path)
+    config_path = tmp_path / ".coursemd.yml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            "        course_id: 12345\n",
+            "        course_id: 12345\n"
+            "        participation:\n"
+            "            assignment_group: Engagement\n"
+            "            group_weight: 10\n"
+            "            drop_lowest: 2\n",
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(cli.app, ["canvas", "participation", "--plan-only"])
+
+    assert result.exit_code == 0, result.output
+    assert "Loaded 1 lecture participation event(s) for Canvas:" in result.stdout
+    assert "assignment group 'Engagement' | weight 10% | drop lowest 2" in result.stdout
+    assert "Participation: 2026-01-12 — Course Introduction" in result.stdout
+    assert "1.0 pts | submissions=['none']" in result.stdout
+
+
 def test_github_setup_uses_repository_defaults_in_dry_run(
     tmp_path: Path,
     monkeypatch,
@@ -1103,6 +1133,64 @@ paths:
     assert CanvasConfig.get(config) is None
     assert result.exit_code == 0
     assert "Validation passed." in result.stdout
+
+
+def test_canvas_participation_config_defaults_and_validates_policy(tmp_path: Path) -> None:
+    _build_repo_fixture(tmp_path)
+    config = CourseConfig.load(start_dir=tmp_path)
+
+    canvas = CanvasConfig.require(config)
+    assert canvas.participation.assignment_group == "Participation"
+    assert canvas.participation.group_weight is None
+    assert canvas.participation.drop_lowest is None
+
+    config_path = tmp_path / ".coursemd.yml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            "        course_id: 12345\n",
+            "        course_id: 12345\n"
+            "        participation:\n"
+            "            assignment_group: Engagement\n"
+            "            group_weight: 15.5\n"
+            "            drop_lowest: 3\n",
+        ),
+        encoding="utf-8",
+    )
+
+    configured = CanvasConfig.require(CourseConfig.load(start_dir=tmp_path)).participation
+    assert configured.assignment_group == "Engagement"
+    assert configured.group_weight == PARTICIPATION_GROUP_WEIGHT
+    assert configured.drop_lowest == PARTICIPATION_DROP_LOWEST
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("group_weight", 101, "group_weight must be a number from 0 through 100"),
+        ("drop_lowest", -1, "drop_lowest must not be negative"),
+        ("drop_lowest", 1.5, "drop_lowest must be an integer"),
+    ],
+)
+def test_canvas_participation_config_rejects_invalid_policy(
+    tmp_path: Path,
+    field: str,
+    value: float,
+    message: str,
+) -> None:
+    _build_repo_fixture(tmp_path)
+    config_path = tmp_path / ".coursemd.yml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            "        course_id: 12345\n",
+            "        course_id: 12345\n"
+            "        participation:\n"
+            f"            {field}: {value}\n",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(CoursemdValidationError, match=message):
+        CourseConfig.load(start_dir=tmp_path)
 
 
 def test_repository_load_rejects_non_quiz_content_in_quizzes_dir(

@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from coursemd.core.exceptions import CoursemdValidationError
-from coursemd.integrations.canvas.assignments import form_for_assignment
+from coursemd.integrations.canvas.assignments import (
+    form_for_assignment,
+    form_for_participation_event,
+)
 from coursemd.integrations.canvas.models import (
+    CanvasParticipationEvent,
     canvas_assignment_submissions,
     canvas_lab_submission,
     canvas_quiz,
@@ -23,6 +28,7 @@ if TYPE_CHECKING:
     from coursemd.core.models.assignment import Assignment
     from coursemd.core.models.lab import Lab
     from coursemd.core.models.quiz import Quiz
+    from coursemd.integrations.canvas.config import CanvasParticipationConfig
     from coursemd.integrations.canvas.models import CanvasAssignmentSubmission
     from coursemd.integrations.canvas.resources import AssignmentCanvasClient, QuizCanvasClient
 
@@ -65,14 +71,81 @@ def resolve_group_category_id(
     return int(categories[0]["id"]) if categories else None
 
 
+def _assignment_group_policy_form(
+    group: dict[str, Any],
+    policy: CanvasParticipationConfig,
+) -> dict[str, Any]:
+    form: dict[str, Any] = {}
+    if policy.group_weight is not None:
+        try:
+            current_weight = float(cast("Any", group.get("group_weight")))
+        except (TypeError, ValueError):
+            current_weight = None
+        if current_weight != policy.group_weight:
+            form["group_weight"] = policy.group_weight
+
+    if policy.drop_lowest is not None:
+        current_rules_raw = group.get("rules")
+        current_rules = (
+            dict(current_rules_raw) if isinstance(current_rules_raw, dict) else {}
+        )
+        try:
+            current_drop_lowest = int(cast("Any", current_rules.get("drop_lowest")))
+        except (TypeError, ValueError):
+            current_drop_lowest = None
+        if current_drop_lowest != policy.drop_lowest:
+            current_rules["drop_lowest"] = policy.drop_lowest
+            form["rules"] = json.dumps(current_rules)
+    return form
+
+
+def _apply_assignment_group_policy(
+    client: AssignmentCanvasClient,
+    course_id: str,
+    group: dict[str, Any],
+    policy: CanvasParticipationConfig,
+    reporter: CanvasSyncReporter | None,
+) -> dict[str, Any]:
+    form = _assignment_group_policy_form(group, policy)
+    if not form:
+        return group
+
+    group_id = int(group["id"])
+    _emit(
+        reporter,
+        CanvasSyncEvent(
+            action="update",
+            target="assignment_group",
+            name=policy.assignment_group,
+            id=group_id,
+            dry_run=client.dry_run,
+        ),
+    )
+    if client.dry_run:
+        updated = dict(group)
+        if policy.group_weight is not None:
+            updated["group_weight"] = policy.group_weight
+        if policy.drop_lowest is not None:
+            rules = dict(updated.get("rules") or {})
+            rules["drop_lowest"] = policy.drop_lowest
+            updated["rules"] = rules
+        return updated
+    return client.update_assignment_group(
+        course_id,
+        assignment_group_id=group_id,
+        form=form,
+    )
+
+
 def _sync_canvas_assignment_submissions(
     client: AssignmentCanvasClient,
     course_id: str,
-    canvas_specs: list[CanvasAssignmentSubmission],
+    canvas_specs: list[CanvasAssignmentSubmission] | list[CanvasParticipationEvent],
     publish_override: bool,
     group_category_id_override: int | None = None,
     reporter: CanvasSyncReporter | None = None,
     site_base_url: str = "",
+    assignment_group_policy: CanvasParticipationConfig | None = None,
 ) -> list[dict[str, Any]]:
     any_group = any(spec.group_assignment for spec in canvas_specs)
     group_category_id: int | None = None
@@ -105,6 +178,7 @@ def _sync_canvas_assignment_submissions(
             assignments_by_id[int(assignment_id)] = assignment
 
     results: list[dict[str, Any]] = []
+    configured_groups: set[str] = set()
     for spec in canvas_specs:
         existing: dict[str, Any] | None = None
         if spec.canvas_id is not None:
@@ -135,17 +209,48 @@ def _sync_canvas_assignment_submissions(
             if client.dry_run:
                 group = {"id": -1, "name": assignment_group}
             else:
-                group = client.create_assignment_group(course_id, assignment_group)
+                group = client.create_assignment_group(
+                    course_id,
+                    assignment_group,
+                    group_weight=(
+                        assignment_group_policy.group_weight
+                        if assignment_group_policy is not None
+                        and assignment_group == assignment_group_policy.assignment_group
+                        else None
+                    ),
+                )
             groups_by_name[assignment_group] = group
 
+        if (
+            assignment_group_policy is not None
+            and assignment_group == assignment_group_policy.assignment_group
+            and assignment_group not in configured_groups
+        ):
+            group = _apply_assignment_group_policy(
+                client,
+                course_id,
+                group,
+                assignment_group_policy,
+                reporter,
+            )
+            groups_by_name[assignment_group] = group
+            configured_groups.add(assignment_group)
+
         group_id = int(group["id"])
-        form = form_for_assignment(
-            spec,
-            group_id,
-            publish_override=publish_override,
-            group_category_id=group_category_id,
-            site_base_url=site_base_url,
-        )
+        if isinstance(spec, CanvasParticipationEvent):
+            form = form_for_participation_event(
+                spec,
+                group_id,
+                publish_override=publish_override,
+            )
+        else:
+            form = form_for_assignment(
+                spec,
+                group_id,
+                publish_override=publish_override,
+                group_category_id=group_category_id,
+                site_base_url=site_base_url,
+            )
         if existing is None:
             action = "create"
             _emit(
@@ -175,6 +280,22 @@ def _sync_canvas_assignment_submissions(
                         name=spec.name,
                         id=assignment_id,
                         reason="is currently released",
+                    ),
+                )
+                canvas_obj = existing
+                action = "skipped"
+            elif existing.get("has_submitted_submissions") or client.assignment_has_grades(
+                course_id,
+                assignment_id,
+            ):
+                _emit(
+                    reporter,
+                    CanvasSyncEvent(
+                        action="skip",
+                        target="assignment",
+                        name=spec.name,
+                        id=assignment_id,
+                        reason="has existing submissions or grades",
                     ),
                 )
                 canvas_obj = existing
@@ -282,6 +403,30 @@ def sync_labs_to_canvas(
         reporter=reporter,
         site_base_url=site_base_url,
     )
+
+
+def sync_participation_to_canvas(
+    client: AssignmentCanvasClient,
+    course_id: str,
+    specs: list[CanvasParticipationEvent],
+    policy: CanvasParticipationConfig,
+    publish_override: bool,
+    reporter: CanvasSyncReporter | None = None,
+) -> list[dict[str, Any]]:
+    """Sync lecture participation as staff-graded, no-submission assignments."""
+
+    results = _sync_canvas_assignment_submissions(
+        client=client,
+        course_id=course_id,
+        canvas_specs=specs,
+        publish_override=publish_override,
+        reporter=reporter,
+        assignment_group_policy=policy,
+    )
+    for result, spec in zip(results, specs, strict=True):
+        result["event_date"] = spec.event.date.isoformat()
+        result["event_title"] = spec.event.title
+    return results
 
 
 

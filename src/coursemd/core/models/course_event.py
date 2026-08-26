@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Self
 
 from coursemd.core.exceptions import CoursemdValidationError
@@ -22,6 +22,7 @@ class CourseEvent:
     link: str | None = None
     learning_goals: tuple[str, ...] = ()
     speakers: tuple[str, ...] = ()
+    integrations: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def parse(cls, value: Any) -> Self:
@@ -73,6 +74,12 @@ class CourseEvent:
                 raise CoursemdValidationError("event speakers must be non-empty strings.")
             speakers.append(speaker.strip())
 
+        integrations_raw = value.get("integrations", {})
+        if integrations_raw is None:
+            integrations_raw = {}
+        if not isinstance(integrations_raw, dict):
+            raise CoursemdValidationError("event integrations must be a mapping.")
+
         return cls(
             kind=kind.strip().lower(),
             date=parsed_date,
@@ -80,6 +87,7 @@ class CourseEvent:
             link=link.strip() if isinstance(link, str) else None,
             learning_goals=tuple(learning_goals),
             speakers=tuple(speakers),
+            integrations=dict(integrations_raw),
         )
 
     @classmethod

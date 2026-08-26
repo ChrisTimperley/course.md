@@ -1,27 +1,42 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 from coursemd.core.exceptions import CoursemdValidationError
 from coursemd.core.models.assignment import Assignment, AssignmentCheckpoint
+from coursemd.core.models.course_event import CourseEvent
 from coursemd.core.models.lab import Lab
-from coursemd.integrations.canvas.assignments import form_for_assignment
-from coursemd.integrations.canvas.frontmatter import update_lab_frontmatter_with_ids
+from coursemd.integrations.canvas.assignments import (
+    form_for_assignment,
+    form_for_participation_event,
+)
+from coursemd.integrations.canvas.config import CanvasParticipationConfig
+from coursemd.integrations.canvas.frontmatter import (
+    update_course_config_with_participation_ids,
+    update_lab_frontmatter_with_ids,
+)
 from coursemd.integrations.canvas.models import (
     canvas_assignment_submissions,
     canvas_lab_submission,
+    canvas_participation_events,
 )
+from coursemd.integrations.canvas.resources import AssignmentCanvasClient
 from coursemd.integrations.canvas.sync import (
     CanvasSyncEvent,
     sync_assignments_to_canvas,
     sync_labs_to_canvas,
+    sync_participation_to_canvas,
 )
 
 LAB_CANVAS_ID = 456
+PARTICIPATION_CANVAS_ID = 789
+PARTICIPATION_GROUP_ID = 10
 
 
 class DryRunAssignmentClient:
@@ -54,6 +69,97 @@ class ExistingAssignmentClient(DryRunAssignmentClient):
         self, course_id: str, assignment_id: int  # noqa: ARG002
     ) -> bool:
         return False
+
+    def assignment_has_grades(
+        self, course_id: str, assignment_id: int  # noqa: ARG002
+    ) -> bool:
+        return False
+
+
+class ParticipationClient:
+    dry_run = False
+
+    def __init__(self) -> None:
+        self.group_forms: list[dict[str, Any]] = []
+        self.assignment_forms: list[dict[str, Any]] = []
+
+    def get_paginated(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,  # noqa: ARG002
+    ) -> list[dict[str, Any]]:
+        if path.endswith("/assignment_groups"):
+            return [
+                {
+                    "id": 10,
+                    "name": "Engagement",
+                    "group_weight": 5,
+                    "rules": {"drop_lowest": 1},
+                }
+            ]
+        return []
+
+    def update_assignment_group(
+        self,
+        course_id: str,  # noqa: ARG002
+        assignment_group_id: int,
+        form: dict[str, Any],
+    ) -> dict[str, Any]:
+        assert assignment_group_id == PARTICIPATION_GROUP_ID
+        self.group_forms.append(form)
+        return {
+            "id": 10,
+            "name": "Engagement",
+            "group_weight": form["group_weight"],
+            "rules": json.loads(form["rules"]),
+        }
+
+    def create_assignment(
+        self,
+        course_id: str,  # noqa: ARG002
+        form: dict[str, Any],
+    ) -> dict[str, Any]:
+        self.assignment_forms.append(form)
+        return {
+            "id": 789,
+            "html_url": "https://canvas.example/assignments/789",
+        }
+
+
+class GradedParticipationClient(ParticipationClient):
+    def get_paginated(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        if path.endswith("/assignments"):
+            return [
+                {
+                    "id": PARTICIPATION_CANVAS_ID,
+                    "name": "Participation: 2026-01-12 — Course Introduction",
+                    "html_url": "https://canvas.example/assignments/789",
+                    "published": False,
+                }
+            ]
+        return super().get_paginated(path, params)
+
+    def is_assignment_released(
+        self, course_id: str, assignment_id: int  # noqa: ARG002
+    ) -> bool:
+        return False
+
+    def assignment_has_grades(
+        self, course_id: str, assignment_id: int  # noqa: ARG002
+    ) -> bool:
+        return True
+
+    def update_assignment(
+        self,
+        course_id: str,  # noqa: ARG002
+        assignment_id: int,  # noqa: ARG002
+        form: dict[str, Any],  # noqa: ARG002
+    ) -> dict[str, Any]:
+        raise AssertionError("A graded assignment must never be updated.")
 
 
 def test_assignment_uses_close_at_as_canvas_lock() -> None:
@@ -425,3 +531,185 @@ due_at: 2026-09-05T23:59:00-04:00
 
     with pytest.raises(CoursemdValidationError, match="calendar date of 'due_at'"):
         Lab.load(path)
+
+
+def test_participation_events_include_only_lectures_and_never_accept_submissions() -> None:
+    events = [
+        CourseEvent(
+            kind="lecture",
+            date=dt.date(2026, 1, 12),
+            title="Course Introduction",
+            integrations={"canvas": {"participation_id": 456}},
+        ),
+        CourseEvent(
+            kind="midterm",
+            date=dt.date(2026, 1, 14),
+            title="Midterm I",
+        ),
+    ]
+
+    specs = canvas_participation_events(
+        events,
+        CanvasParticipationConfig(),
+        source_file=Path(".coursemd.yml"),
+    )
+
+    assert len(specs) == 1
+    spec = specs[0]
+    assert spec.name == "Participation: 2026-01-12 — Course Introduction"
+    assert spec.canvas_id == LAB_CANVAS_ID
+    assert spec.canvas_assignment_group == "Participation"
+    assert spec.points_possible == 1.0
+    assert spec.submission_types == ["none"]
+    assert spec.due_at is None
+    form = form_for_participation_event(spec, assignment_group_id=10, publish_override=False)
+    assert form["assignment[points_possible]"] == "1.0"
+    assert form["assignment[grading_type]"] == "points"
+    assert form["assignment[submission_types][]"] == ["none"]
+    assert "assignment[due_at]" not in form
+    assert "no student submission is required" in form["assignment[description]"]
+
+
+def test_participation_sync_applies_group_weight_and_drop_policy() -> None:
+    policy = CanvasParticipationConfig(
+        assignment_group="Engagement",
+        group_weight=10,
+        drop_lowest=4,
+    )
+    specs = canvas_participation_events(
+        [
+            CourseEvent(
+                kind="lecture",
+                date=dt.date(2026, 1, 12),
+                title="Course Introduction",
+            )
+        ],
+        policy,
+        source_file=Path(".coursemd.yml"),
+    )
+    client = ParticipationClient()
+    events: list[CanvasSyncEvent] = []
+
+    results = sync_participation_to_canvas(
+        client=client,  # type: ignore[arg-type]
+        course_id="12345",
+        specs=specs,
+        policy=policy,
+        publish_override=True,
+        reporter=events.append,
+    )
+
+    assert client.group_forms == [
+        {"group_weight": 10, "rules": '{"drop_lowest": 4}'}
+    ]
+    assert client.assignment_forms[0]["assignment[submission_types][]"] == ["none"]
+    assert client.assignment_forms[0]["assignment[published]"] == "true"
+    assert results[0]["event_date"] == "2026-01-12"
+    assert results[0]["event_title"] == "Course Introduction"
+    assert [(event.action, event.target) for event in events] == [
+        ("update", "assignment_group"),
+        ("create", "assignment"),
+    ]
+
+
+def test_assignment_grade_guard_treats_zero_as_an_existing_grade(monkeypatch) -> None:
+    client = AssignmentCanvasClient(
+        base_url="https://canvas.example",
+        token="test-token",  # noqa: S106
+    )
+
+    submissions = [{"score": None, "grade": None, "excused": False}]
+
+    def participation_submissions(
+        path: str,
+        params: dict[str, Any] | None = None,  # noqa: ARG001
+    ) -> list[dict[str, Any]]:
+        assert path.endswith("/assignments/789/submissions")
+        return submissions
+
+    monkeypatch.setattr(client, "get_paginated", participation_submissions)
+
+    assert client.assignment_has_grades("12345", PARTICIPATION_CANVAS_ID) is False
+    submissions[0] = {"score": 0, "grade": "0", "excused": False}
+    assert client.assignment_has_grades("12345", PARTICIPATION_CANVAS_ID) is True
+
+
+def test_participation_rerun_never_updates_an_assignment_with_grades() -> None:
+    policy = CanvasParticipationConfig(
+        assignment_group="Engagement",
+        group_weight=5,
+        drop_lowest=1,
+    )
+    specs = canvas_participation_events(
+        [
+            CourseEvent(
+                kind="lecture",
+                date=dt.date(2026, 1, 12),
+                title="Course Introduction",
+                integrations={
+                    "canvas": {"participation_id": PARTICIPATION_CANVAS_ID}
+                },
+            )
+        ],
+        policy,
+        source_file=Path(".coursemd.yml"),
+    )
+    client = GradedParticipationClient()
+    events: list[CanvasSyncEvent] = []
+
+    results = sync_participation_to_canvas(
+        client=client,  # type: ignore[arg-type]
+        course_id="12345",
+        specs=specs,
+        policy=policy,
+        publish_override=True,
+        reporter=events.append,
+    )
+
+    assert client.group_forms == []
+    assert client.assignment_forms == []
+    assert results[0]["action"] == "skipped"
+    assert events == [
+        CanvasSyncEvent(
+            action="skip",
+            target="assignment",
+            name="Participation: 2026-01-12 — Course Introduction",
+            id=PARTICIPATION_CANVAS_ID,
+            reason="has existing submissions or grades",
+        )
+    ]
+
+
+def test_participation_sync_writes_canvas_id_to_course_event(tmp_path: Path) -> None:
+    config_path = tmp_path / ".coursemd.yml"
+    config_path.write_text(
+        """schedule:
+  start_date: 2026-01-12
+  end_date: 2026-01-16
+  events:
+  - kind: lecture
+    date: 2026-01-12
+    title: Course Introduction
+integrations:
+  canvas:
+    base_url: https://canvas.example.edu
+    course_id: '12345'
+""",
+        encoding="utf-8",
+    )
+
+    update_course_config_with_participation_ids(
+        [
+            {
+                "id": PARTICIPATION_CANVAS_ID,
+                "source_file": str(config_path),
+                "event_date": "2026-01-12",
+                "event_title": "Course Introduction",
+            }
+        ]
+    )
+
+    event = CourseEvent.from_dict(
+        yaml.safe_load(config_path.read_text(encoding="utf-8"))["schedule"]["events"][0]
+    )
+    assert event.integrations["canvas"]["participation_id"] == PARTICIPATION_CANVAS_ID
