@@ -644,7 +644,7 @@ def test_canvas_participation_plan_uses_lecture_events_and_policy(
     assert result.exit_code == 0, result.output
     assert "Loaded 1 lecture participation event(s) for Canvas:" in result.stdout
     assert "assignment group 'Engagement' | weight 10% | drop lowest 2" in result.stdout
-    assert "Participation: 2026-01-12 — Course Introduction" in result.stdout
+    assert "Participation (January 12th, 2026): Course Introduction" in result.stdout
     assert "1.0 pts | submissions=['none']" in result.stdout
 
 

@@ -193,6 +193,8 @@ def _sync_canvas_assignment_submissions(
                 )
         else:
             existing = assignments_by_name.get(spec.name)
+            if existing is None and isinstance(spec, CanvasParticipationEvent):
+                existing = assignments_by_name.get(spec.legacy_name)
 
         assignment_group = spec.canvas_assignment_group or spec.name
         group = groups_by_name.get(assignment_group)

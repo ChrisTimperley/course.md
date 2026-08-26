@@ -556,7 +556,7 @@ def test_participation_events_include_only_lectures_and_never_accept_submissions
 
     assert len(specs) == 1
     spec = specs[0]
-    assert spec.name == "Participation: 2026-01-12 — Course Introduction"
+    assert spec.name == "Participation (January 12th, 2026): Course Introduction"
     assert spec.canvas_id == LAB_CANVAS_ID
     assert spec.canvas_assignment_group == "Participation"
     assert spec.points_possible == 1.0
@@ -567,7 +567,7 @@ def test_participation_events_include_only_lectures_and_never_accept_submissions
     assert form["assignment[grading_type]"] == "points"
     assert form["assignment[submission_types][]"] == ["none"]
     assert "assignment[due_at]" not in form
-    assert "no student submission is required" in form["assignment[description]"]
+    assert form["assignment[description]"] == ""
 
 
 def test_participation_sync_applies_group_weight_and_drop_policy() -> None:
@@ -609,6 +609,81 @@ def test_participation_sync_applies_group_weight_and_drop_policy() -> None:
     assert [(event.action, event.target) for event in events] == [
         ("update", "assignment_group"),
         ("create", "assignment"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("day", "expected"),
+    [
+        (1, "1st"),
+        (2, "2nd"),
+        (3, "3rd"),
+        (4, "4th"),
+        (8, "8th"),
+        (11, "11th"),
+        (12, "12th"),
+        (13, "13th"),
+        (21, "21st"),
+        (22, "22nd"),
+        (23, "23rd"),
+        (24, "24th"),
+    ],
+)
+def test_participation_title_uses_long_date_with_ordinal(
+    day: int,
+    expected: str,
+) -> None:
+    [spec] = canvas_participation_events(
+        [
+            CourseEvent(
+                kind="lecture",
+                date=dt.date(2026, 8, day),
+                title="Course Introduction",
+            )
+        ],
+        CanvasParticipationConfig(),
+        source_file=Path(".coursemd.yml"),
+    )
+
+    assert spec.name == f"Participation (August {expected}, 2026): Course Introduction"
+
+
+def test_participation_sync_matches_legacy_title_without_creating_duplicate() -> None:
+    policy = CanvasParticipationConfig(assignment_group="Labs")
+    specs = canvas_participation_events(
+        [
+            CourseEvent(
+                kind="lecture",
+                date=dt.date(2026, 1, 12),
+                title="Course Introduction",
+            )
+        ],
+        policy,
+        source_file=Path(".coursemd.yml"),
+    )
+    client = ExistingAssignmentClient(
+        [
+            {
+                "id": PARTICIPATION_CANVAS_ID,
+                "name": "Participation: 2026-01-12 — Course Introduction",
+                "published": False,
+            }
+        ]
+    )
+    events: list[CanvasSyncEvent] = []
+
+    results = sync_participation_to_canvas(
+        client=client,  # type: ignore[arg-type]
+        course_id="12345",
+        specs=specs,
+        policy=policy,
+        publish_override=False,
+        reporter=events.append,
+    )
+
+    assert results[0]["action"] == "update"
+    assert [(event.action, event.target, event.id) for event in events] == [
+        ("update", "assignment", PARTICIPATION_CANVAS_ID)
     ]
 
 
@@ -673,7 +748,7 @@ def test_participation_rerun_never_updates_an_assignment_with_grades() -> None:
         CanvasSyncEvent(
             action="skip",
             target="assignment",
-            name="Participation: 2026-01-12 — Course Introduction",
+            name="Participation (January 12th, 2026): Course Introduction",
             id=PARTICIPATION_CANVAS_ID,
             reason="has existing submissions or grades",
         )

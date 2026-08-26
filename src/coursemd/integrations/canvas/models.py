@@ -26,6 +26,8 @@ if TYPE_CHECKING:
     from coursemd.core.models.rubric import RubricCriterion
     from coursemd.integrations.canvas.config import CanvasParticipationConfig
 
+_ORDINAL_TEEN_DAYS = (11, 12, 13)
+
 
 def _canvas_map(integrations: dict[str, Any]) -> dict[str, Any]:
     canvas = integrations.get("canvas") or {}
@@ -233,7 +235,26 @@ class CanvasParticipationEvent:
 
     @property
     def name(self) -> str:
+        event_date = self.event.date
+        return (
+            f"Participation ({event_date.strftime('%B')} "
+            f"{_ordinal_day(event_date.day)}, {event_date.year}): {self.event.title}"
+        )
+
+    @property
+    def legacy_name(self) -> str:
+        """Return the former generated name for idempotent migration matching."""
+
         return f"Participation: {self.event.date.isoformat()} — {self.event.title}"
+
+
+def _ordinal_day(day: int) -> str:
+    suffix = (
+        "th"
+        if day % 100 in _ORDINAL_TEEN_DAYS
+        else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+    )
+    return f"{day}{suffix}"
 
 
 def canvas_participation_events(
