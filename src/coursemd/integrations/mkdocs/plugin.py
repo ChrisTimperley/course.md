@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     import datetime as dt
 
     from mkdocs.config.defaults import MkDocsConfig
+    from mkdocs.livereload import LiveReloadServer
     from mkdocs.structure.nav import Navigation
 
 from coursemd.core.config import CourseConfig
@@ -122,6 +123,12 @@ class CoursemdPlugin(BasePlugin):
         self.in_preview = command == "serve"
         self.current_date = current_date()
         self.removed_files = set()
+
+    def on_serve(self, server: LiveReloadServer, **kwargs: Any) -> LiveReloadServer:  # noqa: ARG002
+        # Idle preview tabs can occupy every HTTP connection available to the browser.
+        # Release polls promptly so navigation does not wait for MkDocs' 60-second timeout.
+        server.poll_response_timeout = 1
+        return server
 
     def on_config(self, config: MkDocsConfig) -> MkDocsConfig:
         config_path = self._resolve_coursemd_config_path(config)
