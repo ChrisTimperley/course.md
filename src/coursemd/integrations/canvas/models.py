@@ -361,11 +361,14 @@ def _submission_from_canvas_map(
     )
     rubric_criteria = _rubric_criteria(assignment, source)
     if assignment.rubric.typed and rubric_criteria:
-        rubric_points = sum(criterion.points for criterion in rubric_criteria)
+        rubric_points = sum(
+            criterion.points for criterion in rubric_criteria if not criterion.bonus
+        )
         if points_possible != rubric_points:
             raise CoursemdValidationError(
                 f"Canvas assignment '{name}' declares {points_possible:g} points, "
-                f"but its typed rubric criteria total {rubric_points}.",
+                f"but its typed rubric base criteria total {rubric_points} "
+                "(excluding bonus credit).",
                 source_path=assignment.source_file,
             )
 

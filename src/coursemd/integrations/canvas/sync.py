@@ -53,6 +53,42 @@ def _emit(reporter: CanvasSyncReporter | None, event: CanvasSyncEvent) -> None:
         reporter(event)
 
 
+def _preserve_bonus_assignment_points(
+    client: AssignmentCanvasClient,
+    course_id: str,
+    assignment_id: int,
+    spec: CanvasAssignmentSubmission | CanvasParticipationEvent,
+    reporter: CanvasSyncReporter | None,
+) -> None:
+    """Verify the denominator after attaching a rubric with extra credit."""
+    path = f"/courses/{course_id}/assignments/{assignment_id}"
+    assignment = client.get(path)
+    if assignment.get("points_possible") == spec.points_possible:
+        return
+    _emit(
+        reporter,
+        CanvasSyncEvent(
+            action="update",
+            target="assignment",
+            name=spec.name,
+            id=assignment_id,
+            reason="restore base points after attaching bonus rubric",
+        ),
+    )
+    client.update_assignment(
+        course_id,
+        assignment_id=assignment_id,
+        form={"assignment[points_possible]": str(spec.points_possible)},
+    )
+    assignment = client.get(path)
+    if assignment.get("points_possible") != spec.points_possible:
+        raise RuntimeError(
+            f"Canvas assignment '{spec.name}' (id {assignment_id}) has "
+            f"{assignment.get('points_possible')!r} possible points after syncing its bonus "
+            f"rubric; expected {spec.points_possible:g}. Restoring base points failed."
+        )
+
+
 def resolve_group_category_id(
     client: AssignmentCanvasClient,
     course_id: str,
@@ -357,6 +393,10 @@ def _sync_canvas_assignment_submissions(
                         title=spec.name,
                     ),
                 )
+                if any(criterion.bonus for criterion in spec.rubric_criteria):
+                    _preserve_bonus_assignment_points(
+                        client, course_id, assignment_id, spec, reporter
+                    )
 
     return results
 

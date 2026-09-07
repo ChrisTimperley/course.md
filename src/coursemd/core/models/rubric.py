@@ -33,6 +33,7 @@ class RubricCriterion:
     slug: str | None = None
     criterion_type: RubricType = "tiered"
     min_points: int = 0
+    bonus: bool = False
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,11 @@ class RubricSection:
     criteria: list[RubricCriterion] = field(default_factory=list)
     slug: str | None = None
 
+    @property
+    def bonus_points(self) -> int:
+        """Maximum extra credit, excluded from the section's base points."""
+        return sum(criterion.points for criterion in self.criteria if criterion.bonus)
+
 
 @dataclass(frozen=True)
 class Rubric:
@@ -52,6 +58,23 @@ class Rubric:
     sections: list[RubricSection]
     rubric_type: RubricType = "tiered"
     typed: bool = False
+
+    @property
+    def points(self) -> int:
+        """Total base points across all sections."""
+        return sum(section.points for section in self.sections)
+
+    @property
+    def bonus_points(self) -> int:
+        """Maximum extra credit across all sections."""
+        return sum(section.bonus_points for section in self.sections)
+
+    @staticmethod
+    def _bonus(item: dict[str, Any]) -> bool:
+        bonus = item.get("bonus", False)
+        if not isinstance(bonus, bool):
+            raise TypeError("'rubric.criteria.bonus' must be a boolean.")
+        return bonus
 
     @staticmethod
     def _slug(value: Any, field_name: str, *, required: bool) -> str | None:
@@ -109,6 +132,7 @@ class Rubric:
             desc=str(item.get("desc", "")),
             tiers=tiers,
             slug=cls._slug(item.get("slug"), "rubric.criteria.slug", required=False),
+            bonus=cls._bonus(item),
         )
 
     @classmethod
@@ -212,6 +236,7 @@ class Rubric:
             slug=slug,
             criterion_type=criterion_type,
             min_points=min_points,
+            bonus=cls._bonus(item),
         )
 
     @classmethod
@@ -282,11 +307,13 @@ class Rubric:
                 else int(item.get("points", 0))
             )
             if typed:
-                criteria_points = sum(criterion.points for criterion in criteria)
+                criteria_points = sum(
+                    criterion.points for criterion in criteria if not criterion.bonus
+                )
                 if section_points != criteria_points:
                     raise ValueError(
                         f"Rubric section '{section_slug}' declares {section_points} points, "
-                        f"but its criteria total {criteria_points}."
+                        f"but its base criteria total {criteria_points} (excluding bonus credit)."
                     )
             section_name = str(item.get("section", "")).strip()
             if typed and not section_name:

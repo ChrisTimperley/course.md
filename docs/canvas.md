@@ -146,12 +146,34 @@ ratings, or with `type: range` and an optional `min_points` (zero by default):
 
 Range items accept any point score between their minimum and maximum. Tiered items require
 unique ratings that include both full-credit and zero-credit tiers. Section and criterion slugs
-must be lowercase kebab case and unique within their scope. Criteria must total the section's
-declared points, and a Canvas assignment's points must equal the selected criteria total.
+must be lowercase kebab case and unique within their scope. Base criteria must total the section's
+declared points, and a Canvas assignment's points must equal the selected base criteria total.
 
 On an MkDocs assignment page, render the same rubric with
 `{{ rubric_table(page.meta.rubric) | safe }}`. Typed rubrics use compact outcome rows and expand
 only the items with explicit tiers; legacy list-form rubrics retain their existing rendering.
+
+### Bonus credit
+
+Set `bonus: true` on a criterion to award extra credit using any scoring mode.
+Its `points` is the maximum bonus award, excluded from section and Canvas assignment base totals.
+For example, append this criterion to the 10-point setup section above to allow up to 15 earned points:
+
+```yaml
+        - slug: extra-protection
+          name: Extra protection
+          bonus: true
+          type: range
+          points: 5
+          desc: Earn one point per additional harmful/control pair classified correctly.
+```
+
+The website marks bonus criteria and shows their derived totals separately from base points.
+Use the `rubric__bonus`, `rubric-checklist__item--bonus`, and `rubric-criterion--bonus` CSS classes to style them.
+Canvas receives ordinary positive-point criteria with `Bonus:` in their names, so its rubric total exceeds the assignment's possible points.
+Sync sends both documented and controller-supported forms of `skip_updating_points_possible` to preserve that denominator.
+After attaching a bonus rubric, sync reads the assignment back, restores its base points if necessary, and fails if a second read still disagrees.
+Verify the grading behavior in a disposable Canvas assignment before first use on your institution's deployment.
 
 ## Submission checklists
 

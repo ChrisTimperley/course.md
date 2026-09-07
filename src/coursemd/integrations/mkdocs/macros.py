@@ -456,13 +456,34 @@ def define_env(env: t.Any) -> None:
         sections = rubric.get("sections", []) if isinstance(rubric, dict) else rubric
         if not isinstance(sections, list):
             return ""
+
+        def bonus_points(criteria: t.Any) -> int:
+            if not isinstance(criteria, list):
+                return 0
+            return sum(
+                int(criterion.get("points", 0))
+                for criterion in criteria
+                if isinstance(criterion, dict) and criterion.get("bonus") is True
+            )
+
+        def bonus_summary(points: int) -> str:
+            if not points:
+                return ""
+            point_label = "pt" if points == 1 else "pts"
+            return f' <span class="rubric__bonus">(+ {points} bonus {point_label})</span>'
+
         total_points = sum(
             int(section.get("points", 0)) for section in sections if isinstance(section, dict)
+        )
+        total_bonus = sum(
+            bonus_points(section.get("criteria", []))
+            for section in sections
+            if isinstance(section, dict)
         )
         point_label = "point" if total_points == 1 else "points"
         summary = (
             '<p class="rubric__summary">The assignment is worth '
-            f"<strong>{total_points} {point_label}</strong>.</p>"
+            f"<strong>{total_points} {point_label}</strong>{bonus_summary(total_bonus)}.</p>"
         )
 
         if isinstance(rubric, dict):
@@ -483,7 +504,8 @@ def define_env(env: t.Any) -> None:
                     f'<section class="rubric-section" id="rubric-{section_slug}" '
                     f'data-rubric-section="{section_slug}">'
                     f'<h3 class="rubric-section__title">{section_name}'
-                    f'<span class="rubric-section__points">{section_points} pts</span>'
+                    f'<span class="rubric-section__points">{section_points} pts'
+                    f'{bonus_summary(bonus_points(criteria))}</span>'
                     f'</h3><ul class="rubric-checklist">'
                 )
                 for criterion in criteria:
@@ -503,9 +525,13 @@ def define_env(env: t.Any) -> None:
                         else f"{criterion_points} {point_label}"
                     )
                     description = escape(str(criterion.get("desc") or criterion.get("name") or ""))
+                    bonus_class = ""
+                    if criterion.get("bonus") is True:
+                        bonus_class = " rubric-checklist__item--bonus"
+                        description = '<span class="rubric__bonus">Bonus:</span> ' + description
                     html_parts.append(
                         f'<li class="rubric-checklist__item '
-                        f'rubric-checklist__item--{criterion_type}" '
+                        f'rubric-checklist__item--{criterion_type}{bonus_class}" '
                         f'id="rubric-{section_slug}-{criterion_slug}" '
                         f'data-rubric-item="{item_key}" '
                         f'data-rubric-type="{criterion_type}">'
@@ -561,7 +587,8 @@ def define_env(env: t.Any) -> None:
                 f'<div class="rubric-section">'
                 f'<h3 class="rubric-section__title">'
                 f"{section_name}"
-                f'<span class="rubric-section__points">{section_points} pts</span>'
+                f'<span class="rubric-section__points">{section_points} pts'
+                f'{bonus_summary(bonus_points(criteria))}</span>'
                 f"</h3>"
             )
 
@@ -574,9 +601,13 @@ def define_env(env: t.Any) -> None:
                 desc_html = (
                     f'<span class="rubric-criterion__desc">{crit_desc}</span>' if crit_desc else ""
                 )
+                bonus_class = ""
+                if criterion.get("bonus") is True:
+                    bonus_class = " rubric-criterion--bonus"
+                    crit_name = '<span class="rubric__bonus">Bonus:</span> ' + crit_name
 
                 html_parts.append(
-                    f'<details class="rubric-criterion">'
+                    f'<details class="rubric-criterion{bonus_class}">'
                     f'<summary class="rubric-criterion__header">'
                     f'<span class="rubric-criterion__summary">'
                     f'<span class="rubric-criterion__name">{crit_name}</span>'

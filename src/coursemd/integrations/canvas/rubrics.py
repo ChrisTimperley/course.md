@@ -23,9 +23,16 @@ def form_for_rubric(
         "rubric_association[use_for_grading]": "true",
         "rubric_association[purpose]": "grading",
     }
+    if any(criterion.bonus for criterion in criteria):
+        # Canvas documents the nested key, but its controller reads the top-level key.
+        # Send both so the grading rubric can exceed the assignment's base points.
+        form["skip_updating_points_possible"] = "true"
+        form["rubric[skip_updating_points_possible]"] = "true"
     for ci, criterion in enumerate(criteria):
         criterion_prefix = f"rubric[criteria][{ci}]"
-        form[f"{criterion_prefix}[description]"] = criterion.name
+        form[f"{criterion_prefix}[description]"] = (
+            f"Bonus: {criterion.name}" if criterion.bonus else criterion.name
+        )
         form[f"{criterion_prefix}[long_description]"] = (
             criterion.desc if criterion.desc != criterion.name else ""
         )
