@@ -76,7 +76,13 @@ class Lab:
 
     def as_course_event(self) -> CourseEvent:
         """Return the lab as an event for inclusion in a course schedule."""
-        return CourseEvent(kind="lab", date=self.date, title=self.title, link=self.link)
+        return CourseEvent(
+            kind="lab",
+            date=self.date,
+            title=self.title,
+            link=self.link,
+            release_date=self.release_date,
+        )
 
     @classmethod
     def load(cls, filename: Path) -> Lab | None:

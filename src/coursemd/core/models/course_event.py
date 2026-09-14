@@ -45,6 +45,7 @@ class CourseEvent:
     date: dt.date
     title: str
     link: str | None = None
+    release_date: dt.date | None = None
     learning_goals: tuple[str, ...] = ()
     speakers: tuple[str, ...] = ()
     handouts: tuple[Handout, ...] = ()

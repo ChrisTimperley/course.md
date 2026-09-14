@@ -72,30 +72,38 @@ class Schedule:
         def preview_next(
             events_by_date: dict[dt.date, list[CourseEvent]],
         ) -> dict[dt.date, list[CourseEvent]]:
-            """Keep previous events, the next event, and optional public previews."""
+            """Keep previous events, the next event, released events, and optional previews.
+
+            Upcoming events with an explicit release date (e.g., labs) are shown once
+            released and hidden until then, independently of the next-event preview.
+            """
             filtered: dict[dt.date, list[CourseEvent]] = {}
             found_next_upcoming = False
 
+            def is_previewed(event: CourseEvent) -> bool:
+                kind = event.kind.strip().lower()
+                return (show_upcoming_lectures and kind == "lecture") or (
+                    show_upcoming_exams and kind in {"exam", "midterm"}
+                )
+
             for d in sorted(events_by_date):
                 events_on_date = events_by_date[d]
-                if d <= now or not found_next_upcoming:
+                if d <= now:
                     filtered[d] = events_on_date
-                    if d > now:
-                        found_next_upcoming = True
                     continue
 
-                if show_upcoming_lectures or show_upcoming_exams:
-                    previewed_events = [
-                        event
-                        for event in events_on_date
-                        if (show_upcoming_lectures and event.kind.strip().lower() == "lecture")
-                        or (
-                            show_upcoming_exams
-                            and event.kind.strip().lower() in {"exam", "midterm"}
-                        )
-                    ]
-                    if previewed_events:
-                        filtered[d] = previewed_events
+                undated = [event for event in events_on_date if event.release_date is None]
+                show_undated = bool(undated) and not found_next_upcoming
+                found_next_upcoming = found_next_upcoming or show_undated
+
+                visible_events = [
+                    event
+                    for event in events_on_date
+                    if (event.release_date is not None and event.release_date <= now)
+                    or (event.release_date is None and (show_undated or is_previewed(event)))
+                ]
+                if visible_events:
+                    filtered[d] = visible_events
 
             return filtered
 
