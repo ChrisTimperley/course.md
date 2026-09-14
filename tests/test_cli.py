@@ -24,7 +24,7 @@ from coursemd.core.exceptions import CoursemdError, CoursemdValidationError
 from coursemd.core.loaders.validation import normalize_release_date
 from coursemd.core.models.assignment import Assignment, AssignmentCheckpoint
 from coursemd.core.models.course_break import CourseBreak
-from coursemd.core.models.course_event import CourseEvent
+from coursemd.core.models.course_event import CourseEvent, Handout
 from coursemd.core.models.repository import CourseRepository
 from coursemd.core.models.staff import StaffMember
 from coursemd.core.schedule import Schedule, ScheduleEntry
@@ -323,6 +323,7 @@ def test_course_event_constructors_parse_event_data() -> None:
             "link": " /slides/intro.pdf ",
             "learning-goals": [" Explain flow ", "Describe feedback"],
             "speakers": [" Instructor One ", "Instructor Two"],
+            "handouts": [{"title": " Evidence ", "link": " /handouts/intro/evidence.pdf "}],
         }
     )
 
@@ -333,6 +334,7 @@ def test_course_event_constructors_parse_event_data() -> None:
         link="/slides/intro.pdf",
         learning_goals=("Explain flow", "Describe feedback"),
         speakers=("Instructor One", "Instructor Two"),
+        handouts=(Handout(title="Evidence", link="/handouts/intro/evidence.pdf"),),
     )
     assert CourseEvent.parse(event) is event
     assert CourseEvent.from_list([{"kind": "workshop", "date": "2026-01-13", "title": "Lab"}]) == [

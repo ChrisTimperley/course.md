@@ -111,6 +111,13 @@ def _render_event(
         if lab is not None:
             link = lab.link
 
+    handouts = "".join(
+        '<a class="wevent__handout-link" '
+        f'href="{html.escape(_relative_site_url(handout.link, current_page_url), quote=True)}" '
+        f'download>Handout: {html.escape(handout.title)} <span aria-hidden="true">↓</span></a>'
+        for handout in event.handouts
+    )
+
     if kind == "lecture" and show_learning_goals and event.learning_goals:
         goals = "".join(f"<li>{html.escape(goal)}</li>" for goal in event.learning_goals)
         slides = ""
@@ -134,11 +141,14 @@ def _render_event(
             "</summary>"
             '<div class="wevent__details-content">'
             '<p class="wevent__goals-heading">Learning goals</p>'
-            f'<ul class="wevent__goals">{goals}</ul>{slides}{spec}'
+            f'<ul class="wevent__goals">{goals}</ul>{slides}{handouts}{spec}'
             "</div>"
             "</details>"
             "</li>"
         )
+
+    if handouts:
+        handouts = f'<span class="wevent__handouts">{handouts}</span>'
 
     if link:
         href = html.escape(_relative_site_url(link, current_page_url), quote=True)
@@ -150,7 +160,7 @@ def _render_event(
     return (
         f'<li class="wevent wevent--{modifier}">'
         f'<span class="wevent__day">{day_label}</span>'
-        f"{body}"
+        f"{body}{handouts}"
         f"</li>"
     )
 

@@ -13,6 +13,31 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
+class Handout:
+    """A downloadable handout attached to a course event."""
+
+    title: str
+    link: str
+
+    @classmethod
+    def parse(cls, value: Any) -> Self:
+        if isinstance(value, cls):
+            return value
+        if not isinstance(value, dict):
+            raise CoursemdValidationError("event handouts must be mappings.")
+
+        title = value.get("title")
+        if not isinstance(title, str) or not title.strip():
+            raise CoursemdValidationError("event handout title must be a non-empty string.")
+
+        link = value.get("link")
+        if not isinstance(link, str) or not link.strip():
+            raise CoursemdValidationError("event handout link must be a non-empty string.")
+
+        return cls(title=title.strip(), link=link.strip())
+
+
+@dataclass(frozen=True)
 class CourseEvent:
     """Represents an event in the course schedule."""
 
@@ -22,6 +47,7 @@ class CourseEvent:
     link: str | None = None
     learning_goals: tuple[str, ...] = ()
     speakers: tuple[str, ...] = ()
+    handouts: tuple[Handout, ...] = ()
     integrations: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -74,6 +100,13 @@ class CourseEvent:
                 raise CoursemdValidationError("event speakers must be non-empty strings.")
             speakers.append(speaker.strip())
 
+        handouts_raw = value.get("handouts", [])
+        if handouts_raw is None:
+            handouts_raw = []
+        if not isinstance(handouts_raw, list):
+            raise CoursemdValidationError("event handouts must be a list.")
+        handouts = tuple(Handout.parse(handout) for handout in handouts_raw)
+
         integrations_raw = value.get("integrations", {})
         if integrations_raw is None:
             integrations_raw = {}
@@ -87,6 +120,7 @@ class CourseEvent:
             link=link.strip() if isinstance(link, str) else None,
             learning_goals=tuple(learning_goals),
             speakers=tuple(speakers),
+            handouts=handouts,
             integrations=dict(integrations_raw),
         )
 
