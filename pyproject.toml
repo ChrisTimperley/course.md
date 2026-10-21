@@ -33,9 +33,11 @@ mkdocs = [
     "mkdocs>=1.6.0",
 ]
 canvas = [
+    "jinja2>=3.1.0",
     "requests>=2.32.0",
 ]
 all = [
+    "jinja2>=3.1.0",
     "mkdocs>=1.6.0",
     "requests>=2.32.0",
 ]

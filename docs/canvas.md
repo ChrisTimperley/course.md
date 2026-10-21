@@ -238,3 +238,65 @@ and `due_at` fields. Defining `integrations.canvas.name`, `integrations.canvas.u
 `integrations.canvas.due_at` is rejected to prevent competing sources of truth. As with
 assignments, labs default to unpublished; pass `--publish` when the synchronized items should
 be published.
+
+## Messages
+
+`coursemd canvas message` sends templated Canvas Inbox messages, one per entry in a data file.
+A message can go to individual students, whole Canvas groups, or both.
+
+The template is a YAML file whose `subject` and `body` are Jinja templates:
+
+```yaml
+# messages/hw3-feedback.yml
+subject: "HW3 feedback for {{ team }}"
+mode: group          # group (default): one shared thread; individual: one private copy each
+defaults:
+  late_days: 0
+body: |
+  Hi {{ recipients | map(attribute="short_name") | join(", ") }},
+
+  Your HW3 score is {{ score }}/100.
+  {% if late_days %}You used {{ late_days }} late day(s).{% endif %}
+```
+
+The data file names its template (relative to the data file) and lists the messages:
+
+```yaml
+# messages/hw3-feedback.data.yml
+template: hw3-feedback.yml
+messages:
+  - key: team-3
+    to: {group: Team 3}
+    team: Team 3
+    score: 87
+  - to: [alice, bob]
+    team: Alice and Bob
+    score: 92
+    late_days: 1
+```
+
+Each `to` item is either a user identifier, matched against the Canvas login ID, SIS user ID, or
+email (or the part before `@` in any of them), or `{group: <name>}`, which expands to the members
+of that Canvas group. Every other key is a template variable; entry values override the template's
+`defaults`. Templates also receive `recipients`, the resolved users, each with `name`,
+`short_name`, and `login_id`. A missing variable is an error. Canvas renders message bodies as
+plain text, so Markdown and HTML are sent verbatim.
+
+`key` identifies an entry for `--only` and the ledger. It defaults to the entry's `to` values and
+must be unique within the data file.
+
+```bash
+coursemd canvas message messages/hw3-feedback.data.yml --plan-only   # render locally
+coursemd canvas message messages/hw3-feedback.data.yml --dry-run     # resolve recipients in Canvas
+coursemd canvas message messages/hw3-feedback.data.yml --only team-3 # send one entry
+coursemd canvas message messages/hw3-feedback.data.yml               # send all, after confirming
+```
+
+Every message is rendered and every recipient resolved before anything is sent. A real send asks
+for confirmation unless `--yes` is passed. Pass `--template` to use a different template from
+the one the data file names.
+
+After each message is sent, it is recorded in a ledger next to the data file
+(`hw3-feedback.data.sent.yml`) with its subject, recipients, and Canvas conversation IDs. Later
+runs skip entries already in the ledger, so a run that fails partway can simply be repeated. Pass
+`--resend` to send recorded entries again.

@@ -43,8 +43,23 @@ from coursemd.integrations.canvas.frontmatter import (
     update_lab_frontmatter_with_ids,
     update_quiz_frontmatter_with_canvas_id,
 )
+from coursemd.integrations.canvas.messages import (
+    MessageBatch,
+    MessageTemplate,
+    RecipientResolver,
+    RenderedMessage,
+    conversation_form,
+    load_ledger,
+    placeholder_recipients,
+    record_sent_message,
+    render_message,
+)
 from coursemd.integrations.canvas.quizzes import total_quiz_points
-from coursemd.integrations.canvas.resources import AssignmentCanvasClient, QuizCanvasClient
+from coursemd.integrations.canvas.resources import (
+    AssignmentCanvasClient,
+    MessageCanvasClient,
+    QuizCanvasClient,
+)
 from coursemd.integrations.canvas.sync import (
     sync_assignments_to_canvas,
     sync_labs_to_canvas,
@@ -65,12 +80,13 @@ def _register_unavailable_command(app: typer.Typer, command_name: str, message: 
 
 def _register_unavailable_canvas_commands(canvas_app: typer.Typer) -> None:
     message = (
-        "coursemd canvas assignments, coursemd canvas labs, coursemd canvas participation, "
-        "and coursemd canvas quizzes require the optional "
+        "coursemd canvas assignments, coursemd canvas labs, coursemd canvas message, "
+        "coursemd canvas participation, and coursemd canvas quizzes require the optional "
         '`canvas` dependencies. Install them with `pip install "coursemd[canvas]"`.'
     )
     _register_unavailable_command(canvas_app, "assignments", message)
     _register_unavailable_command(canvas_app, "labs", message)
+    _register_unavailable_command(canvas_app, "message", message)
     _register_unavailable_command(canvas_app, "participation", message)
     _register_unavailable_command(canvas_app, "quizzes", message)
 
@@ -171,6 +187,18 @@ def _print_quiz_plan(specs: list[Quiz]) -> None:
             f"group '{canvas.assignment_group or '<unassigned>'}'{canvas_type} | "
             f"source={spec.source_file}"
         )
+
+
+def _print_rendered_message(message: RenderedMessage) -> None:
+    recipients = ", ".join(
+        f"{recipient.name} ({recipient.login_id})" if recipient.login_id else recipient.name
+        for recipient in message.recipients
+    )
+    typer.echo(f"\n=== {message.key} [{message.mode}] ===")
+    typer.echo(f"To: {recipients}")
+    typer.echo(f"Subject: {message.subject}")
+    typer.echo("")
+    typer.echo(message.body.rstrip())
 
 
 def parse_group_category_id_override() -> int | None:
@@ -657,6 +685,163 @@ def register_sync_canvas_quizzes_command(canvas_app: typer.Typer) -> None:
         return 0
 
 
+def register_canvas_message_command(canvas_app: typer.Typer) -> None:
+    @canvas_app.command("message")
+    def send_canvas_message(
+        ctx: typer.Context,
+        data_file: Annotated[
+            Path,
+            typer.Argument(help="Message data YAML file listing recipients and variables."),
+        ],
+        template_file: Annotated[
+            Path | None,
+            typer.Option(
+                "--template",
+                help="Message template YAML file. Overrides the data file's 'template'.",
+            ),
+        ] = None,
+        only: Annotated[
+            list[str] | None,
+            typer.Option("--only", help="Only send the message(s) with this key. Repeatable."),
+        ] = None,
+        resend: Annotated[
+            bool,
+            typer.Option("--resend", help="Send messages even if the ledger records them as sent."),
+        ] = False,
+        yes: Annotated[
+            bool,
+            typer.Option("--yes", "-y", help="Send without asking for confirmation."),
+        ] = False,
+        course_id: Annotated[
+            str | None,
+            typer.Option(
+                "--course-id",
+                help="Canvas course ID. Required unless --plan-only is used.",
+            ),
+        ] = None,
+        base_url: Annotated[
+            str | None,
+            typer.Option("--base-url", help="Canvas base URL."),
+        ] = None,
+        plan_only: Annotated[
+            bool,
+            typer.Option(
+                "--plan-only",
+                help="Render messages without contacting Canvas.",
+            ),
+        ] = False,
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                help="Contact Canvas to resolve recipients, but do not send messages.",
+            ),
+        ] = False,
+        output_json: Annotated[
+            Path | None,
+            typer.Option(
+                "--output-json",
+                resolve_path=True,
+                help="Optional path to write send results as JSON.",
+            ),
+        ] = None,
+    ) -> int:
+        with click_error_boundary():
+            state = AppState.from_typer(ctx)
+            repo_root = state.repo_root
+            canvas_config = CanvasConfig.get(state.config)
+            resolved_base_url = base_url or (
+                canvas_config.base_url if canvas_config is not None else DEFAULT_CANVAS_BASE_URL
+            )
+            resolved_course_id = course_id or (
+                canvas_config.course_id if canvas_config is not None else None
+            )
+
+            [data_path] = normalize_input_paths([data_file], repo_root=repo_root)
+            require_paths_exist([data_path], label="Message data")
+            batch = MessageBatch.load(data_path)
+            if template_file is not None:
+                [template_path] = normalize_input_paths([template_file], repo_root=repo_root)
+            elif batch.template_file is not None:
+                template_path = batch.template_file
+            else:
+                raise click.ClickException(
+                    "No message template given. Set 'template' in the data file or pass --template."
+                )
+            require_paths_exist([template_path], label="Message template")
+            template = MessageTemplate.load(template_path)
+
+            entries = batch.entries
+            if only:
+                known = {entry.key for entry in entries}
+                unknown = [key for key in only if key not in known]
+                if unknown:
+                    raise click.ClickException(f"Unknown message key(s): {', '.join(unknown)}")
+                entries = [entry for entry in entries if entry.key in only]
+
+            ledger = load_ledger(batch.ledger_file)
+            if not resend:
+                for entry in entries:
+                    if entry.key in ledger:
+                        sent_at = ledger[entry.key].get("sent_at", "?")
+                        typer.echo(f"Skipping '{entry.key}': already sent at {sent_at}")
+                entries = [entry for entry in entries if entry.key not in ledger]
+            if not entries:
+                typer.echo("No messages to send.")
+                return 0
+
+            token, resolved_course_id = require_canvas_credentials(
+                resolved_course_id,
+                plan_only=plan_only,
+            )
+            if plan_only:
+                for entry in entries:
+                    _print_rendered_message(
+                        render_message(template, entry, placeholder_recipients(entry))
+                    )
+                typer.echo(f"\nRendered {len(entries)} message(s) without contacting Canvas.")
+                return 0
+
+            with MessageCanvasClient(
+                base_url=resolved_base_url, token=token, dry_run=dry_run
+            ) as client:
+                resolver = RecipientResolver(directory=client, course_id=resolved_course_id)
+                messages = [
+                    render_message(template, entry, resolver.resolve(entry)) for entry in entries
+                ]
+                for message in messages:
+                    _print_rendered_message(message)
+
+                recipient_count = sum(len(message.recipients) for message in messages)
+                summary = f"{len(messages)} message(s) to {recipient_count} recipient(s)"
+                if dry_run:
+                    typer.echo(f"\n[dry-run] Would send {summary}.")
+                    return 0
+                if not yes and not typer.confirm(f"\nSend {summary}?"):
+                    raise typer.Abort
+
+                results: list[dict[str, Any]] = []
+                for message in messages:
+                    conversations = client.create_conversation(
+                        conversation_form(message, course_id=resolved_course_id)
+                    )
+                    conversation_ids = [int(item["id"]) for item in conversations]
+                    record_sent_message(batch.ledger_file, message, conversation_ids)
+                    typer.echo(f"Sent '{message.key}' (conversations={conversation_ids})")
+                    results.append(
+                        {
+                            "key": message.key,
+                            "subject": message.subject,
+                            "recipient_ids": [recipient.id for recipient in message.recipients],
+                            "conversation_ids": conversation_ids,
+                        }
+                    )
+
+        typer.echo(f"\nRecorded sent messages in {batch.ledger_file}")
+        write_json_output(output_json, results)
+        return 0
+
+
 def register_canvas_cli(app: typer.Typer) -> None:
     canvas_app = typer.Typer(no_args_is_help=True, help=CLI_HELP)
     app.add_typer(canvas_app, name=CLI_NAME)
@@ -664,6 +849,7 @@ def register_canvas_cli(app: typer.Typer) -> None:
     try:
         register_sync_canvas_assignments_command(canvas_app)
         register_sync_canvas_labs_command(canvas_app)
+        register_canvas_message_command(canvas_app)
         register_sync_canvas_participation_command(canvas_app)
         register_sync_canvas_quizzes_command(canvas_app)
     except ModuleNotFoundError as exc:

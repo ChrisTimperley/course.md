@@ -177,3 +177,22 @@ class QuizCanvasClient(CanvasApiClient):
             self._api_url(f"/courses/{course_id}/quizzes/{quiz_id}/questions/{question_id}")
         )
         self._raise_for_status(response)
+
+
+class MessageCanvasClient(CanvasApiClient):
+    def list_course_users(self, course_id: str) -> list[dict[str, Any]]:
+        return self.get_paginated(
+            f"/courses/{course_id}/users",
+            params={"per_page": 100, "include[]": ["email"]},
+        )
+
+    def list_course_groups(self, course_id: str) -> list[dict[str, Any]]:
+        return self.get_paginated(f"/courses/{course_id}/groups", params={"per_page": 100})
+
+    def list_group_users(self, group_id: int) -> list[dict[str, Any]]:
+        return self.get_paginated(f"/groups/{group_id}/users", params={"per_page": 100})
+
+    def create_conversation(self, form: dict[str, Any]) -> list[dict[str, Any]]:
+        response = self.session.post(self._api_url("/conversations"), data=form)
+        self._raise_for_status(response)
+        return cast("list[dict[str, Any]]", response.json())
